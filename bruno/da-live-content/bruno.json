@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "da-live-content",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

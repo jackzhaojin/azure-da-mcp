@@ -1,4 +1,5 @@
 import axios from 'axios';
+import FormData from 'form-data';
 
 const DALIVE_API_URL = process.env.DALIVE_API_URL || 'https://admin.da.live';
 const MAX_RETRIES = 3;
@@ -56,13 +57,20 @@ export async function updateContent(path, html, bearerToken) {
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
+      // Create multipart form data with HTML as a file
+      const formData = new FormData();
+      formData.append('data', Buffer.from(html), {
+        filename: 'content.html',
+        contentType: 'text/html'
+      });
+
       const response = await axios.post(
         `${DALIVE_API_URL}/api${path}`,
-        html,
+        formData,
         {
           headers: {
             'Authorization': `Bearer ${bearerToken}`,
-            'Content-Type': 'text/html'
+            ...formData.getHeaders()
           },
           timeout: 5000
         }
