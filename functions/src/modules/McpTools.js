@@ -55,19 +55,22 @@ export async function get_dalive_content(params, context) {
 
     const duration = Date.now() - startTime;
 
-    // Return result in MCP format (content array with type/text)
+    const resultData = {
+      htmlContent: content.html,
+      lastModified: new Date().toISOString(),
+      path: path,
+      contentLength: content.html.length
+    };
+
+    // Return structured content with brief text summary for compatibility
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            htmlContent: content.html,
-            lastModified: new Date().toISOString(),
-            path: path,
-            contentLength: content.html.length
-          }, null, 2)
+          text: `Fetched ${resultData.contentLength} characters from ${path}`
         }
       ],
+      structuredContent: resultData,
       _timing: duration // Internal timing for logging
     };
 
@@ -197,19 +200,22 @@ export async function save_dalive_content(params, context) {
 
     const duration = Date.now() - startTime;
 
-    // Return result in MCP format (content array with type/text)
+    const resultData = {
+      success: true,
+      path: path,
+      timestamp: new Date().toISOString(),
+      contentLength: contentSizeBytes
+    };
+
+    // Return structured content with brief text summary for compatibility
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            success: true,
-            path: path,
-            timestamp: new Date().toISOString(),
-            contentLength: contentSizeBytes
-          }, null, 2)
+          text: `Saved ${contentSizeBytes} characters to ${path}`
         }
       ],
+      structuredContent: resultData,
       _timing: duration // Internal timing for logging
     };
 
@@ -277,10 +283,33 @@ export const TOOL_DEFINITIONS = [
       properties: {
         path: {
           type: 'string',
-          description: "da.live content path (e.g., '/products/enterprise')"
+          description: "da.live content path in format: /source/{owner}/{site}/{path/to/page.html} (e.g., '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html')"
         }
       },
       required: ['path']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        htmlContent: {
+          type: 'string',
+          description: 'Raw HTML content from da.live'
+        },
+        lastModified: {
+          type: 'string',
+          format: 'date-time',
+          description: 'ISO 8601 timestamp of when content was last modified'
+        },
+        path: {
+          type: 'string',
+          description: 'da.live content path that was fetched'
+        },
+        contentLength: {
+          type: 'integer',
+          description: 'Length of HTML content in characters'
+        }
+      },
+      required: ['htmlContent', 'lastModified', 'path', 'contentLength']
     }
   },
   {
@@ -291,7 +320,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         path: {
           type: 'string',
-          description: 'da.live content path to update'
+          description: "da.live content path in format: /source/{owner}/{site}/{path/to/page.html} (e.g., '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html')"
         },
         htmlContent: {
           type: 'string',
@@ -299,6 +328,29 @@ export const TOOL_DEFINITIONS = [
         }
       },
       required: ['path', 'htmlContent']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        success: {
+          type: 'boolean',
+          description: 'Whether the save operation succeeded'
+        },
+        path: {
+          type: 'string',
+          description: 'da.live content path that was updated'
+        },
+        timestamp: {
+          type: 'string',
+          format: 'date-time',
+          description: 'ISO 8601 timestamp of when content was saved'
+        },
+        contentLength: {
+          type: 'integer',
+          description: 'Length of saved HTML content in characters'
+        }
+      },
+      required: ['success', 'path', 'timestamp', 'contentLength']
     }
   }
 ];
