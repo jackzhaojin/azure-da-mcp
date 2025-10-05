@@ -332,7 +332,10 @@ formData.append('data', Buffer.from(html), {
   contentType: 'text/html'
 });
 
-await axios.post(url, formData, {
+// CRITICAL: POST directly to the path, NOT /api/{path}
+// Working:     POST https://admin.da.live/source/owner/site/page.html
+// Not working: POST https://admin.da.live/api/source/owner/site/page.html
+await axios.post(`${DALIVE_API_URL}${path}`, formData, {
   headers: {
     'Authorization': `Bearer ${token}`,
     ...formData.getHeaders()  // Critical for boundary
@@ -376,6 +379,10 @@ Error: Incompatible Node.js version (v24.6.0)
 nvm use 20
 npm start
 ```
+
+### Content Saves But UI Doesn't Update
+**Cause**: Using `/api` prefix in POST URL (da.live POST endpoint doesn't use `/api`)
+**Fix**: POST directly to `${DALIVE_API_URL}${path}` NOT `${DALIVE_API_URL}/api${path}`
 
 ### POST Not Saving Content
 **Cause**: Not using multipart form data
