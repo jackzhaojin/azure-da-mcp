@@ -1,0 +1,15 @@
+meta {
+  name: SaveContent
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://admin.da.live/source/jackzhaojin/da-live-postal-2025-07/index-copy.html
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  data: @file(/Users/jackjin/dev/azure-da-mcp/local-only/save-test.html)
+}
