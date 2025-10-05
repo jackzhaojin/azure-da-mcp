@@ -27,5 +27,5 @@ export default {
     }
   },
   transform: {},
-  testTimeout: 10000
+  testTimeout: 60000  // E2E tests can take 30-60 seconds (LLM API calls)
 };
