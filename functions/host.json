@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      }
+    },
+    "logLevel": {
+      "default": "Debug"
+    }
+  },
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.*, 5.0.0)"
+  },
+  "functionTimeout": "00:00:30",
+  "http": {
+    "routePrefix": "api",
+    "cors": {
+      "allowedOrigins": ["*"],
+      "allowedMethods": ["GET", "POST", "OPTIONS"],
+      "allowedHeaders": ["*"]
+    }
+  }
+}
