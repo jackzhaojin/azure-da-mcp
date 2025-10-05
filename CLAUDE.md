@@ -60,6 +60,7 @@ node tests/e2e/manual-test.js
 **Discovery**: da.live POST requires `multipart/form-data` with `data` file field
 **Implementation**: Uses `form-data` package
 **Critical**: Raw HTML POST doesn't save content
+**URL Structure**: POST directly to path (e.g., `/source/owner/site/page.html`), NOT `/api/source/...`
 
 ### 3. Real Tests Only
 **Decision**: Deleted all mocks/stubs, kept E2E tests with real APIs
