@@ -1,2 +1,8 @@
 # VS Code workspace files
 *.code-workspace
+
+
+# AI files
+.specify
+ai-docs
+specs
