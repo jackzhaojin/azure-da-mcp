@@ -7,3 +7,4 @@
 export { app as HealthCheck } from './HealthCheckFunction.js';
 export { app as GetContent } from './GetContentFunction.js';
 export { app as EditContent } from './EditContentFunction.js';
+export { app as McpSession } from './McpSessionFunction.js';

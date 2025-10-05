@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
+import axios from 'axios';
+import { randomUUID } from 'crypto';
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 4096;
@@ -6,14 +8,18 @@ const TEMPERATURE = 0.3;
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
 const REQUEST_TIMEOUT_MS = 15000;
+const MAX_TOOL_ITERATIONS = 10; // Prevent infinite tool calling loops
 
 /**
- * Generate content edit using Anthropic Claude API
+ * Generate content edit using Anthropic Claude API with MCP tool support
  * @param {Object} prompt - Complete LLM prompt with all sections
- * @returns {Promise<Object>} LLM response with edited HTML, explanation, reasoning, and token usage
+ * @param {Object} mcpConfig - MCP configuration
+ * @param {string} mcpConfig.serverUrl - MCP server URL (e.g., 'http://localhost:7071/api/mcp')
+ * @param {string} mcpConfig.bearerToken - da.live Bearer token for MCP session
+ * @returns {Promise<Object>} LLM response with edited HTML, explanation, reasoning, token usage, and MCP tool calls
  * @throws {Error} On API failure or timeout
  */
-export async function generateEdit(prompt) {
+export async function generateEdit(prompt, mcpConfig = null) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey || apiKey === '<placeholder>') {
@@ -24,6 +30,48 @@ export async function generateEdit(prompt) {
     apiKey,
     timeout: REQUEST_TIMEOUT_MS
   });
+
+  // Initialize MCP session if config provided
+  let mcpSession = null;
+  if (mcpConfig && mcpConfig.serverUrl) {
+    mcpSession = await initializeMcpSession(mcpConfig.serverUrl, mcpConfig.bearerToken);
+  }
+
+  // Define tools for Anthropic API
+  const tools = mcpSession ? [
+    {
+      name: 'get_dalive_content',
+      description: 'Fetch HTML content from da.live. Use this to retrieve the current content before editing.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: "da.live content path (e.g., '/products/enterprise')"
+          }
+        },
+        required: ['path']
+      }
+    },
+    {
+      name: 'save_dalive_content',
+      description: 'Save edited HTML content to da.live. Use this after you have generated the edited HTML.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'da.live content path to update'
+          },
+          htmlContent: {
+            type: 'string',
+            description: 'Complete edited HTML content to save'
+          }
+        },
+        required: ['path', 'htmlContent']
+      }
+    }
+  ] : [];
 
   const messages = [
     {
@@ -39,30 +87,118 @@ ${prompt.editingGuidelines}`
     }
   ];
 
+  const mcpToolCalls = [];
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
   let lastError;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const response = await client.messages.create({
-        model: ANTHROPIC_MODEL,
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-        messages
-      });
+      // Multi-turn conversation loop for tool use
+      let iterationCount = 0;
+      let finalResponse = null;
 
-      // Parse the LLM response from the first content block
-      const responseText = response.content[0].text;
-      const llmResponse = JSON.parse(responseText);
+      while (iterationCount < MAX_TOOL_ITERATIONS) {
+        iterationCount++;
 
-      return {
-        editedHtml: llmResponse.editedHtml || '',
-        explanation: llmResponse.explanation || '',
-        reasoning: llmResponse.reasoning || '',
-        tokenUsage: {
-          inputTokens: response.usage.input_tokens,
-          outputTokens: response.usage.output_tokens
+        const requestParams = {
+          model: ANTHROPIC_MODEL,
+          max_tokens: MAX_TOKENS,
+          temperature: TEMPERATURE,
+          messages
+        };
+
+        if (tools.length > 0) {
+          requestParams.tools = tools;
         }
-      };
+
+        const response = await client.messages.create(requestParams);
+
+        totalInputTokens += response.usage.input_tokens;
+        totalOutputTokens += response.usage.output_tokens;
+
+        // Check if response contains tool use
+        const toolUseBlock = response.content.find(block => block.type === 'tool_use');
+
+        if (toolUseBlock && mcpSession) {
+          // Claude wants to use a tool
+          const toolName = toolUseBlock.name;
+          const toolInput = toolUseBlock.input;
+          const toolUseId = toolUseBlock.id;
+
+          // Call MCP server to execute tool
+          const toolStartTime = Date.now();
+          let toolResult;
+          let toolStatus = 'completed';
+
+          try {
+            toolResult = await callMcpTool(mcpSession, toolName, toolInput);
+          } catch (toolError) {
+            toolStatus = 'failed';
+            toolResult = {
+              error: toolError.message
+            };
+          }
+
+          const toolDuration = Date.now() - toolStartTime;
+
+          // Track tool call for logging
+          mcpToolCalls.push({
+            toolName,
+            parameters: toolInput,
+            result: toolResult,
+            duration: toolDuration,
+            status: toolStatus
+          });
+
+          // Add tool result to conversation
+          messages.push({
+            role: 'assistant',
+            content: response.content
+          });
+
+          messages.push({
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: toolUseId,
+                content: JSON.stringify(toolResult)
+              }
+            ]
+          });
+
+          // Continue conversation loop
+          continue;
+        }
+
+        // No tool use - this is the final response
+        const textBlock = response.content.find(block => block.type === 'text');
+        if (textBlock) {
+          const responseText = textBlock.text;
+          const llmResponse = JSON.parse(responseText);
+
+          finalResponse = {
+            editedHtml: llmResponse.editedHtml || '',
+            explanation: llmResponse.explanation || '',
+            reasoning: llmResponse.reasoning || '',
+            tokenUsage: {
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens
+            },
+            mcpToolCalls: mcpToolCalls.length > 0 ? mcpToolCalls : undefined
+          };
+        }
+
+        break; // Exit iteration loop
+      }
+
+      if (!finalResponse) {
+        throw new Error('LLM did not return a final response after tool iterations');
+      }
+
+      return finalResponse;
+
     } catch (error) {
       lastError = error;
 
@@ -88,6 +224,100 @@ ${prompt.editingGuidelines}`
   }
 
   throw new Error(`LLM API failed after ${MAX_RETRIES} attempts: ${lastError?.message || 'Unknown error'}`);
+}
+
+/**
+ * Initialize MCP session with the server
+ * @param {string} serverUrl - MCP server URL
+ * @param {string} bearerToken - Bearer token for MCP session
+ * @returns {Promise<Object>} MCP session info with sessionId
+ */
+async function initializeMcpSession(serverUrl, bearerToken) {
+  // Step 1: Initialize
+  const initResponse = await axios.post(
+    serverUrl,
+    {
+      jsonrpc: '2.0',
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-03-26',
+        capabilities: {
+          tools: {}
+        },
+        clientInfo: {
+          name: 'llm-client',
+          version: '1.0.0'
+        }
+      },
+      id: `init-${randomUUID()}`
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${bearerToken}`
+      }
+    }
+  );
+
+  const sessionId = initResponse.headers['mcp-session-id'];
+
+  // Step 2: Send initialized notification
+  await axios.post(
+    serverUrl,
+    {
+      jsonrpc: '2.0',
+      method: 'initialized',
+      params: {}
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${bearerToken}`,
+        'Mcp-Session-Id': sessionId
+      }
+    }
+  );
+
+  return {
+    serverUrl,
+    sessionId,
+    bearerToken
+  };
+}
+
+/**
+ * Call MCP tool via server
+ * @param {Object} session - MCP session info
+ * @param {string} toolName - Name of tool to call
+ * @param {Object} toolInput - Tool parameters
+ * @returns {Promise<Object>} Tool result
+ */
+async function callMcpTool(session, toolName, toolInput) {
+  const response = await axios.post(
+    session.serverUrl,
+    {
+      jsonrpc: '2.0',
+      method: 'tools/call',
+      params: {
+        name: toolName,
+        arguments: toolInput
+      },
+      id: `call-${randomUUID()}`
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.bearerToken}`,
+        'Mcp-Session-Id': session.sessionId
+      }
+    }
+  );
+
+  if (response.data.error) {
+    throw new Error(response.data.error.message);
+  }
+
+  return response.data.result;
 }
 
 /**

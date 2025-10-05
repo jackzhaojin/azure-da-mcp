@@ -1,12 +1,14 @@
 import { app } from '@azure/functions';
-import { getContent, updateContent } from '../modules/DaliveClient.js';
 import { generateEdit } from '../modules/LlmClient.js';
 import { buildPrompt } from '../modules/PromptBuilder.js';
 import { generateRequestId, logPhase } from '../modules/Logger.js';
 
 /**
  * Azure HTTP Function: POST /api/EditContent
- * Main MCP orchestration endpoint for AI-assisted content editing
+ * MCP-enabled AI-assisted content editing
+ *
+ * The LLM autonomously calls MCP tools (get_dalive_content, save_dalive_content)
+ * to fetch and save content. This function orchestrates the LLM with MCP configuration.
  */
 app.http('EditContent', {
   methods: ['POST'],
@@ -76,81 +78,78 @@ app.http('EditContent', {
       // Log request phase
       logPhase(requestId, 'request', { command, path, metadata }, null, 'success');
 
-      // PHASE 1: Fetch HTML content from da.live
-      const daliveFetchStart = Date.now();
-      let pageContent;
-      try {
-        pageContent = await getContent(path, bearerToken);
-        timing.dalive_fetch = Date.now() - daliveFetchStart;
-        logPhase(requestId, 'dalive_fetch', { htmlLength: pageContent.html?.length }, timing.dalive_fetch, 'success');
-      } catch (error) {
-        timing.dalive_fetch = Date.now() - daliveFetchStart;
-        logPhase(requestId, 'dalive_fetch', { error: error.message }, timing.dalive_fetch, 'error');
+      // Build LLM prompt (no pre-fetched HTML - LLM will fetch via MCP tools)
+      const llmPrompt = buildPrompt(command, null, path);
 
-        if (error.message.includes('401')) {
-          return {
-            status: 401,
-            jsonBody: { requestId, error: 'Unauthorized', details: 'Invalid or expired Bearer token' }
-          };
-        }
-        if (error.message.includes('404')) {
-          return {
-            status: 404,
-            jsonBody: { requestId, error: 'Page not found', details: error.message }
-          };
-        }
-        return {
-          status: 503,
-          jsonBody: { requestId, error: 'da.live API unavailable', retryAfter: 30 }
-        };
-      }
+      // Get MCP server URL from environment
+      const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:7071/api/mcp';
 
-      // PHASE 2: Build LLM prompt with HTML content
-      const llmPrompt = buildPrompt(command, pageContent.html, path);
+      // MCP Configuration - pass Bearer token for tool authentication
+      const mcpConfig = {
+        serverUrl: mcpServerUrl,
+        bearerToken: bearerToken
+      };
 
-      // PHASE 3: Call LLM API
+      // Call LLM with MCP tools enabled
+      // The LLM will autonomously:
+      // 1. Call get_dalive_content to fetch HTML
+      // 2. Generate edits
+      // 3. Call save_dalive_content to save edited HTML
       const llmCallStart = Date.now();
       let llmResponse;
       try {
-        llmResponse = await generateEdit(llmPrompt);
+        llmResponse = await generateEdit(llmPrompt, mcpConfig);
         timing.llm_call = Date.now() - llmCallStart;
+
+        // Extract MCP tool call timings
+        if (llmResponse.mcpToolCalls) {
+          llmResponse.mcpToolCalls.forEach(toolCall => {
+            if (toolCall.toolName === 'get_dalive_content') {
+              timing.mcp_get_content = toolCall.duration;
+            } else if (toolCall.toolName === 'save_dalive_content') {
+              timing.mcp_save_content = toolCall.duration;
+            }
+          });
+        }
+
         logPhase(requestId, 'llm_call', {
           prompt: llmPrompt,
           response: llmResponse,
-          tokenUsage: llmResponse.tokenUsage
+          tokenUsage: llmResponse.tokenUsage,
+          mcpToolCalls: llmResponse.mcpToolCalls
         }, timing.llm_call, 'success');
       } catch (error) {
         timing.llm_call = Date.now() - llmCallStart;
         logPhase(requestId, 'llm_call', { error: error.message }, timing.llm_call, 'error');
 
+        // Check for specific error types from MCP tools
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          return {
+            status: 401,
+            jsonBody: {
+              requestId,
+              error: 'Unauthorized',
+              details: 'Invalid or expired Bearer token'
+            }
+          };
+        }
+
+        if (error.message.includes('404') || error.message.includes('not found')) {
+          return {
+            status: 404,
+            jsonBody: {
+              requestId,
+              error: 'Page not found',
+              details: error.message
+            }
+          };
+        }
+
         return {
           status: 502,
           jsonBody: {
             requestId,
-            error: 'LLM API unavailable',
-            details: error.message
-          }
-        };
-      }
-
-      // PHASE 4: Update content in da.live with edited HTML
-      const daliveUpdateStart = Date.now();
-      try {
-        await updateContent(path, llmResponse.editedHtml, bearerToken);
-        timing.dalive_update = Date.now() - daliveUpdateStart;
-        logPhase(requestId, 'dalive_update', {
-          htmlLength: llmResponse.editedHtml?.length,
-          success: true
-        }, timing.dalive_update, 'success');
-      } catch (error) {
-        timing.dalive_update = Date.now() - daliveUpdateStart;
-        logPhase(requestId, 'dalive_update', { error: error.message }, timing.dalive_update, 'error');
-
-        return {
-          status: 503,
-          jsonBody: {
-            requestId,
-            error: 'Failed to update da.live',
+            error: 'LLM API or MCP workflow failed',
             details: error.message
           }
         };
@@ -162,7 +161,8 @@ app.http('EditContent', {
       // Log response phase
       logPhase(requestId, 'response', {
         statusCode: 200,
-        htmlLength: llmResponse.editedHtml?.length
+        htmlLength: llmResponse.editedHtml?.length,
+        mcpToolCallsCount: llmResponse.mcpToolCalls?.length || 0
       }, null, 'success');
 
       // Return success response
@@ -173,7 +173,8 @@ app.http('EditContent', {
           editedHtmlLength: llmResponse.editedHtml?.length,
           explanation: llmResponse.explanation,
           reasoning: llmResponse.reasoning,
-          timing
+          timing,
+          mcpToolCalls: llmResponse.mcpToolCalls // Include MCP tool call details
         }
       };
     } catch (error) {
