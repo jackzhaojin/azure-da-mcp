@@ -6,6 +6,7 @@
 import * as DaliveClient from '../../modules/DaliveClient.js';
 import { createSuccessResponse, createErrorResponse, ErrorCodes } from '../utils/response-builder.js';
 import { validateRequiredParams, validatePath, validateBearerToken } from '../utils/validator.js';
+import requestSchema from '../schemas/get-content-request.schema.json' assert { type: 'json' };
 
 /**
  * Tool implementation
@@ -93,14 +94,5 @@ export async function execute(params, context) {
 export const definition = {
   name: 'get_dalive_content',
   description: 'Fetch HTML content from da.live Admin API',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      path: {
-        type: 'string',
-        description: "da.live content path in format: /source/{owner}/{site}/{path/to/page.html} (e.g., '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html')"
-      }
-    },
-    required: ['path']
-  }
+  inputSchema: requestSchema
 };

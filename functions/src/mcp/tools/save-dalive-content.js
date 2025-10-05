@@ -11,6 +11,7 @@ import {
   validateHtmlContent,
   validateBearerToken
 } from '../utils/validator.js';
+import requestSchema from '../schemas/save-content-request.schema.json' assert { type: 'json' };
 
 /**
  * Tool implementation
@@ -102,18 +103,5 @@ export async function execute(params, context) {
 export const definition = {
   name: 'save_dalive_content',
   description: 'Save edited HTML content to da.live Admin API',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      path: {
-        type: 'string',
-        description: "da.live content path in format: /source/{owner}/{site}/{path/to/page.html} (e.g., '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html')"
-      },
-      htmlContent: {
-        type: 'string',
-        description: 'Edited HTML content to save'
-      }
-    },
-    required: ['path', 'htmlContent']
-  }
+  inputSchema: requestSchema
 };

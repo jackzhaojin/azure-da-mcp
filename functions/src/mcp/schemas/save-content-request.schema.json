@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "da.live content path in format: /source/{owner}/{site}/{path/to/page.html} (e.g., '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html')"
+    },
+    "htmlContent": {
+      "type": "string",
+      "description": "Edited HTML content to save"
+    }
+  },
+  "required": ["path", "htmlContent"]
+}
