@@ -25,6 +25,10 @@ local.settings.json
 node_modules
 dist
 
+# Test coverage reports
+coverage/
+*.lcov
+
 # Local python packages
 .python_packages/
 
