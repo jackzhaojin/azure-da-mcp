@@ -1,0 +1,100 @@
+meta {
+  name: EditContentFunction
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:7071/api/EditContent
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5LWF0LTEuY2VyIiwia2lkIjoiaW1zX25hMS1rZXktYXQtMSIsIml0dCI6ImF0In0.eyJpZCI6IjE3NTk2MzI1NzM0NDFfZWFiM2VmYmUtZjRhMy00YzRiLThmYzEtNWFjYmQxNDljMWZlX3VlMSIsInR5cGUiOiJhY2Nlc3NfdG9rZW4iLCJjbGllbnRfaWQiOiJkYXJrYWxsZXkiLCJ1c2VyX2lkIjoiQkNGOTI1NkM1QjdDOEFBOTBBNDk1RUVBQEFkb2JlSUQiLCJzdGF0ZSI6IntcInNlc3Npb25cIjpcImh0dHBzOi8vaW1zLW5hMS5hZG9iZWxvZ2luLmNvbS9pbXMvc2Vzc2lvbi92MS9NalkzWW1Sak5HVXRNekZqTXkwME5HSmpMVGcyT1dZdE1HUmpNbUUzWVdFell6Vm1MUzFDUTBZNU1qVTJRelZDTjBNNFFVRTVNRUUwT1RWRlJVRkFRV1J2WW1WSlJBXCJ9IiwiYXMiOiJpbXMtbmExIiwiYWFfaWQiOiJCQ0Y5MjU2QzVCN0M4QUE5MEE0OTVFRUFAQWRvYmVJRCIsImN0cCI6MCwiZmciOiJaMjdFU0lWV1ZMTTVRRFVLRkFRVklIQUFYND09PT09PSIsInNpZCI6IjE3NTkyODYxNjMyNzFfNDA4ZDE3YzEtMTM4OS00MmYwLThjZTEtN2RmYzk5ZTg2Y2ZkX3VlMSIsIm1vaSI6IjFhNjE0Yjc1IiwicGJhIjoiTWVkU2VjTm9FVixMb3dTZWMiLCJleHBpcmVzX2luIjoiODY0MDAwMDAiLCJzY29wZSI6ImFiLm1hbmFnZSxBZG9iZUlELGduYXYsb3BlbmlkLG9yZy5yZWFkLHJlYWRfb3JnYW5pemF0aW9ucyxzZXNzaW9uLGFlbS5mcm9udGVuZC5hbGwsYWRkaXRpb25hbF9pbmZvLm93bmVyT3JnLGFkZGl0aW9uYWxfaW5mby5wcm9qZWN0ZWRQcm9kdWN0Q29udGV4dCxhY2NvdW50X2NsdXN0ZXIucmVhZCIsImNyZWF0ZWRfYXQiOiIxNzU5NjMyNTczNDQxIn0.HKLIfUpwOmsrSWMuLz5AOdxxtemeX9O8t9X_IAfcDxOPPS3qZ-H-wem6VAYQRd4f0g0PHWd3a1OSIN5znlVYk1adE5ylPcBSEtRJVv59YIJzGEP8r89EegtNZLaPgUMqvVMg8YzlXqqUp81Cq6MqlE_wY_VtPGC-9xuT5RWF57-05tITkkQcjeBqWt4McwjK1qGJtyY_FsFoXLCy4GUw5zIhURwVo1xJMbM5rJBLakviiwvcdF3f9YktvUGXhgRBmHWpIedgEsXc5Ixy36y9CcAye-KDRZyh8ATAcANQwbQl3W2UfrMlPY3bOnAd_FLgWUcl1d5Ni6QUewaIAjbGAA
+}
+
+body:json {
+  {
+    "command": "Change our deliveries with care. Another to our deliveries with care. Anotherabcdefg",
+    "path": "/source/jackzhaojin/da-live-postal-2025-07/index-copy.html"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.requestId: isDefined
+  res.body.editedHtmlLength: isDefined
+  res.body.explanation: isDefined
+  res.body.reasoning: isDefined
+  res.body.timing: isDefined
+  res.body.mcpToolCalls: isDefined
+}
+
+tests {
+  test("Response has request ID", function() {
+    expect(res.body.requestId).to.be.a('string');
+  });
+  
+  test("MCP tools were called", function() {
+    expect(res.body.mcpToolCalls).to.be.an('array');
+    expect(res.body.mcpToolCalls.length).to.be.greaterThan(0);
+  });
+  
+  test("get_dalive_content was called", function() {
+    const toolNames = res.body.mcpToolCalls.map(call => call.toolName);
+    expect(toolNames).to.include('get_dalive_content');
+  });
+  
+  test("save_dalive_content was called", function() {
+    const toolNames = res.body.mcpToolCalls.map(call => call.toolName);
+    expect(toolNames).to.include('save_dalive_content');
+  });
+  
+  test("Timing information is present", function() {
+    expect(res.body.timing).to.have.property('total');
+    expect(res.body.timing).to.have.property('llm_call');
+    expect(res.body.timing).to.have.property('mcp_get_content');
+    expect(res.body.timing).to.have.property('mcp_save_content');
+  });
+  
+  test("LLM provided explanation", function() {
+    expect(res.body.explanation).to.be.a('string');
+    expect(res.body.explanation.length).to.be.greaterThan(0);
+  });
+  
+  test("LLM provided reasoning", function() {
+    expect(res.body.reasoning).to.be.a('string');
+    expect(res.body.reasoning.length).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  # EditContentFunction - MCP-enabled AI Content Editing
+  
+  This endpoint triggers the AI-assisted content editing workflow using Model Context Protocol (MCP).
+  
+  ## Workflow
+  1. LLM autonomously calls `get_dalive_content` MCP tool to fetch HTML from da.live
+  2. LLM generates edited HTML based on the command
+  3. LLM autonomously calls `save_dalive_content` MCP tool to save changes
+  
+  ## Request Body
+  - `command`: Natural language editing instruction (e.g., "Make the hero section more concise")
+  - `path`: da.live content path (e.g., "/source/owner/site/page.html")
+  - `metadata` (optional): Additional context for the LLM
+  
+  ## Response
+  - `requestId`: Unique identifier for this request
+  - `editedHtmlLength`: Length of the edited HTML in characters
+  - `explanation`: LLM's explanation of what was changed
+  - `reasoning`: LLM's reasoning for the changes
+  - `timing`: Performance breakdown (total, llm_call, mcp_get_content, mcp_save_content)
+  - `mcpToolCalls`: Array of MCP tool calls made (toolName, parameters, result, duration, status)
+  
+  ## Authentication
+  Bearer token is passed to MCP tools for da.live API authentication.
+  
+  ## Typical Response Time
+  ~30-50 seconds (LLM multi-turn conversation + MCP tool calls)
+}

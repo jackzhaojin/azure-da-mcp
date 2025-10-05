@@ -36,7 +36,15 @@ The editedHtml field must contain the complete edited HTML.`;
 5. Maintain HTML structure: preserve all tags, classes, and attributes
 6. Return complete HTML (not fragments or diffs)
 7. LAST: Call save_dalive_content with your edited HTML
-8. If content is already optimal for the command, save original HTML with explanation`;
+8. If content is already optimal for the command, save original HTML with explanation
+
+CRITICAL HTML FORMATTING RULES:
+- DO NOT add literal \\n escape sequences in the HTML
+- DO NOT change the whitespace, indentation, or line breaks unless explicitly asked
+- DO NOT reformat or restructure the HTML layout
+- ONLY modify the actual text content as requested by the user's command
+- Keep the HTML exactly as it is, changing ONLY what the user asked to change
+- If adding new content, match the existing HTML formatting style exactly`;
 
   // For MCP workflow, don't include HTML in prompt
   const pageContext = html

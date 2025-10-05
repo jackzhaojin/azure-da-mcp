@@ -161,35 +161,46 @@ async function testGetContentTool() {
       throw new Error('No result in tool call response');
     }
 
-    // Validate result fields per contract
-    if (!result.htmlContent) {
-      throw new Error('Missing htmlContent in result');
+    // Validate MCP response structure (content array + structuredContent)
+    if (!result.content || !Array.isArray(result.content)) {
+      throw new Error('Missing content array in result');
     }
-    if (!result.lastModified) {
-      throw new Error('Missing lastModified in result');
+    if (!result.structuredContent) {
+      throw new Error('Missing structuredContent in result');
     }
-    if (!result.path) {
-      throw new Error('Missing path in result');
+
+    const data = result.structuredContent;
+
+    // Validate structured content fields per contract
+    if (!data.htmlContent) {
+      throw new Error('Missing htmlContent in structuredContent');
     }
-    if (typeof result.contentLength !== 'number') {
-      throw new Error('Missing or invalid contentLength in result');
+    if (!data.lastModified) {
+      throw new Error('Missing lastModified in structuredContent');
+    }
+    if (!data.path) {
+      throw new Error('Missing path in structuredContent');
+    }
+    if (typeof data.contentLength !== 'number') {
+      throw new Error('Missing or invalid contentLength in structuredContent');
     }
 
     console.log(`   ✅ Tool call successful!`);
-    console.log(`   Path: ${result.path}`);
-    console.log(`   HTML length: ${result.contentLength} bytes`);
-    console.log(`   Last modified: ${result.lastModified}`);
+    console.log(`   Path: ${data.path}`);
+    console.log(`   HTML length: ${data.contentLength} bytes`);
+    console.log(`   Last modified: ${data.lastModified}`);
+    console.log(`   Content summary: ${result.content[0].text}`);
     console.log(`   Duration: ${duration}ms`);
     console.log('');
 
     // Verify HTML content is not empty
-    if (result.htmlContent.length === 0) {
+    if (data.htmlContent.length === 0) {
       throw new Error('HTML content is empty');
     }
 
     // Verify path matches
-    if (result.path !== TEST_PATH) {
-      throw new Error(`Path mismatch: expected ${TEST_PATH}, got ${result.path}`);
+    if (data.path !== TEST_PATH) {
+      throw new Error(`Path mismatch: expected ${TEST_PATH}, got ${data.path}`);
     }
 
     console.log('✅ get_dalive_content E2E test PASSED!');
