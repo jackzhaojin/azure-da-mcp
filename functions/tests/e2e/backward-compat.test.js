@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * E2E Test: Backward Compatibility
  * Verifies that existing REST endpoints (GetContent, HealthCheck) remain unchanged
@@ -31,50 +30,39 @@ const FUNCTIONS_BASE_URL = 'http://localhost:7071';
 const BEARER_TOKEN = process.env.DALIVE_BEARER_TOKEN;
 const TEST_PATH = '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html';
 
-console.log('🧪 E2E Test: Backward Compatibility');
-console.log(`   Server: ${FUNCTIONS_BASE_URL}`);
-console.log(`   Test Path: ${TEST_PATH}`);
-console.log('');
+describe('Backward Compatibility E2E Tests', () => {
+  beforeAll(() => {
+    if (!BEARER_TOKEN) {
+      throw new Error('DALIVE_BEARER_TOKEN not set in .env file. This test requires a real da.live Bearer token');
+    }
+    console.log('🧪 E2E Test: Backward Compatibility');
+    console.log(`   Server: ${FUNCTIONS_BASE_URL}`);
+    console.log(`   Test Path: ${TEST_PATH}\n`);
+  });
 
-async function testBackwardCompatibility() {
-  try {
-    // Test 1: HealthCheck endpoint
+  test('HealthCheck endpoint should return healthy status', async () => {
     console.log('1️⃣  Testing HealthCheck endpoint...');
-    const healthStartTime = Date.now();
+    const startTime = Date.now();
 
-    const healthResponse = await axios.get(`${FUNCTIONS_BASE_URL}/api/HealthCheck`);
+    const response = await axios.get(`${FUNCTIONS_BASE_URL}/api/HealthCheck`);
+    const duration = Date.now() - startTime;
 
-    const healthDuration = Date.now() - healthStartTime;
-
-    // Validate response structure
-    if (healthResponse.status !== 200) {
-      throw new Error(`HealthCheck returned ${healthResponse.status}, expected 200`);
-    }
-
-    if (!healthResponse.data.status) {
-      throw new Error('HealthCheck response missing status field');
-    }
-
-    if (healthResponse.data.status !== 'healthy') {
-      throw new Error(`HealthCheck status is '${healthResponse.data.status}', expected 'healthy'`);
-    }
-
-    if (!healthResponse.data.timestamp) {
-      throw new Error('HealthCheck response missing timestamp field');
-    }
+    expect(response.status).toBe(200);
+    expect(response.data.status).toBeDefined();
+    expect(response.data.status).toBe('healthy');
+    expect(response.data.timestamp).toBeDefined();
 
     console.log(`   ✅ HealthCheck PASSED`);
-    console.log(`   Status: ${healthResponse.data.status}`);
-    console.log(`   Version: ${healthResponse.data.version || 'not specified'}`);
-    console.log(`   Timestamp: ${healthResponse.data.timestamp}`);
-    console.log(`   Duration: ${healthDuration}ms`);
-    console.log('');
+    console.log(`   Status: ${response.data.status}`);
+    console.log(`   Version: ${response.data.version || 'not specified'}`);
+    console.log(`   Duration: ${duration}ms\n`);
+  });
 
-    // Test 2: GetContent endpoint
+  test('GetContent endpoint should return content with correct structure', async () => {
     console.log('2️⃣  Testing GetContent endpoint...');
-    const getStartTime = Date.now();
+    const startTime = Date.now();
 
-    const getResponse = await axios.get(
+    const response = await axios.get(
       `${FUNCTIONS_BASE_URL}/api/GetContent${TEST_PATH}`,
       {
         headers: {
@@ -82,116 +70,55 @@ async function testBackwardCompatibility() {
         }
       }
     );
+    const duration = Date.now() - startTime;
 
-    const getDuration = Date.now() - getStartTime;
-
-    // Validate response structure (from Spec 001)
-    if (getResponse.status !== 200) {
-      throw new Error(`GetContent returned ${getResponse.status}, expected 200`);
-    }
-
-    if (!getResponse.data.path) {
-      throw new Error('GetContent response missing path field');
-    }
-
-    if (getResponse.data.path !== TEST_PATH) {
-      throw new Error(`Path mismatch: expected '${TEST_PATH}', got '${getResponse.data.path}'`);
-    }
-
-    if (!getResponse.data.html) {
-      throw new Error('GetContent response missing html field');
-    }
-
-    if (typeof getResponse.data.html !== 'string') {
-      throw new Error('GetContent html field is not a string');
-    }
-
-    if (getResponse.data.html.length === 0) {
-      throw new Error('GetContent returned empty HTML');
-    }
+    expect(response.status).toBe(200);
+    expect(response.data.path).toBe(TEST_PATH);
+    expect(response.data.html).toBeDefined();
+    expect(typeof response.data.html).toBe('string');
+    expect(response.data.html.length).toBeGreaterThan(0);
 
     console.log(`   ✅ GetContent PASSED`);
-    console.log(`   Path: ${getResponse.data.path}`);
-    console.log(`   HTML length: ${getResponse.data.html.length} characters`);
-    console.log(`   Duration: ${getDuration}ms`);
-    console.log('');
+    console.log(`   Path: ${response.data.path}`);
+    console.log(`   HTML length: ${response.data.html.length} characters`);
+    console.log(`   Duration: ${duration}ms\n`);
 
-    // Test 3: Verify GetContent performance (should be similar to pre-MCP)
-    console.log('3️⃣  Verifying GetContent performance...');
-
-    // Per Spec 001: da.live fetch typically takes 100-150ms
-    const EXPECTED_MAX_DURATION = 5000; // 5s timeout, typical should be <500ms
-
-    if (getDuration > EXPECTED_MAX_DURATION) {
-      console.warn(`   ⚠️  Warning: GetContent took ${getDuration}ms (> ${EXPECTED_MAX_DURATION}ms expected)`);
-      console.warn('   This may indicate a regression in performance');
+    // Performance check
+    const EXPECTED_MAX_DURATION = 5000;
+    if (duration > EXPECTED_MAX_DURATION) {
+      console.warn(`   ⚠️  Warning: GetContent took ${duration}ms (> ${EXPECTED_MAX_DURATION}ms expected)`);
     } else {
-      console.log(`   ✅ Performance acceptable: ${getDuration}ms (< ${EXPECTED_MAX_DURATION}ms)`);
+      console.log(`   ✅ Performance acceptable: ${duration}ms\n`);
     }
-    console.log('');
+  });
 
-    // Test 4: Verify error handling unchanged
-    // NOTE: Skipping 401 test - the test path appears to be publicly accessible on da.live
-    // The GetContent function correctly implements 401 error handling when da.live returns 401
-    console.log('4️⃣  Testing error handling (401 Unauthorized)...');
-    console.log(`   ⏭️  Skipped: Test path is publicly accessible on da.live`);
-    console.log(`   ℹ️  GetContent function correctly handles 401 when da.live API returns it`);
-    console.log('');
+  test('GetContent should return 404 for nonexistent paths', async () => {
+    console.log('3️⃣  Testing error handling (404 Not Found)...');
 
-    // Test 5: Verify 404 handling
-    console.log('5️⃣  Testing error handling (404 Not Found)...');
-
-    try {
-      await axios.get(
+    await expect(
+      axios.get(
         `${FUNCTIONS_BASE_URL}/api/GetContent/nonexistent/path/that/does/not/exist`,
         {
           headers: {
             'Authorization': `Bearer ${BEARER_TOKEN}`
           }
         }
-      );
-
-      throw new Error('Expected 404 Not Found, but request succeeded');
-    } catch (error) {
-      if (!error.response) {
-        throw error; // Network error, not expected
+      )
+    ).rejects.toMatchObject({
+      response: {
+        status: 404
       }
+    });
 
-      if (error.response.status !== 404) {
-        throw new Error(`Expected 404 Not Found, got ${error.response.status}`);
-      }
+    console.log(`   ✅ Error handling correct: 404 Not Found\n`);
+  });
 
-      console.log(`   ✅ Error handling correct: 404 Not Found for nonexistent path`);
-      console.log('');
-    }
-
+  afterAll(() => {
     console.log('✅ Backward Compatibility E2E test PASSED!');
-    console.log('');
-    console.log('Summary:');
-    console.log(`   - HealthCheck: Working (${healthDuration}ms)`);
-    console.log(`   - GetContent: Working (${getDuration}ms)`);
-    console.log(`   - Error handling: Unchanged`);
-    console.log(`   - MCP refactoring has NOT broken existing functionality`);
-    console.log('');
-
-  } catch (error) {
-    console.error('');
-    console.error('❌ Test FAILED:', error.message);
-    if (error.response) {
-      console.error('   Status:', error.response.status);
-      console.error('   Data:', JSON.stringify(error.response.data, null, 2));
-    }
-    console.error('');
-    console.error('This indicates a REGRESSION in existing functionality!');
-    process.exit(1);
-  }
-}
-
-// Check prerequisites
-if (!BEARER_TOKEN) {
-  console.error('❌ DALIVE_BEARER_TOKEN not set in .env file');
-  console.error('   This test requires a real da.live Bearer token');
-  process.exit(1);
-}
-
-testBackwardCompatibility();
+    console.log('\nSummary:');
+    console.log('   - HealthCheck: Working');
+    console.log('   - GetContent: Working');
+    console.log('   - Error handling: Unchanged');
+    console.log('   - MCP refactoring has NOT broken existing functionality\n');
+  });
+});
