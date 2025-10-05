@@ -17,6 +17,8 @@ app.http('GetContent', {
     try {
       // Extract path from URL parameters
       const path = request.params.path;
+      console.log('🔍 GetContentFunction received path param:', path);
+      console.log('   Request URL:', request.url);
 
       // Extract Bearer token from Authorization header
       const authHeader = request.headers.get('authorization');
@@ -48,6 +50,7 @@ app.http('GetContent', {
 
       // Prepend / to path if not already present
       const fullPath = path.startsWith('/') ? path : `/${path}`;
+      console.log('   fullPath being passed to getContent:', fullPath);
 
       // Fetch content from da.live
       const pageContent = await getContent(fullPath, bearerToken);

@@ -47,14 +47,14 @@ app.http('EditContent', {
       }
 
       // Validate path format
-      const pathPattern = /^\/[a-z0-9\-\/]+$/;
+      const pathPattern = /^\/[a-z0-9\-\/\.]+$/;
       if (!pathPattern.test(path)) {
         return {
           status: 400,
           jsonBody: {
             requestId,
             error: 'Invalid path format',
-            details: 'Path must start with \'/\' and contain only lowercase letters, numbers, hyphens, and slashes'
+            details: 'Path must start with \'/\' and contain only lowercase letters, numbers, hyphens, dots, and slashes'
           }
         };
       }
