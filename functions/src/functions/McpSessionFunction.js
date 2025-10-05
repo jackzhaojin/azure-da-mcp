@@ -1,6 +1,6 @@
 import { app } from '@azure/functions';
 import { randomUUID } from 'crypto';
-import * as McpTools from '../modules/McpTools.js';
+import { getAllDefinitions, executeTool } from '../mcp/tools/index.js';
 
 /**
  * Azure HTTP Function: POST /api/mcp
@@ -179,7 +179,7 @@ function handleToolsList(sessionId, id, context) {
     jsonBody: {
       jsonrpc: '2.0',
       result: {
-        tools: McpTools.TOOL_DEFINITIONS
+        tools: getAllDefinitions()
       },
       id
     }
@@ -234,32 +234,16 @@ async function handleToolsCall(sessionId, params, id, context) {
   };
 
   try {
-    let result;
+    // Execute tool through registry
+    const result = await executeTool(toolName, toolArguments, toolContext);
 
-    // Dispatch to appropriate tool
-    switch (toolName) {
-      case 'get_dalive_content':
-        result = await McpTools.get_dalive_content(toolArguments, toolContext);
-        break;
+    // Extract and remove internal metadata
+    const timing = result._meta?.timing;
+    delete result._meta;
 
-      case 'save_dalive_content':
-        result = await McpTools.save_dalive_content(toolArguments, toolContext);
-        break;
-
-      default:
-        return createJsonRpcErrorResponse(
-          id,
-          -32601,
-          `Unknown tool: ${toolName}`,
-          { availableTools: McpTools.TOOL_DEFINITIONS.map(t => t.name) }
-        );
+    if (timing) {
+      context.log(`Tool ${toolName} completed in ${timing}ms`);
     }
-
-    // Remove internal timing from result
-    const timing = result._timing;
-    delete result._timing;
-
-    context.log(`Tool ${toolName} completed in ${timing}ms`);
 
     return {
       status: 200,
