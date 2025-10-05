@@ -22,21 +22,9 @@ export async function getContent(path, bearerToken) {
       responseType: 'text' // Get raw HTML text, not JSON
     });
 
-    // Ensure we have actual HTML string (not JSON-encoded with \n escapes)
-    let html = response.data;
-
-    // If the response is a string but looks like it might be JSON-encoded,
-    // it should already be decoded by axios with responseType: 'text'
-    // Just ensure no literal \n escape sequences remain
-    if (typeof html === 'string' && html.includes('\\n')) {
-      // This shouldn't happen with responseType: 'text', but just in case
-      console.warn('Warning: HTML contains literal \\n escape sequences, cleaning...');
-      html = html.replace(/\\n/g, '\n');
-    }
-
     return {
       path,
-      html: html,
+      html: response.data,
       blocks: [], // Will be parsed from HTML by LLM if needed
       metadata: {}
     };
@@ -67,24 +55,17 @@ export async function getContent(path, bearerToken) {
 export async function updateContent(path, html, bearerToken) {
   let lastError;
 
-  // Clean HTML: remove any literal \n escape sequences before saving
-  let cleanedHtml = html;
-  if (typeof cleanedHtml === 'string' && cleanedHtml.includes('\\n')) {
-    console.warn('Warning: HTML contains literal \\n escape sequences, cleaning before save...');
-    cleanedHtml = cleanedHtml.replace(/\\n/g, '\n');
-  }
-
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       // Create multipart form data with HTML as a file
       const formData = new FormData();
-      formData.append('data', Buffer.from(cleanedHtml), {
+      formData.append('data', Buffer.from(html), {
         filename: 'content.html',
         contentType: 'text/html'
       });
 
       const response = await axios.post(
-        `${DALIVE_API_URL}/api${path}`,
+        `${DALIVE_API_URL}${path}`,
         formData,
         {
           headers: {
