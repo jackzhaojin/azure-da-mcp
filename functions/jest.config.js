@@ -12,13 +12,20 @@ export default {
     'src/**/*.js',
     '!src/**/*.test.js'
   ],
-  coverageThresholds: {
+  coverageThreshold: {
     global: {
-      branches: 80,
-      functions: 80,
+      branches: 50,
+      functions: 70,
+      lines: 50,
+      statements: 50
+    },
+    './src/modules/**/*.js': {
+      branches: 65,
+      functions: 100,
       lines: 80,
       statements: 80
     }
   },
-  transform: {}
+  transform: {},
+  testTimeout: 10000
 };
