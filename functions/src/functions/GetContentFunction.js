@@ -8,7 +8,7 @@ import { generateRequestId } from '../modules/Logger.js';
  */
 app.http('GetContent', {
   methods: ['GET'],
-  route: 'GetContent/{path}',
+  route: 'GetContent/{*path}',
   authLevel: 'anonymous',
   handler: async (request, context) => {
     const requestId = generateRequestId();
@@ -34,14 +34,14 @@ app.http('GetContent', {
       const bearerToken = authHeader.substring(7); // Remove 'Bearer ' prefix
 
       // Validate path format (must start with /, lowercase, no special chars)
-      const pathPattern = /^[a-z0-9\-\/]+$/;
+      const pathPattern = /^[a-z0-9\-\/\.]+$/;
       if (!path || !pathPattern.test(path)) {
         return {
           status: 400,
           jsonBody: {
             requestId,
             error: 'Invalid path format',
-            details: 'Path must start with \'/\' and contain only lowercase letters, numbers, hyphens, and slashes'
+            details: 'Path must start with \'/\' and contain only lowercase letters, numbers, hyphens, dots, and slashes'
           }
         };
       }

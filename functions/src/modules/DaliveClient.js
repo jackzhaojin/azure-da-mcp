@@ -13,7 +13,7 @@ const INITIAL_BACKOFF_MS = 1000;
  */
 export async function getContent(path, bearerToken) {
   try {
-    const response = await axios.get(`${DALIVE_API_URL}/api/content${path}`, {
+    const response = await axios.get(`${DALIVE_API_URL}/api${path}`, {
       headers: {
         'Authorization': `Bearer ${bearerToken}`
       },
@@ -51,7 +51,7 @@ export async function updateContent(path, blocks, bearerToken) {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const response = await axios.post(
-        `${DALIVE_API_URL}/api/content${path}`,
+        `${DALIVE_API_URL}/api${path}`,
         { blocks },
         {
           headers: {
