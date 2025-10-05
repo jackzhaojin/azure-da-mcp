@@ -203,13 +203,15 @@ async function handleToolsCall(sessionId, params, id, context) {
   const session = sessions.get(sessionId);
 
   // Validate session is initialized
-  if (!session.initialized) {
-    return createJsonRpcErrorResponse(
-      id,
-      -32002,
-      'Session not initialized: Send initialized notification first'
-    );
-  }
+  // NOTE: Commented out for MCP Inspector compatibility
+  // MCP Inspector doesn't send 'initialized' notification in HTTP mode
+  // if (!session.initialized) {
+  //   return createJsonRpcErrorResponse(
+  //     id,
+  //     -32002,
+  //     'Session not initialized: Send initialized notification first'
+  //   );
+  // }
 
   // Validate tool call parameters
   if (!params.name) {
@@ -321,11 +323,11 @@ function createJsonRpcErrorResponse(id, code, message, data = null) {
   };
 }
 
-// Clean up old sessions periodically (every 5 minutes)
-// Sessions are short-lived (one EditContent request = one session)
+// Clean up old sessions periodically (every hour)
+// Sessions for Claude Desktop should be long-lived (24 hours)
 setInterval(() => {
   const now = Date.now();
-  const MAX_SESSION_AGE_MS = 5 * 60 * 1000; // 5 minutes
+  const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
   for (const [sessionId, session] of sessions.entries()) {
     const sessionAge = now - new Date(session.createdAt).getTime();
@@ -334,6 +336,6 @@ setInterval(() => {
       console.log(`Session expired: ${sessionId}`);
     }
   }
-}, 5 * 60 * 1000);
+}, 60 * 60 * 1000); // Run cleanup every hour
 
 export { app };

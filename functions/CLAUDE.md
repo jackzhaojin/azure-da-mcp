@@ -87,6 +87,7 @@ functions/
 - Azure Functions Core Tools
 - da.live Bearer token
 - Anthropic API key
+- Claude Desktop (optional, for direct MCP tool access)
 
 ### Setup
 ```bash
@@ -105,6 +106,98 @@ MCP_SERVER_URL=http://localhost:7071/api/mcp  # Optional, defaults to this
 nvm use 20
 npm start
 ```
+
+### Claude Desktop Integration (Release 1.2)
+
+**Overview**: Use MCP tools directly in Claude Desktop for interactive content editing.
+
+**Setup Steps**:
+
+1. **Start Azure Functions MCP Server**:
+   ```bash
+   cd functions
+   npm start
+   # Server runs on http://localhost:7071
+   ```
+
+2. **Configure Claude Desktop**:
+
+   Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "azure-da-mcp": {
+         "command": "node",
+         "args": ["/absolute/path/to/azure-da-mcp/functions/mcp-stdio-bridge.js"],
+         "env": {
+           "MCP_SERVER_URL": "http://localhost:7071/api/mcp",
+           "DALIVE_BEARER_TOKEN": "your-dalive-bearer-token-here"
+         }
+       }
+     }
+   }
+   ```
+
+   **Important**: Use absolute path to `mcp-stdio-bridge.js`
+
+3. **Restart Claude Desktop**
+
+   Tools will appear in Claude Desktop's interface.
+
+**Available Tools**:
+- `get_dalive_content(path)` - Fetch HTML from da.live
+- `save_dalive_content(path, htmlContent)` - Save edited HTML
+
+**stdio-to-HTTP Bridge Architecture**:
+
+Claude Desktop requires stdio transport (stdin/stdout), but our MCP server runs over HTTP. The bridge connects them:
+
+```
+┌──────────────────┐
+│ Claude Desktop   │
+│ (stdio only)     │
+└────────┬─────────┘
+         │ stdin/stdout
+         │
+┌────────▼──────────────────┐
+│ mcp-stdio-bridge.js       │
+│ - Reads JSON-RPC stdin    │
+│ - Forwards to HTTP        │
+│ - Manages session ID      │
+│ - Includes Bearer token   │
+│ - Writes stdout           │
+└────────┬──────────────────┘
+         │ HTTP POST
+         │
+┌────────▼──────────────────┐
+│ Azure Functions           │
+│ POST /api/mcp             │
+│ (JSON-RPC 2.0 over HTTP)  │
+└────────┬──────────────────┘
+         │
+┌────────▼──────────────────┐
+│ da.live Admin API         │
+└───────────────────────────┘
+```
+
+**How the Bridge Works**:
+1. Reads JSON-RPC messages from stdin (one per line)
+2. Adds Bearer token to Authorization header
+3. Manages session ID across requests
+4. Forwards to HTTP MCP server
+5. Returns responses to stdout (only for requests, not notifications)
+6. Waits for pending async operations before exit
+
+**Session Management**:
+- Sessions created on `initialize` call
+- 24-hour timeout (long conversations supported)
+- Bearer token stored per session
+- Session ID persists across tool calls
+
+**Debugging**:
+- Bridge logs to stderr: `[MCP Bridge] ...`
+- Claude Desktop logs: `~/Library/Logs/Claude/mcp-server-azure-da-mcp.log`
+- Azure Functions logs: Terminal where `npm start` is running
 
 ### Testing Philosophy
 

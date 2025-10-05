@@ -6,19 +6,19 @@ Backend MCP (Model Context Protocol) server for AI-assisted da.live content edit
 
 This project provides an HTTP API backend that orchestrates AI-powered content editing for da.live pages. It integrates da.live Admin API for content management with Anthropic Claude for intelligent content editing.
 
-**Release**: 1.0 (Local Development)
-**Status**: Implementation Complete (22/29 tasks - 76%)
-**Branch**: `001-let-s-build`
+**Release**: 1.2 (Claude Desktop Integration)
+**Status**: ✅ **WORKING** - MCP tools available in Claude Desktop
+**Branch**: `main`
 
 ## Features
 
-- ✅ **3 HTTP API Endpoints** for content operations
+- ✅ **MCP Server Integration** - JSON-RPC 2.0 protocol for Model Context Protocol
+- ✅ **Claude Desktop Support** - stdio-to-HTTP bridge for seamless integration
+- ✅ **2 MCP Tools** - `get_dalive_content` and `save_dalive_content`
 - ✅ **AI-Powered Editing** using Anthropic Claude Sonnet 4
-- ✅ **Multi-Layer Validation** (structure, IDs, schema, hallucinations, brand terms)
-- ✅ **Request Correlation** with unique IDs for debugging
-- ✅ **Performance Tracking** with phase-by-phase timing metrics
-- ✅ **Comprehensive Testing** (59 tests: 38 unit + 21 integration)
-- ✅ **TDD Implementation** following Red → Green → Refactor
+- ✅ **Session Management** - 24-hour session timeout for long conversations
+- ✅ **E2E Testing** - All tests use real APIs (no mocks)
+- ✅ **Backward Compatible** - HTTP APIs still available
 
 ## API Endpoints
 
@@ -260,6 +260,74 @@ From spec.md requirements:
 - da.live operations: **P95 < 500ms**
 - Test coverage: **80%+**
 - Zero critical errors in **10 consecutive runs**
+
+## Claude Desktop Integration
+
+### Setup
+
+1. **Ensure Azure Functions MCP Server is Running**
+   ```bash
+   cd functions
+   npm start
+   # Server runs on http://localhost:7071
+   ```
+
+2. **Configure Claude Desktop**
+
+   Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "azure-da-mcp": {
+         "command": "node",
+         "args": ["/absolute/path/to/azure-da-mcp/functions/mcp-stdio-bridge.js"],
+         "env": {
+           "MCP_SERVER_URL": "http://localhost:7071/api/mcp",
+           "DALIVE_BEARER_TOKEN": "your-dalive-bearer-token-here"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Desktop**
+
+   The MCP tools will appear in Claude Desktop's tool palette.
+
+### Available MCP Tools
+
+- **`get_dalive_content`** - Fetch HTML content from da.live
+  - Input: `path` (e.g., `/products/enterprise`)
+  - Returns: HTML content, last modified timestamp, content length
+
+- **`save_dalive_content`** - Save edited HTML to da.live
+  - Input: `path`, `htmlContent`
+  - Returns: Success confirmation with updated timestamp
+
+### stdio-to-HTTP Bridge
+
+Claude Desktop requires stdio transport, but the MCP server runs over HTTP. The `mcp-stdio-bridge.js` bridges this gap:
+
+```
+Claude Desktop (stdio)
+  ↓
+mcp-stdio-bridge.js
+  ↓
+HTTP MCP Server (localhost:7071/api/mcp)
+  ↓
+da.live Admin API
+```
+
+**How it works:**
+1. Reads JSON-RPC messages from stdin
+2. Forwards to HTTP MCP server with Bearer token
+3. Manages session ID across requests
+4. Writes responses to stdout
+
+**Session Management:**
+- Sessions created on `initialize` call
+- 24-hour timeout for long conversations
+- Bearer token stored in session for all tool calls
 
 ## Configuration
 
