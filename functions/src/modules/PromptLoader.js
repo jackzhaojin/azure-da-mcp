@@ -3,7 +3,7 @@
  * Loads versioned prompts from JSON files with caching and validation
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -95,7 +95,6 @@ export function clearPromptCache() {
  * @returns {Array<string>} List of available versions
  */
 export function getAvailableVersions(promptName) {
-  const { readdirSync } = await import('fs');
   const promptDir = join(PROMPTS_DIR, promptName);
 
   try {
