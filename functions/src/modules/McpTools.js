@@ -55,12 +55,19 @@ export async function get_dalive_content(params, context) {
 
     const duration = Date.now() - startTime;
 
-    // Return result matching tool contract
+    // Return result in MCP format (content array with type/text)
     return {
-      htmlContent: content.html,
-      lastModified: new Date().toISOString(), // da.live doesn't return this, use current time
-      path: path,
-      contentLength: content.html.length,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            htmlContent: content.html,
+            lastModified: new Date().toISOString(),
+            path: path,
+            contentLength: content.html.length
+          }, null, 2)
+        }
+      ],
       _timing: duration // Internal timing for logging
     };
 
@@ -190,12 +197,19 @@ export async function save_dalive_content(params, context) {
 
     const duration = Date.now() - startTime;
 
-    // Return result matching tool contract
+    // Return result in MCP format (content array with type/text)
     return {
-      success: true,
-      path: path,
-      timestamp: new Date().toISOString(),
-      contentLength: contentSizeBytes,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            path: path,
+            timestamp: new Date().toISOString(),
+            contentLength: contentSizeBytes
+          }, null, 2)
+        }
+      ],
       _timing: duration // Internal timing for logging
     };
 
