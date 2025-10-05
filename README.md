@@ -218,6 +218,178 @@ Following constitution principle V:
 2. **Green**: Implement minimal code to pass
 3. **Refactor**: Clean up while tests pass
 
+## Logging
+
+### Overview
+
+The project uses a multi-level logging system compatible with both local development and Azure Application Insights.
+
+### Log Levels
+
+Controlled via `LOG_LEVEL` environment variable in `local.settings.json`:
+
+- **`DEBUG` (0)** - Most verbose, includes full LLM request/response content
+- **`INFO` (1)** - Default, logs all MCP calls, LLM calls, and major operations
+- **`WARN` (2)** - Potential issues and warnings
+- **`ERROR` (3)** - Errors and exceptions with stack traces
+
+### Local Development
+
+**Where logs appear**:
+- **stdout/stderr** - All logs appear in the **terminal/console where you run `npm start`**
+- **No log files** - Azure Functions local development does NOT write to log files
+- Logs stream in real-time to your terminal
+
+**Configure log level** in `local.settings.json`:
+```json
+{
+  "Values": {
+    "LOG_LEVEL": "debug"
+  }
+}
+```
+
+**What gets logged**:
+- Every MCP request (session creation, tool calls, timing)
+- Every LLM API call with duration and token usage
+- Full LLM request/response content (DEBUG level only)
+- Request IDs for correlation
+- Error stack traces
+
+**Example output**:
+```
+[2025-10-05T14:30:45.123Z] [INFO] MCP request received {
+  method: 'tools/call',
+  sessionId: 'abc-123',
+  toolName: 'get_dalive_content',
+  requestId: 'req-456'
+}
+
+[2025-10-05T14:30:45.234Z] [INFO] LLM API call starting {
+  model: 'claude-sonnet-4-20250514',
+  iteration: 1,
+  messagesCount: 1,
+  hasTools: true,
+  toolsCount: 2
+}
+
+[2025-10-05T14:30:45.235Z] [DEBUG] LLM API request content {
+  requestParams: '{"model":"claude-sonnet-4-20250514",...}'
+}
+
+[2025-10-05T14:30:58.456Z] [INFO] LLM API call completed {
+  iteration: 1,
+  duration: '13221ms',
+  inputTokens: 1234,
+  outputTokens: 567,
+  stopReason: 'end_turn'
+}
+
+[2025-10-05T14:30:58.457Z] [DEBUG] LLM API response content {
+  response: '[{"type":"text","text":"..."}]'
+}
+```
+
+**Testing logging locally**:
+```bash
+# 1. Set log level to debug
+# Edit local.settings.json -> "LOG_LEVEL": "debug"
+
+# 2. Start server
+cd functions
+npm start
+
+# 3. Make a test request (in another terminal)
+curl -X POST http://localhost:7071/api/EditContent \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"command":"Make more concise","path":"/products/enterprise"}'
+
+# 4. Watch terminal for logs
+# You should see INFO logs for MCP calls
+# You should see DEBUG logs with full LLM content
+```
+
+### Azure Production
+
+**Where logs appear**: Azure Application Insights
+
+**Access logs**:
+1. Go to Azure Portal
+2. Navigate to your Function App
+3. Select "Application Insights" or "Logs"
+4. Query with Kusto (KQL)
+
+**Example queries**:
+
+```kql
+// All logs for a specific request ID
+traces
+| where customDimensions.requestId == "abc-123-def-456"
+| order by timestamp desc
+
+// All MCP tool calls
+traces
+| where message contains "MCP tool call"
+| order by timestamp desc
+
+// All LLM API calls with timing
+traces
+| where message contains "LLM API call completed"
+| extend duration = customDimensions.duration
+| project timestamp, duration, customDimensions
+| order by timestamp desc
+
+// Errors only
+traces
+| where severityLevel >= 3
+| order by timestamp desc
+```
+
+**Log level configuration**:
+- Set `LOG_LEVEL` application setting in Azure Portal
+- Default: `INFO` (recommended for production)
+- Change to `DEBUG` only for troubleshooting (increases log volume)
+
+**Structured metadata**:
+All logs include structured metadata for easy querying:
+- `requestId` - Unique ID for each request
+- `sessionId` - MCP session ID
+- `toolName` - MCP tool being called
+- `duration` - Operation timing
+- `inputTokens`, `outputTokens` - LLM usage
+- `error`, `stack` - Error details
+
+### Key Logging Points
+
+**EditContentFunction.js**:
+- Request received with command and path
+- LLM prompt building
+- MCP configuration initialization
+- LLM call start and completion
+- Final response timing
+
+**McpSessionFunction.js**:
+- Every MCP request (method, session ID)
+- Session creation and initialization
+- Tool call start with arguments
+- Tool call completion with timing
+- Tool call failures with error details
+
+**LlmClient.js**:
+- LLM API call start (model, iteration, message count)
+- Full request parameters (DEBUG level)
+- LLM API call completion (duration, tokens, stop reason)
+- Full response content (DEBUG level)
+- Tool use requests from LLM
+- Final response parsing
+
+**Implementation**:
+- Logger module: `/functions/src/modules/Logger.js`
+- Uses `context.log` API for Azure Functions
+- Falls back to `console.*` for local development
+- Level-based filtering to reduce noise
+
 ## Architecture
 
 ### Core Modules

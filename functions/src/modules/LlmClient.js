@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import * as Logger from './Logger.js';
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 4096;
@@ -112,10 +113,39 @@ ${prompt.editingGuidelines}`
           requestParams.tools = tools;
         }
 
+        Logger.info('LLM API call starting', {
+          model: ANTHROPIC_MODEL,
+          iteration: iterationCount,
+          messagesCount: messages.length,
+          hasTools: tools.length > 0,
+          toolsCount: tools.length,
+          temperature: TEMPERATURE,
+          maxTokens: MAX_TOKENS
+        });
+
+        Logger.debug('LLM API request content', {
+          requestParams: JSON.stringify(requestParams, null, 2)
+        });
+
+        const llmCallStart = Date.now();
         const response = await client.messages.create(requestParams);
+        const llmCallDuration = Date.now() - llmCallStart;
 
         totalInputTokens += response.usage.input_tokens;
         totalOutputTokens += response.usage.output_tokens;
+
+        Logger.info('LLM API call completed', {
+          iteration: iterationCount,
+          duration: `${llmCallDuration}ms`,
+          inputTokens: response.usage.input_tokens,
+          outputTokens: response.usage.output_tokens,
+          stopReason: response.stop_reason,
+          contentBlocks: response.content.length
+        });
+
+        Logger.debug('LLM API response content', {
+          response: JSON.stringify(response.content, null, 2)
+        });
 
         // Check if response contains tool use
         const toolUseBlock = response.content.find(block => block.type === 'tool_use');
@@ -126,6 +156,12 @@ ${prompt.editingGuidelines}`
           const toolInput = toolUseBlock.input;
           const toolUseId = toolUseBlock.id;
 
+          Logger.info('LLM requested tool call', {
+            iteration: iterationCount,
+            toolName,
+            toolInput: JSON.stringify(toolInput)
+          });
+
           // Call MCP server to execute tool
           const toolStartTime = Date.now();
           let toolResult;
@@ -133,11 +169,20 @@ ${prompt.editingGuidelines}`
 
           try {
             toolResult = await callMcpTool(mcpSession, toolName, toolInput);
+            Logger.info('Tool call completed successfully', {
+              toolName,
+              duration: `${Date.now() - toolStartTime}ms`
+            });
           } catch (toolError) {
             toolStatus = 'failed';
             toolResult = {
               error: toolError.message
             };
+            Logger.error('Tool call failed', {
+              toolName,
+              error: toolError.message,
+              duration: `${Date.now() - toolStartTime}ms`
+            });
           }
 
           const toolDuration = Date.now() - toolStartTime;
@@ -176,7 +221,20 @@ ${prompt.editingGuidelines}`
         const textBlock = response.content.find(block => block.type === 'text');
         if (textBlock) {
           const responseText = textBlock.text;
+
+          Logger.debug('Parsing final LLM response', {
+            responseTextLength: responseText.length
+          });
+
           const llmResponse = JSON.parse(responseText);
+
+          Logger.info('LLM edit generation completed successfully', {
+            totalIterations: iterationCount,
+            totalInputTokens,
+            totalOutputTokens,
+            toolCallsCount: mcpToolCalls.length,
+            editedHtmlLength: llmResponse.editedHtml?.length || 0
+          });
 
           finalResponse = {
             editedHtml: llmResponse.editedHtml || '',
@@ -194,6 +252,10 @@ ${prompt.editingGuidelines}`
       }
 
       if (!finalResponse) {
+        Logger.error('LLM did not return final response', {
+          iterations: iterationCount,
+          maxIterations: MAX_TOOL_ITERATIONS
+        });
         throw new Error('LLM did not return a final response after tool iterations');
       }
 

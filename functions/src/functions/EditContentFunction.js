@@ -1,7 +1,7 @@
 import { app } from '@azure/functions';
 import { generateEdit } from '../modules/LlmClient.js';
 import { buildPrompt } from '../modules/PromptBuilder.js';
-import { generateRequestId, logPhase } from '../modules/Logger.js';
+import * as Logger from '../modules/Logger.js';
 
 /**
  * Azure HTTP Function: POST /api/EditContent
@@ -15,7 +15,7 @@ app.http('EditContent', {
   route: 'EditContent',
   authLevel: 'anonymous',
   handler: async (request, context) => {
-    const requestId = generateRequestId();
+    const requestId = Logger.generateRequestId();
     const overallStartTime = Date.now();
     const timing = {};
 
@@ -23,6 +23,13 @@ app.http('EditContent', {
       // Parse request body
       const body = await request.json();
       const { command, path, metadata } = body;
+
+      Logger.info('EditContent request received', {
+        requestId,
+        command: command?.substring(0, 100), // Truncate for logging
+        path,
+        hasMetadata: !!metadata
+      }, context);
 
       // Validate request
       if (!command || typeof command !== 'string' || command.trim().length === 0) {
@@ -76,13 +83,25 @@ app.http('EditContent', {
       const bearerToken = authHeader.substring(7);
 
       // Log request phase
-      logPhase(requestId, 'request', { command, path, metadata }, null, 'success');
+      Logger.logPhase(requestId, 'request', { command, path, metadata }, null, 'success');
+
+      Logger.info('Building LLM prompt', {
+        requestId,
+        path,
+        hasMcp: true
+      }, context);
 
       // Build LLM prompt (no pre-fetched HTML - LLM will fetch via MCP tools)
       const llmPrompt = buildPrompt(command, null, path);
 
       // Get MCP server URL from environment
       const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:7071/api/mcp';
+
+      Logger.info('Initializing MCP configuration', {
+        requestId,
+        mcpServerUrl,
+        hasBearerToken: !!bearerToken
+      }, context);
 
       // MCP Configuration - pass Bearer token for tool authentication
       const mcpConfig = {
@@ -95,6 +114,11 @@ app.http('EditContent', {
       // 1. Call get_dalive_content to fetch HTML
       // 2. Generate edits
       // 3. Call save_dalive_content to save edited HTML
+      Logger.info('Starting LLM edit generation with MCP tools', {
+        requestId,
+        command: command.substring(0, 100)
+      }, context);
+
       const llmCallStart = Date.now();
       let llmResponse;
       try {
@@ -112,7 +136,16 @@ app.http('EditContent', {
           });
         }
 
-        logPhase(requestId, 'llm_call', {
+        Logger.info('LLM edit generation completed successfully', {
+          requestId,
+          duration: `${timing.llm_call}ms`,
+          inputTokens: llmResponse.tokenUsage?.inputTokens,
+          outputTokens: llmResponse.tokenUsage?.outputTokens,
+          mcpToolCalls: llmResponse.mcpToolCalls?.length || 0,
+          editedHtmlLength: llmResponse.editedHtml?.length || 0
+        }, context);
+
+        Logger.logPhase(requestId, 'llm_call', {
           prompt: llmPrompt,
           response: llmResponse,
           tokenUsage: llmResponse.tokenUsage,
@@ -120,7 +153,15 @@ app.http('EditContent', {
         }, timing.llm_call, 'success');
       } catch (error) {
         timing.llm_call = Date.now() - llmCallStart;
-        logPhase(requestId, 'llm_call', { error: error.message }, timing.llm_call, 'error');
+
+        Logger.error('LLM edit generation failed', {
+          requestId,
+          error: error.message,
+          stack: error.stack,
+          duration: `${timing.llm_call}ms`
+        }, context);
+
+        Logger.logPhase(requestId, 'llm_call', { error: error.message }, timing.llm_call, 'error');
 
         // Check for specific error types from MCP tools
         if (error.message.includes('401') || error.message.includes('Unauthorized')) {

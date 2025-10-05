@@ -1,6 +1,7 @@
 import { app } from '@azure/functions';
 import { randomUUID } from 'crypto';
 import { getAllDefinitions, executeTool } from '../mcp/tools/index.js';
+import * as Logger from '../modules/Logger.js';
 
 /**
  * Azure HTTP Function: POST /api/mcp
@@ -55,7 +56,12 @@ app.http('McpSession', {
       // Extract or create session ID
       let sessionId = request.headers.get('mcp-session-id');
 
-      context.log(`MCP Request: ${method} (session: ${sessionId || 'new'})`);
+      Logger.info('MCP request received', {
+        method,
+        sessionId: sessionId || 'new',
+        hasBearer: !!bearerToken,
+        requestId: id
+      }, context);
 
       // Route to appropriate handler
       switch (method) {
@@ -85,7 +91,10 @@ app.http('McpSession', {
       }
 
     } catch (error) {
-      context.error('MCP Session error:', error);
+      Logger.error('MCP session error', {
+        error: error.message,
+        stack: error.stack
+      }, context);
       return createJsonRpcErrorResponse(
         null,
         -32603,
@@ -112,7 +121,12 @@ function handleInitialize(params, id, bearerToken, context) {
     initialized: false
   });
 
-  context.log(`Session created: ${sessionId}`);
+  Logger.info('MCP session created', {
+    sessionId,
+    protocolVersion: params.protocolVersion || '2025-03-26',
+    clientName: params.clientInfo?.name,
+    hasBearer: !!bearerToken
+  }, context);
 
   // Return initialize response with session ID in header
   return {
@@ -149,9 +163,9 @@ function handleInitialized(sessionId, context) {
     const session = sessions.get(sessionId);
     session.initialized = true;
     sessions.set(sessionId, session);
-    context.log(`Session initialized: ${sessionId}`);
+    Logger.info('MCP session initialized', { sessionId }, context);
   } else {
-    context.warn(`Initialized notification for unknown session: ${sessionId}`);
+    Logger.warn('Initialized notification for unknown session', { sessionId }, context);
   }
 }
 
@@ -169,7 +183,11 @@ function handleToolsList(sessionId, id, context) {
     );
   }
 
-  context.log(`Listing tools for session: ${sessionId || 'none'}`);
+  const toolsList = getAllDefinitions();
+  Logger.info('MCP tools list requested', {
+    sessionId: sessionId || 'none',
+    toolsCount: toolsList.length
+  }, context);
 
   return {
     status: 200,
@@ -179,7 +197,7 @@ function handleToolsList(sessionId, id, context) {
     jsonBody: {
       jsonrpc: '2.0',
       result: {
-        tools: getAllDefinitions()
+        tools: toolsList
       },
       id
     }
@@ -225,7 +243,11 @@ async function handleToolsCall(sessionId, params, id, context) {
   const toolName = params.name;
   const toolArguments = params.arguments || {};
 
-  context.log(`Calling tool: ${toolName}`);
+  Logger.info('MCP tool call started', {
+    sessionId,
+    toolName,
+    arguments: toolArguments
+  }, context);
 
   // Create context for tool execution
   const toolContext = {
@@ -241,9 +263,12 @@ async function handleToolsCall(sessionId, params, id, context) {
     const timing = result._meta?.timing;
     delete result._meta;
 
-    if (timing) {
-      context.log(`Tool ${toolName} completed in ${timing}ms`);
-    }
+    Logger.info('MCP tool call completed', {
+      sessionId,
+      toolName,
+      timing: timing ? `${timing}ms` : 'unknown',
+      success: true
+    }, context);
 
     return {
       status: 200,
@@ -261,7 +286,13 @@ async function handleToolsCall(sessionId, params, id, context) {
     // Tool returned MCP-formatted error
     if (error.code && error.message) {
       const timing = error.data?._timing;
-      context.warn(`Tool ${toolName} failed in ${timing}ms: ${error.message}`);
+      Logger.warn('MCP tool call failed', {
+        sessionId,
+        toolName,
+        timing: timing ? `${timing}ms` : 'unknown',
+        errorCode: error.code,
+        errorMessage: error.message
+      }, context);
 
       return createJsonRpcErrorResponse(
         id,
@@ -272,7 +303,12 @@ async function handleToolsCall(sessionId, params, id, context) {
     }
 
     // Unexpected error
-    context.error(`Tool ${toolName} unexpected error:`, error);
+    Logger.error('MCP tool call unexpected error', {
+      sessionId,
+      toolName,
+      error: error.message,
+      stack: error.stack
+    }, context);
     return createJsonRpcErrorResponse(
       id,
       -32603,
