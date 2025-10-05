@@ -2,7 +2,6 @@ import { app } from '@azure/functions';
 import { getContent, updateContent } from '../modules/DaliveClient.js';
 import { generateEdit } from '../modules/LlmClient.js';
 import { buildPrompt } from '../modules/PromptBuilder.js';
-import { validate } from '../modules/ResponseValidator.js';
 import { generateRequestId, logPhase } from '../modules/Logger.js';
 
 /**
@@ -77,13 +76,13 @@ app.http('EditContent', {
       // Log request phase
       logPhase(requestId, 'request', { command, path, metadata }, null, 'success');
 
-      // PHASE 1: Fetch content from da.live
+      // PHASE 1: Fetch HTML content from da.live
       const daliveFetchStart = Date.now();
       let pageContent;
       try {
         pageContent = await getContent(path, bearerToken);
         timing.dalive_fetch = Date.now() - daliveFetchStart;
-        logPhase(requestId, 'dalive_fetch', { blocks: pageContent.blocks, blockCount: pageContent.blocks?.length }, timing.dalive_fetch, 'success');
+        logPhase(requestId, 'dalive_fetch', { htmlLength: pageContent.html?.length }, timing.dalive_fetch, 'success');
       } catch (error) {
         timing.dalive_fetch = Date.now() - daliveFetchStart;
         logPhase(requestId, 'dalive_fetch', { error: error.message }, timing.dalive_fetch, 'error');
@@ -106,8 +105,8 @@ app.http('EditContent', {
         };
       }
 
-      // PHASE 2: Build LLM prompt
-      const llmPrompt = buildPrompt(command, pageContent);
+      // PHASE 2: Build LLM prompt with HTML content
+      const llmPrompt = buildPrompt(command, pageContent.html, path);
 
       // PHASE 3: Call LLM API
       const llmCallStart = Date.now();
@@ -134,48 +133,13 @@ app.http('EditContent', {
         };
       }
 
-      // PHASE 4: Validate LLM response
-      const validationStart = Date.now();
-      const validationResult = validate(llmResponse, pageContent);
-      timing.validation = Date.now() - validationStart;
-      logPhase(requestId, 'validation', { valid: validationResult.valid, errors: validationResult.errors }, timing.validation, validationResult.valid ? 'success' : 'error');
-
-      if (!validationResult.valid) {
-        return {
-          status: 422,
-          jsonBody: {
-            requestId,
-            error: 'Validation failed',
-            validationErrors: validationResult.errors,
-            llmResponse
-          }
-        };
-      }
-
-      // PHASE 5: Merge blocks (edited + unchanged)
-      const originalBlocksMap = new Map(pageContent.blocks.map((b) => [b.id, b]));
-      const mergedBlocks = [];
-
-      // Add all edited blocks
-      for (const editedBlock of llmResponse.editedBlocks) {
-        mergedBlocks.push(editedBlock);
-        originalBlocksMap.delete(editedBlock.id);
-      }
-
-      // Add unchanged blocks (in original order)
-      for (const block of pageContent.blocks) {
-        if (originalBlocksMap.has(block.id)) {
-          mergedBlocks.push(block);
-        }
-      }
-
-      // PHASE 6: Update content in da.live
+      // PHASE 4: Update content in da.live with edited HTML
       const daliveUpdateStart = Date.now();
       try {
-        await updateContent(path, mergedBlocks, bearerToken);
+        await updateContent(path, llmResponse.editedHtml, bearerToken);
         timing.dalive_update = Date.now() - daliveUpdateStart;
         logPhase(requestId, 'dalive_update', {
-          updatedBlockIds: llmResponse.editedBlocks.map((b) => b.id),
+          htmlLength: llmResponse.editedHtml?.length,
           success: true
         }, timing.dalive_update, 'success');
       } catch (error) {
@@ -198,7 +162,7 @@ app.http('EditContent', {
       // Log response phase
       logPhase(requestId, 'response', {
         statusCode: 200,
-        editedBlockCount: llmResponse.editedBlocks.length
+        htmlLength: llmResponse.editedHtml?.length
       }, null, 'success');
 
       // Return success response
@@ -206,8 +170,7 @@ app.http('EditContent', {
         status: 200,
         jsonBody: {
           requestId,
-          editedBlocks: llmResponse.editedBlocks,
-          unchangedBlocks: llmResponse.unchangedBlocks,
+          editedHtmlLength: llmResponse.editedHtml?.length,
           explanation: llmResponse.explanation,
           reasoning: llmResponse.reasoning,
           timing

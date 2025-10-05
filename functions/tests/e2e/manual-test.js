@@ -52,11 +52,9 @@ async function runTests() {
         },
       }
     );
-    console.log(`   ✅ Retrieved ${getResponse.data.blocks.length} blocks`);
+    console.log(`   ✅ Retrieved HTML from ${getResponse.data.path}`);
+    console.log(`   HTML length: ${getResponse.data.html?.length || 0} characters`);
     console.log(`   Duration: ${getResponse.data.duration}ms`);
-    if (getResponse.data.blocks.length > 0) {
-      console.log(`   First block: ${getResponse.data.blocks[0].type} (${getResponse.data.blocks[0].id})`);
-    }
     console.log('');
 
     // Step 3: EditContent
@@ -79,25 +77,15 @@ async function runTests() {
 
     console.log(`   ✅ Edit completed!`);
     console.log(`   Request ID: ${editResponse.data.requestId}`);
-    console.log(`   Edited blocks: ${editResponse.data.editedBlocks.length}`);
-    console.log(`   Unchanged blocks: ${editResponse.data.unchangedBlocks.length}`);
+    console.log(`   Edited HTML length: ${editResponse.data.editedHtmlLength} characters`);
     console.log(`   Explanation: ${editResponse.data.explanation}`);
+    console.log(`   Reasoning: ${editResponse.data.reasoning}`);
     console.log('');
     console.log('   ⏱️  Timing breakdown:');
     console.log(`      Total: ${editResponse.data.timing.total}ms`);
     console.log(`      - da.live fetch: ${editResponse.data.timing.dalive_fetch}ms`);
     console.log(`      - LLM call: ${editResponse.data.timing.llm_call}ms`);
-    console.log(`      - Validation: ${editResponse.data.timing.validation}ms`);
     console.log(`      - da.live update: ${editResponse.data.timing.dalive_update}ms`);
-    console.log('');
-
-    if (editResponse.data.editedBlocks.length > 0) {
-      console.log('   📝 Edited blocks:');
-      editResponse.data.editedBlocks.forEach(block => {
-        console.log(`      - ${block.type}:${block.id}`);
-        console.log(`        Change: ${block.changeDescription}`);
-      });
-    }
 
     console.log('');
     console.log('✅ All tests passed!');

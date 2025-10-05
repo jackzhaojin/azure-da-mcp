@@ -1,5 +1,6 @@
 # VS Code workspace files
 *.code-workspace
+local-only
 
 
 # AI files

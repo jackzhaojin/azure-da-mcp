@@ -10,7 +10,7 @@ const REQUEST_TIMEOUT_MS = 15000;
 /**
  * Generate content edit using Anthropic Claude API
  * @param {Object} prompt - Complete LLM prompt with all sections
- * @returns {Promise<Object>} LLM response with edited blocks, explanation, reasoning, and token usage
+ * @returns {Promise<Object>} LLM response with edited HTML, explanation, reasoning, and token usage
  * @throws {Error} On API failure or timeout
  */
 export async function generateEdit(prompt) {
@@ -32,7 +32,6 @@ export async function generateEdit(prompt) {
 
 Command: ${prompt.userCommand}
 
-Page Context:
 ${prompt.pageContext}
 
 Guidelines:
@@ -56,8 +55,7 @@ ${prompt.editingGuidelines}`
       const llmResponse = JSON.parse(responseText);
 
       return {
-        editedBlocks: llmResponse.editedBlocks || [],
-        unchangedBlocks: llmResponse.unchangedBlocks || [],
+        editedHtml: llmResponse.editedHtml || '',
         explanation: llmResponse.explanation || '',
         reasoning: llmResponse.reasoning || '',
         tokenUsage: {

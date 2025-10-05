@@ -13,21 +13,12 @@ const INITIAL_BACKOFF_MS = 1000;
  */
 export async function getContent(path, bearerToken) {
   try {
-    const url = `${DALIVE_API_URL}/api${path}`;
-    console.log('🔍 DaliveClient.getContent calling:', url);
-    console.log('   Token length:', bearerToken?.length, 'chars');
-
-    const response = await axios.get(url, {
+    const response = await axios.get(`${DALIVE_API_URL}/api${path}`, {
       headers: {
         'Authorization': `Bearer ${bearerToken}`
       },
       timeout: 5000
     });
-
-    console.log('✅ da.live response status:', response.status);
-    console.log('   Content-Type:', response.headers['content-type']);
-    console.log('   Data type:', typeof response.data);
-    console.log('   Data length:', response.data?.length);
 
     // da.live returns HTML string, wrap it in expected structure
     return {
@@ -55,23 +46,23 @@ export async function getContent(path, bearerToken) {
  * Update page content in da.live Admin API
  * Implements retry logic for 500-level errors with exponential backoff
  * @param {string} path - da.live page path
- * @param {Array} blocks - Updated content blocks
+ * @param {string} html - Updated HTML content
  * @param {string} bearerToken - Authentication Bearer token
  * @returns {Promise<Object>} Update response
  * @throws {Error} After max retries or on non-retryable errors
  */
-export async function updateContent(path, blocks, bearerToken) {
+export async function updateContent(path, html, bearerToken) {
   let lastError;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const response = await axios.post(
         `${DALIVE_API_URL}/api${path}`,
-        { blocks },
+        html,
         {
           headers: {
             'Authorization': `Bearer ${bearerToken}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'text/html'
           },
           timeout: 5000
         }
