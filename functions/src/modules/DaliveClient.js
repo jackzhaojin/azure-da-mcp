@@ -13,14 +13,29 @@ const INITIAL_BACKOFF_MS = 1000;
  */
 export async function getContent(path, bearerToken) {
   try {
-    const response = await axios.get(`${DALIVE_API_URL}/api${path}`, {
+    const url = `${DALIVE_API_URL}/api${path}`;
+    console.log('🔍 DaliveClient.getContent calling:', url);
+    console.log('   Token length:', bearerToken?.length, 'chars');
+
+    const response = await axios.get(url, {
       headers: {
         'Authorization': `Bearer ${bearerToken}`
       },
       timeout: 5000
     });
 
-    return response.data;
+    console.log('✅ da.live response status:', response.status);
+    console.log('   Content-Type:', response.headers['content-type']);
+    console.log('   Data type:', typeof response.data);
+    console.log('   Data length:', response.data?.length);
+
+    // da.live returns HTML string, wrap it in expected structure
+    return {
+      path,
+      html: response.data,
+      blocks: [], // Will be parsed from HTML by LLM if needed
+      metadata: {}
+    };
   } catch (error) {
     if (error.response) {
       const status = error.response.status;
