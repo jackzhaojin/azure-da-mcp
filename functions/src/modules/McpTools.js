@@ -196,7 +196,7 @@ export async function save_dalive_content(params, context) {
     const bearerToken = context.bearerToken;
 
     // Call DaliveClient to save content
-    await DaliveClient.updateContent(path, htmlContent, bearerToken);
+    const daliveResponse = await DaliveClient.updateContent(path, htmlContent, bearerToken);
 
     const duration = Date.now() - startTime;
 
@@ -204,15 +204,31 @@ export async function save_dalive_content(params, context) {
       success: true,
       path: path,
       timestamp: new Date().toISOString(),
-      contentLength: contentSizeBytes
+      contentLength: contentSizeBytes,
+      // Include URLs from da.live response for client to use
+      urls: {
+        editUrl: daliveResponse?.source?.editUrl,
+        contentUrl: daliveResponse?.source?.contentUrl,
+        previewUrl: daliveResponse?.acm?.previewUrl,
+        liveUrl: daliveResponse?.acm?.liveUrl
+      }
     };
+
+    // Build URL text (only include URLs that exist)
+    const urlParts = [];
+    if (resultData.urls.editUrl) urlParts.push(`- Edit: ${resultData.urls.editUrl}`);
+    if (resultData.urls.contentUrl) urlParts.push(`- Content: ${resultData.urls.contentUrl}`);
+    if (resultData.urls.previewUrl) urlParts.push(`- Preview: ${resultData.urls.previewUrl}`);
+    if (resultData.urls.liveUrl) urlParts.push(`- Live: ${resultData.urls.liveUrl}`);
+
+    const urlText = urlParts.length > 0 ? `\n\nURLs:\n${urlParts.join('\n')}` : '';
 
     // Return structured content with brief text summary for compatibility
     return {
       content: [
         {
           type: 'text',
-          text: `Saved ${contentSizeBytes} characters to ${path}`
+          text: `Saved ${contentSizeBytes} characters to ${path}${urlText}`
         }
       ],
       structuredContent: resultData,
@@ -348,9 +364,31 @@ export const TOOL_DEFINITIONS = [
         contentLength: {
           type: 'integer',
           description: 'Length of saved HTML content in characters'
+        },
+        urls: {
+          type: 'object',
+          description: 'URLs returned by da.live for accessing the saved content',
+          properties: {
+            editUrl: {
+              type: 'string',
+              description: 'Edit URL for the content in da.live'
+            },
+            contentUrl: {
+              type: 'string',
+              description: 'Direct content URL for CDN access'
+            },
+            previewUrl: {
+              type: 'string',
+              description: 'Preview URL for the content (if available)'
+            },
+            liveUrl: {
+              type: 'string',
+              description: 'Live published URL (if available)'
+            }
+          }
         }
       },
-      required: ['success', 'path', 'timestamp', 'contentLength']
+      required: ['success', 'path', 'timestamp', 'contentLength', 'urls']
     }
   }
 ];
