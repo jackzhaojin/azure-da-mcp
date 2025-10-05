@@ -23,18 +23,26 @@ const BEARER_TOKEN = process.env.DALIVE_BEARER_TOKEN;
 const TEST_PATH = '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html';
 
 // Generate current timestamp for verification
-const currentDate = new Date().toLocaleDateString('en-US', {
+const now = new Date();
+const currentDate = now.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
   day: 'numeric'
 });
+const currentTime = now.toLocaleTimeString('en-US', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true
+});
+const fullTimestamp = `${currentDate} at ${currentTime}`;
 
-const TEST_COMMAND = `Add a paragraph at the bottom of the page with the text "Today's date: ${currentDate}"`;
+const TEST_COMMAND = `Add a paragraph at the bottom of the page with the text "Current timestamp: ${fullTimestamp}"`;
 
-console.log('🧪 E2E Test: Add Paragraph with Current Date');
+console.log('🧪 E2E Test: Add Paragraph with Current Date and Time');
 console.log(`   Server: ${FUNCTIONS_BASE_URL}`);
 console.log(`   Path: ${TEST_PATH}`);
-console.log(`   Date: ${currentDate}`);
+console.log(`   Timestamp: ${fullTimestamp}`);
 console.log('');
 
 async function testHeroWithTimestamp() {
@@ -123,19 +131,21 @@ async function testHeroWithTimestamp() {
 
     const savedHtml = getResponse.data.html;
 
-    // Check for date in content
-    const hasDate = savedHtml.includes(currentDate) || savedHtml.includes("Today's date");
+    // Check for timestamp in content
+    const hasTimestamp = savedHtml.includes(currentDate) ||
+                         savedHtml.includes("Current timestamp") ||
+                         savedHtml.includes(currentTime);
 
     console.log(`   ✅ Content fetched: ${savedHtml.length} characters`);
-    console.log(`   ${hasDate ? '✅' : '⚠️'} Date or date text found: ${hasDate}`);
+    console.log(`   ${hasTimestamp ? '✅' : '⚠️'} Timestamp found: ${hasTimestamp}`);
     console.log('');
 
-    if (!hasDate) {
-      console.warn('   ⚠️  Warning: Date not found in saved HTML');
+    if (!hasTimestamp) {
+      console.warn('   ⚠️  Warning: Timestamp not found in saved HTML');
       console.warn('   LLM may have reformatted the content');
     }
 
-    console.log('✅ Paragraph with Date E2E test PASSED!');
+    console.log('✅ Paragraph with Timestamp E2E test PASSED!');
     console.log('');
 
     console.log('📊 Test Summary:');

@@ -115,7 +115,7 @@ async function testSaveContentTool() {
       throw new Error(`Failed to fetch content: ${getResponse.data.error.message}`);
     }
 
-    const originalHtml = getResponse.data.result.htmlContent;
+    const originalHtml = getResponse.data.result.structuredContent.htmlContent;
     console.log(`   ✅ Fetched ${originalHtml.length} bytes of HTML`);
     console.log('');
 
@@ -165,34 +165,45 @@ async function testSaveContentTool() {
       throw new Error('No result in tool call response');
     }
 
-    // Validate result fields per contract
-    if (typeof result.success !== 'boolean') {
-      throw new Error('Missing or invalid success field in result');
+    // Validate MCP response structure (content array + structuredContent)
+    if (!result.content || !Array.isArray(result.content)) {
+      throw new Error('Missing content array in result');
     }
-    if (!result.success) {
+    if (!result.structuredContent) {
+      throw new Error('Missing structuredContent in result');
+    }
+
+    const data = result.structuredContent;
+
+    // Validate structured content fields per contract
+    if (typeof data.success !== 'boolean') {
+      throw new Error('Missing or invalid success field in structuredContent');
+    }
+    if (!data.success) {
       throw new Error('Save operation reported failure');
     }
-    if (!result.path) {
-      throw new Error('Missing path in result');
+    if (!data.path) {
+      throw new Error('Missing path in structuredContent');
     }
-    if (!result.timestamp) {
-      throw new Error('Missing timestamp in result');
+    if (!data.timestamp) {
+      throw new Error('Missing timestamp in structuredContent');
     }
-    if (typeof result.contentLength !== 'number') {
-      throw new Error('Missing or invalid contentLength in result');
+    if (typeof data.contentLength !== 'number') {
+      throw new Error('Missing or invalid contentLength in structuredContent');
     }
 
     console.log(`   ✅ Tool call successful!`);
-    console.log(`   Success: ${result.success}`);
-    console.log(`   Path: ${result.path}`);
-    console.log(`   Content length: ${result.contentLength} bytes`);
-    console.log(`   Timestamp: ${result.timestamp}`);
+    console.log(`   Success: ${data.success}`);
+    console.log(`   Path: ${data.path}`);
+    console.log(`   Content length: ${data.contentLength} bytes`);
+    console.log(`   Timestamp: ${data.timestamp}`);
+    console.log(`   Content summary: ${result.content[0].text}`);
     console.log(`   Duration: ${duration}ms`);
     console.log('');
 
     // Verify path matches
-    if (result.path !== TEST_PATH) {
-      throw new Error(`Path mismatch: expected ${TEST_PATH}, got ${result.path}`);
+    if (data.path !== TEST_PATH) {
+      throw new Error(`Path mismatch: expected ${TEST_PATH}, got ${data.path}`);
     }
 
     // Step 5: Verify the save by fetching again
@@ -223,7 +234,7 @@ async function testSaveContentTool() {
       throw new Error(`Failed to verify: ${verifyResponse.data.error.message}`);
     }
 
-    const verifiedHtml = verifyResponse.data.result.htmlContent;
+    const verifiedHtml = verifyResponse.data.result.structuredContent.htmlContent;
     if (!verifiedHtml.includes(`<!-- MCP E2E Test: ${timestamp} -->`)) {
       throw new Error('Saved content does not include test marker - save may have failed');
     }
