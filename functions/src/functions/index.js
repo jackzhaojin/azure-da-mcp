@@ -1,10 +1,11 @@
 /**
  * Azure Functions Entry Point
  *
- * This file exports all HTTP-triggered functions for Azure Functions v4 programming model.
+ * This file imports all HTTP-triggered functions for Azure Functions v4 programming model.
+ * Each function self-registers with the app when imported.
  */
 
-export { app as HealthCheck } from './HealthCheckFunction.js';
-export { app as GetContent } from './GetContentFunction.js';
-export { app as EditContent } from './EditContentFunction.js';
-export { app as McpSession } from './McpSessionFunction.js';
+import './HealthCheckFunction.js';
+import './GetContentFunction.js';
+import './EditContentFunction.js';
+import './McpSessionFunction.js';
