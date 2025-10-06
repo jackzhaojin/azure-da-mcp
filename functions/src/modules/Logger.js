@@ -90,15 +90,17 @@ function log(level, message, metadata = {}, context = null) {
   if (context?.log) {
     const logMessage = `[${level}] ${message} ${JSON.stringify(metadata)}`;
 
+    // Azure Functions v4 only has: context.log(), context.log.warn(), context.log.verbose()
+    // No context.log.info() or context.log.error()
     switch (level) {
       case 'ERROR':
-        context.log.error(logMessage);
+        context.log(logMessage); // Use plain context.log for errors
         break;
       case 'WARN':
         context.log.warn(logMessage);
         break;
       case 'INFO':
-        context.log.info(logMessage);
+        context.log(logMessage);
         break;
       case 'DEBUG':
         context.log.verbose(logMessage);

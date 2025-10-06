@@ -11,6 +11,7 @@ import {
   validateHtmlContent,
   validateBearerToken
 } from '../utils/validator.js';
+import { normalizePath } from '../../modules/PathNormalizer.js';
 import requestSchema from '../schemas/save-content-request.schema.json' assert { type: 'json' };
 
 /**
@@ -28,13 +29,16 @@ export async function execute(params, context) {
   try {
     // Validate inputs
     validateRequiredParams(params, ['path', 'htmlContent']);
-    validatePath(params.path);
     const contentSizeBytes = validateHtmlContent(params.htmlContent);
     validateBearerToken(context);
 
+    // Normalize path (accepts multiple URL formats)
+    const normalizedPath = normalizePath(params.path);
+    validatePath(normalizedPath);
+
     // Save content to da.live
     const daliveResponse = await DaliveClient.updateContent(
-      params.path,
+      normalizedPath,
       params.htmlContent,
       context.bearerToken
     );
@@ -44,7 +48,8 @@ export async function execute(params, context) {
     // Build response data
     const responseData = {
       success: true,
-      path: params.path,
+      path: normalizedPath,
+      originalPath: params.path,
       timestamp: new Date().toISOString(),
       contentLength: contentSizeBytes,
       urls: {

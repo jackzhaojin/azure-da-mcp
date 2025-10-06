@@ -6,6 +6,7 @@
 import * as DaliveClient from '../../modules/DaliveClient.js';
 import { createSuccessResponse, createErrorResponse, ErrorCodes } from '../utils/response-builder.js';
 import { validateRequiredParams, validatePath, validateBearerToken } from '../utils/validator.js';
+import { normalizePath } from '../../modules/PathNormalizer.js';
 import requestSchema from '../schemas/get-content-request.schema.json' assert { type: 'json' };
 
 /**
@@ -22,17 +23,21 @@ export async function execute(params, context) {
   try {
     // Validate inputs
     validateRequiredParams(params, ['path']);
-    validatePath(params.path);
     validateBearerToken(context);
 
+    // Normalize path (accepts multiple URL formats)
+    const normalizedPath = normalizePath(params.path);
+    validatePath(normalizedPath);
+
     // Fetch content from da.live
-    const content = await DaliveClient.getContent(params.path, context.bearerToken);
+    const content = await DaliveClient.getContent(normalizedPath, context.bearerToken);
 
     // Build response data
     const responseData = {
       htmlContent: content.html,
       lastModified: new Date().toISOString(),
-      path: params.path,
+      path: normalizedPath,
+      originalPath: params.path,
       contentLength: content.html.length
     };
 

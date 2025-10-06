@@ -200,7 +200,7 @@ app.http('EditContent', {
       timing.total = Date.now() - overallStartTime;
 
       // Log response phase
-      logPhase(requestId, 'response', {
+      Logger.logPhase(requestId, 'response', {
         statusCode: 200,
         htmlLength: llmResponse.editedHtml?.length,
         mcpToolCallsCount: llmResponse.mcpToolCalls?.length || 0
