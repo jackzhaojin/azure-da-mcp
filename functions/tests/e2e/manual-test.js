@@ -59,7 +59,7 @@ async function runTests() {
 
     // Step 3: EditContent
     console.log('3️⃣  Testing EditContent (This will make REAL API calls!)...');
-    console.log('   ⏳ This may take 5-10 seconds...');
+    console.log('   ⏳ This may take 20-40 seconds...');
     const editResponse = await axios.post(
       `${FUNCTIONS_BASE_URL}/api/EditContent`,
       {
@@ -71,7 +71,7 @@ async function runTests() {
           Authorization: `Bearer ${BEARER_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        timeout: 30000,
+        timeout: 60000,
       }
     );
 
