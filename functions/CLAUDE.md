@@ -72,12 +72,14 @@ functions/
 │       ├── PromptBuilder.js         # MCP-aware prompts
 │       └── Logger.js                # Request logging
 └── tests/
+    ├── adhoc/               # Quick standalone tests (no test harness)
+    │   └── test-prompt-array.js     # Verify prompt format conversion
     └── e2e/                 # End-to-end tests with real APIs
         ├── backward-compat.test.js  # Verify no regressions
         ├── mcp-session.test.js      # MCP protocol
         ├── mcp-get-content.test.js  # get_dalive_content tool
         ├── mcp-save-content.test.js # save_dalive_content tool
-        └── mcp-integration.test.js  # Full LLM+MCP workflow
+        └── mcp-hero-timestamp.test.js  # Full LLM+MCP workflow
 ```
 
 ## Development
@@ -203,13 +205,18 @@ Claude Desktop requires stdio transport (stdin/stdout), but our MCP server runs 
 
 **Real tests only**: No mocks, no stubs. If it doesn't test actual behavior with real APIs, delete it.
 
+**Two types of tests**:
+1. **Ad-hoc tests** (`tests/adhoc/`) - Quick standalone tests for specific modules, no test harness
+2. **E2E tests** (`tests/e2e/`) - Full workflow tests with real APIs using Jest
+
 ```bash
-# Run all MCP E2E tests
+# Ad-hoc tests (fast, focused, no dependencies)
+node tests/adhoc/test-prompt-array.js   # Verify prompt format conversion
+
+# E2E tests (comprehensive, real APIs)
+npm test                                # Run all E2E tests with Jest
 node tests/e2e/backward-compat.test.js  # Verify no regressions
-node tests/e2e/mcp-session.test.js      # MCP protocol negotiation
-node tests/e2e/mcp-get-content.test.js  # get_dalive_content tool
-node tests/e2e/mcp-save-content.test.js # save_dalive_content tool
-node tests/e2e/mcp-integration.test.js  # Full LLM+MCP workflow (~30s)
+node tests/e2e/mcp-hero-timestamp.test.js  # Full LLM+MCP workflow (~30s)
 ```
 
 ## API Endpoints
@@ -412,15 +419,16 @@ npm start
 
 ## What We Removed
 
-- ❌ Unit tests (mocking doesn't test real behavior)
-- ❌ Integration tests (fake APIs don't validate)
+- ❌ Traditional unit tests with mocks (mocking doesn't test real behavior)
+- ❌ Integration tests with stubs (fake APIs don't validate)
 - ❌ Contract tests (APIs change, tests lie)
 - ❌ ResponseValidator (complexity without value)
 - ❌ Block-based architecture (da.live uses HTML)
 
 ## What We Kept
 
-- ✅ E2E tests with real APIs
+- ✅ E2E tests with real APIs (validates actual behavior)
+- ✅ Ad-hoc tests for quick module verification (no mocking overhead)
 - ✅ Simple, direct architecture
 - ✅ Actual error handling from real failures
 - ✅ Clear logging for debugging

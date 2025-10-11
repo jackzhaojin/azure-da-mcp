@@ -101,24 +101,29 @@ azure-da-mcp/
 └── functions/                     # Azure Functions App
     ├── src/
     │   ├── functions/             # HTTP-triggered Azure Functions
-    │   │   ├── GetContentFunction.js
-    │   │   ├── EditContentFunction.js
-    │   │   └── HealthCheckFunction.js
-    │   └── modules/               # Shared reusable modules
-    │       ├── DaliveClient.js
-    │       ├── LlmClient.js
-    │       ├── PromptBuilder.js
-    │       ├── ResponseValidator.js
-    │       └── Logger.js
+    │   │   ├── EditContentFunction.js    # MCP-enabled editing
+    │   │   ├── McpSessionFunction.js     # MCP server endpoint
+    │   │   ├── GetContentFunction.js     # Legacy content fetch
+    │   │   └── HealthCheckFunction.js    # Health check
+    │   ├── modules/               # Shared reusable modules
+    │   │   ├── McpTools.js              # MCP tool implementations
+    │   │   ├── DaliveClient.js          # da.live API client
+    │   │   ├── LlmClient.js             # Anthropic API client
+    │   │   ├── PromptBuilder.js         # Prompt construction
+    │   │   └── Logger.js                # Logging utility
+    │   └── prompts/               # Versioned prompt templates
+    │       └── edit-content/
+    │           └── v1.0.0.json          # Current prompt version
     ├── tests/
-    │   ├── unit/                  # Module unit tests
-    │   ├── integration/           # Function integration tests
-    │   └── contract/              # External API contract tests
+    │   ├── adhoc/                 # Quick standalone tests (no harness)
+    │   │   └── test-prompt-array.js     # Prompt format verification
+    │   └── e2e/                   # End-to-end tests with real APIs
+    │       ├── backward-compat.test.js  # Regression tests
+    │       └── mcp-hero-timestamp.test.js  # MCP integration
     ├── package.json
     ├── host.json                  # Azure Functions config
     ├── local.settings.json        # Environment variables
-    ├── jest.config.js             # Test configuration
-    └── .eslintrc.json             # Code quality config
+    └── jest.config.js             # Test configuration
 ```
 
 ## Prerequisites
@@ -183,25 +188,41 @@ curl http://localhost:7071/api/HealthCheck
 
 ## Testing
 
-### Run All Tests
+### Testing Philosophy
+
+**Real tests only**: No mocks, no stubs. If it doesn't test actual behavior with real APIs, delete it.
+
+### Test Types
+
+1. **Ad-hoc Tests** (`tests/adhoc/`) - Quick standalone tests for specific modules
+   - No test harness (Jest) required
+   - Fast execution
+   - Focused on single module verification
+
+2. **E2E Tests** (`tests/e2e/`) - Full workflow tests with real APIs
+   - Uses Jest test framework
+   - Tests actual behavior with real da.live and Anthropic APIs
+   - Validates complete request/response cycles
+
+### Run Tests
 
 ```bash
-npm test
+# Ad-hoc tests (fast, no dependencies)
+node tests/adhoc/test-prompt-array.js
+
+# E2E tests (comprehensive, real APIs)
+npm test                                # Run all E2E tests
+node tests/e2e/backward-compat.test.js  # Regression tests
+node tests/e2e/mcp-hero-timestamp.test.js  # MCP integration (~30s)
 ```
 
-### Run with Coverage
+### Why This Approach?
 
-```bash
-npm test:coverage
-```
-
-### Test Categories
-
-- **Unit Tests** (`tests/unit/`): 38 tests for modules
-- **Integration Tests** (`tests/integration/`): 21 tests for endpoints
-- **Contract Tests** (`tests/contract/`): ⏳ Pending
-
-**Target:** 80%+ code coverage
+- ❌ **No mocking** - Mocks don't catch real API issues
+- ❌ **No stubs** - Stubs test fake behavior, not reality
+- ✅ **Real APIs** - Catches actual integration problems
+- ✅ **Ad-hoc tests** - Fast verification without overhead
+- ✅ **Simple** - Easy to understand and maintain
 
 ## Development
 
@@ -219,12 +240,13 @@ npm run lint          # Check code quality
 npm run lint:fix      # Auto-fix issues
 ```
 
-### TDD Workflow
+### Development Workflow
 
-Following constitution principle V:
-1. **Red**: Write failing test
-2. **Green**: Implement minimal code to pass
-3. **Refactor**: Clean up while tests pass
+1. **Write ad-hoc test** - Quick verification test in `tests/adhoc/`
+2. **Implement feature** - Build the functionality
+3. **Run ad-hoc test** - Verify module works in isolation
+4. **Add E2E test** - Test with real APIs (if needed)
+5. **Verify** - Run full test suite
 
 ## Logging
 
@@ -402,23 +424,24 @@ All logs include structured metadata for easy querying:
 
 ### Core Modules
 
-- **DaliveClient**: HTTP client for da.live Admin API with retry logic
-- **LlmClient**: Anthropic Claude API integration with rate limit handling
-- **PromptBuilder**: Constructs complete prompts with system instructions
-- **ResponseValidator**: 5-step validation (structure, IDs, schema, hallucinations, brand terms)
-- **Logger**: Request correlation and phase-by-phase tracking
+- **McpTools**: MCP tool implementations (get_dalive_content, save_dalive_content)
+- **DaliveClient**: HTTP client for da.live Admin API with multipart form upload
+- **LlmClient**: Anthropic Claude API with MCP session management
+- **PromptBuilder**: Constructs prompts from versioned templates (supports array format)
+- **PromptLoader**: Loads and caches versioned prompt files
+- **Logger**: Request correlation and structured logging
 
-### Orchestration Flow (EditContent)
+### MCP-Enabled Flow (EditContent)
 
 ```
 1. Extract auth token from request
-2. Fetch content from da.live → PageContent
-3. Build LLM prompt → LlmPrompt
-4. Call Anthropic API → LlmResponse
-5. Validate response → ValidationResult
-6. Merge edited + unchanged blocks
-7. Update da.live with merged blocks
-8. Return success with timing metrics
+2. Initialize MCP session with Bearer token
+3. Build LLM prompt from versioned template
+4. Start LLM conversation with MCP tools
+5. LLM autonomously calls get_dalive_content
+6. LLM generates edited HTML
+7. LLM autonomously calls save_dalive_content
+8. Return explanation + reasoning + timing metrics
 ```
 
 ### Error Handling
@@ -544,8 +567,8 @@ Detailed documentation available in `/specs/001-let-s-build/`:
 
 ## Known Issues
 
-⚠️ **Jest + ES Modules + Nock compatibility issue**
-Tests are correctly written but encounter module linking issues. This is a known compatibility issue with the testing stack. Working on resolution.
+⚠️ **Jest cleanup hanging**
+E2E tests execute successfully but Jest cleanup sometimes hangs. All assertions pass. This is a known Jest issue with ES modules and async operations. Use Ctrl+C to exit after tests complete.
 
 ## Next Steps
 
@@ -562,7 +585,9 @@ Remaining tasks (7/29):
 ## Contributing
 
 This project follows:
-- **TDD principles**: Tests before implementation
+- **Real tests only**: No mocks, no stubs - test with real APIs
+- **Ad-hoc tests**: Quick module verification in `tests/adhoc/`
+- **E2E tests**: Full workflow tests with real APIs in `tests/e2e/`
 - **Constitution principles**: Simplicity, no premature abstractions
 - **ES modules**: `type: "module"` throughout
 - **Azure Functions v4**: Node.js programming model
