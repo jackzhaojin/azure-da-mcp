@@ -117,11 +117,27 @@ export function validateHtmlContent(htmlContent) {
  * @throws {Error} If token is missing
  */
 export function validateBearerToken(context) {
+  console.log('[DEBUG] validateBearerToken - context:', {
+    hasContext: !!context,
+    contextKeys: context ? Object.keys(context) : [],
+    hasBearerToken: !!(context && context.bearerToken),
+    bearerTokenType: context && context.bearerToken ? typeof context.bearerToken : 'undefined',
+    bearerTokenLength: context && context.bearerToken ? context.bearerToken.length : 0,
+    bearerTokenPreview: context && context.bearerToken ? `${context.bearerToken.substring(0, 10)}...` : 'none'
+  });
+
   if (!context || !context.bearerToken) {
     throw createErrorResponse(
       ErrorCodes.AUTH_FAILED,
       'Authentication failed: Bearer token not found in session context',
-      { hint: 'Ensure Bearer token is passed when initializing MCP session' }
+      { 
+        hint: 'Ensure Bearer token is passed when initializing MCP session',
+        debugInfo: {
+          hasContext: !!context,
+          contextKeys: context ? Object.keys(context) : [],
+          contextValues: context || 'no context'
+        }
+      }
     );
   }
 }
