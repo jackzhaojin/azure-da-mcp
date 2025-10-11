@@ -160,6 +160,14 @@ Update `local.settings.json`:
 
 ### 3. Start Server
 
+**Make sure you're using Node 20:**
+
+```bash
+nvm use 20
+```
+
+**Start the server:**
+
 ```bash
 npm start
 # Or: func start
