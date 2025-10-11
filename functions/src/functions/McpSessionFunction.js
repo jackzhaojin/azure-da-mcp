@@ -60,6 +60,9 @@ app.http('McpSession', {
         method,
         sessionId: sessionId || 'new',
         hasBearer: !!bearerToken,
+        authHeader: authHeader ? `${authHeader.substring(0, 20)}...` : 'missing',
+        bearerTokenLength: bearerToken ? bearerToken.length : 0,
+        allHeaders: Object.fromEntries(request.headers.entries()),
         requestId: id
       }, context);
 
@@ -246,7 +249,9 @@ async function handleToolsCall(sessionId, params, id, context) {
   Logger.info('MCP tool call started', {
     sessionId,
     toolName,
-    arguments: toolArguments
+    arguments: toolArguments,
+    sessionHasBearer: !!session.bearerToken,
+    sessionBearerLength: session.bearerToken ? session.bearerToken.length : 0
   }, context);
 
   // Create context for tool execution

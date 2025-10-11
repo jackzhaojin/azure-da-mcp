@@ -8,7 +8,13 @@
       }
     },
     "logLevel": {
-      "default": "Debug"
+      "default": "Debug",
+      "Function": "Debug",
+      "Host.Results": "Debug",
+      "Microsoft": "Debug"
+    },
+    "console": {
+      "isEnabled": true
     }
   },
   "extensionBundle": {
