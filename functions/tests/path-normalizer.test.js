@@ -39,9 +39,49 @@ const testCases = [
     expected: '/source/jackzhaojin/da-live-postal-2025-07/index.html'
   },
   {
-    name: 'Plain path without leading slash',
+    name: 'Plain path without leading slash (with .html)',
     input: 'jackzhaojin/da-live-postal-2025-07/index.html',
     expected: '/source/jackzhaojin/da-live-postal-2025-07/index.html'
+  },
+  {
+    name: 'AEM URL with query parameters (auto-append .html)',
+    input: 'https://main--da-live-postal-2025-07--jackzhaojin.aem.page/index-copy?nocache=1759721659714',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html'
+  },
+  {
+    name: 'Edit URL with hash fragment',
+    input: 'https://da.live/edit#/jackzhaojin/da-live-postal-2025-07/index.html#section',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/index.html'
+  },
+  {
+    name: 'Admin URL with query params and hash',
+    input: 'https://admin.da.live/source/jackzhaojin/da-live-postal-2025-07/index.html?edit=true#top',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/index.html'
+  },
+  {
+    name: 'AEM URL without extension (auto-append .html)',
+    input: 'https://main--da-live-postal-2025-07--jackzhaojin.aem.page/index-copy',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html'
+  },
+  {
+    name: 'Edit URL without extension (auto-append .html)',
+    input: 'https://da.live/edit#/jackzhaojin/da-live-postal-2025-07/index-copy',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html'
+  },
+  {
+    name: 'Plain path without extension (auto-append .html)',
+    input: 'jackzhaojin/da-live-postal-2025-07/index-copy',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/index-copy.html'
+  },
+  {
+    name: 'Path with .json extension (no auto-append)',
+    input: 'jackzhaojin/da-live-postal-2025-07/data.json',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/data.json'
+  },
+  {
+    name: 'Directory path ending with / (no auto-append)',
+    input: 'jackzhaojin/da-live-postal-2025-07/',
+    expected: '/source/jackzhaojin/da-live-postal-2025-07/'
   }
 ];
 
