@@ -17,24 +17,32 @@ export function buildPrompt(command, html, path, version = 'latest') {
   // Load versioned prompt
   const promptData = loadPrompt('edit-content', version);
 
+  // Helper: convert string or array to string
+  const toString = (value) => Array.isArray(value) ? value.join('\n') : value;
+
   // Replace template variables in context
+  const contextTemplate = toString(promptData.prompts.context_template);
   const pageContext = html
     ? `Page: ${path}\n\nHTML Content:\n${html}`
-    : promptData.prompts.context_template.replace('{{path}}', path);
+    : contextTemplate.replace('{{path}}', path);
+
+  // Convert prompts to strings (handle both string and array formats)
+  const systemInstructions = toString(promptData.prompts.system);
+  const editingGuidelines = toString(promptData.prompts.guidelines);
 
   // Rough token counting (chars / 4)
-  const systemTokens = Math.ceil(promptData.prompts.system.length / 4);
+  const systemTokens = Math.ceil(systemInstructions.length / 4);
   const commandTokens = Math.ceil(command.length / 4);
   const contextTokens = Math.ceil(pageContext.length / 4);
-  const guidelinesTokens = Math.ceil(promptData.prompts.guidelines.length / 4);
+  const guidelinesTokens = Math.ceil(editingGuidelines.length / 4);
   const totalTokens = systemTokens + commandTokens + contextTokens + guidelinesTokens;
 
   return {
     // Prompt content
-    systemInstructions: promptData.prompts.system,
+    systemInstructions,
     userCommand: command,
     pageContext,
-    editingGuidelines: promptData.prompts.guidelines,
+    editingGuidelines,
 
     // Metadata
     promptVersion: promptData.version,
