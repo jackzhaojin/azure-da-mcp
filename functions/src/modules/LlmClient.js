@@ -8,7 +8,7 @@ const MAX_TOKENS = 4096;
 const TEMPERATURE = 0.3;
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 120000; // 120 seconds for Claude API
 const MAX_TOOL_ITERATIONS = 10; // Prevent infinite tool calling loops
 
 /**
