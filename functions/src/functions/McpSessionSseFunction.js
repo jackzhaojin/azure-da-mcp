@@ -14,6 +14,9 @@ import * as Logger from '../modules/Logger.js';
 // In-memory session storage (shared with HTTP POST implementation)
 const sessions = new Map();
 
+// Store active transports per session
+const activeTransports = new Map();
+
 // Session cleanup (24 hour lifetime)
 setInterval(() => {
   const now = Date.now();
@@ -23,10 +26,66 @@ setInterval(() => {
     const sessionAge = now - new Date(session.createdAt).getTime();
     if (sessionAge > MAX_SESSION_AGE_MS) {
       sessions.delete(sessionId);
+      activeTransports.delete(sessionId);
       console.log(`Session expired: ${sessionId}`);
     }
   }
 }, 60 * 60 * 1000);
+
+// Create MCP Server instance ONCE (not per-request)
+// This is initialized at module load time
+const mcpServer = new Server(
+  {
+    name: 'azure-da-mcp-sse',
+    version: '1.0.0'
+  },
+  {
+    capabilities: {
+      tools: {}
+    }
+  }
+);
+
+// Register tool handlers ONCE at module level
+mcpServer.setRequestHandler('tools/list', async () => {
+  const tools = getAllDefinitions();
+  return { tools };
+});
+
+mcpServer.setRequestHandler('tools/call', async (params) => {
+  const toolName = params.name;
+  const toolArguments = params.arguments || {};
+
+  // Get Bearer token from the current context (passed via closure)
+  const bearerToken = currentRequestContext.bearerToken;
+
+  // Get or create session
+  const sessionId = currentRequestContext.sessionId || 'default';
+  let session = sessions.get(sessionId);
+
+  if (!session) {
+    session = {
+      sessionId,
+      bearerToken,
+      createdAt: new Date().toISOString(),
+      initialized: true
+    };
+    sessions.set(sessionId, session);
+  }
+
+  // Execute tool with context
+  const toolContext = {
+    bearerToken: session.bearerToken || bearerToken,
+    sessionId: session.sessionId
+  };
+
+  const result = await executeTool(toolName, toolArguments, toolContext);
+  delete result._meta;
+  return result;
+});
+
+// Store current request context (Bearer token, session ID) for tool handlers
+let currentRequestContext = {};
 
 app.http('McpSessionSse', {
   methods: ['GET', 'POST'],
@@ -43,95 +102,49 @@ app.http('McpSessionSse', {
         bearerToken = process.env.DALIVE_BEARER_TOKEN || null;
       }
 
+      const sessionId = request.headers.get('mcp-session-id') || undefined;
+
       Logger.info('MCP SSE request received', {
         method: request.method,
         hasBearer: !!bearerToken,
+        sessionId: sessionId || 'none',
         headers: Object.fromEntries(request.headers.entries())
       }, context);
 
-      // Create MCP Server instance with tools
-      const server = new Server(
-        {
-          name: 'azure-da-mcp-sse',
-          version: '1.0.0'
-        },
-        {
-          capabilities: {
-            tools: {}
-          }
-        }
-      );
+      // Set current request context for tool handlers to access
+      currentRequestContext = {
+        bearerToken,
+        sessionId,
+        context
+      };
 
-      // Register tool handlers
-      server.setRequestHandler('tools/list', async () => {
-        const tools = getAllDefinitions();
-        Logger.info('SSE: tools/list called', { toolsCount: tools.length }, context);
-        return { tools };
-      });
+      // Get or create transport for this session
+      let transport;
+      const transportKey = sessionId || 'default';
 
-      server.setRequestHandler('tools/call', async (params, extra) => {
-        const toolName = params.name;
-        const toolArguments = params.arguments || {};
+      if (activeTransports.has(transportKey)) {
+        transport = activeTransports.get(transportKey);
+        Logger.info('SSE: Reusing existing transport', {
+          sessionId: transportKey,
+          method: request.method
+        }, context);
+      } else {
+        // Create new transport and connect server to it
+        transport = new StreamableHTTPServerTransport({
+          sessionId
+        });
 
-        Logger.info('SSE: tools/call started', {
-          toolName,
-          arguments: toolArguments,
-          hasBearer: !!bearerToken
+        Logger.info('SSE: Creating new transport and connecting server', {
+          sessionId: transportKey,
+          method: request.method
         }, context);
 
-        // Get or create session context
-        const sessionId = extra?.sessionId || 'default';
-        let session = sessions.get(sessionId);
+        // Connect server to transport (only once per session)
+        await mcpServer.connect(transport);
 
-        if (!session) {
-          session = {
-            sessionId,
-            bearerToken,
-            createdAt: new Date().toISOString(),
-            initialized: true
-          };
-          sessions.set(sessionId, session);
-          Logger.info('SSE: Created new session', { sessionId }, context);
-        }
-
-        // Execute tool with context
-        const toolContext = {
-          bearerToken: session.bearerToken || bearerToken,
-          sessionId: session.sessionId
-        };
-
-        try {
-          const result = await executeTool(toolName, toolArguments, toolContext);
-
-          // Remove internal metadata
-          delete result._meta;
-
-          Logger.info('SSE: tools/call completed', {
-            toolName,
-            success: true
-          }, context);
-
-          return result;
-        } catch (error) {
-          Logger.error('SSE: tools/call failed', {
-            toolName,
-            error: error.message
-          }, context);
-          throw error;
-        }
-      });
-
-      // Create StreamableHTTP transport
-      const transport = new StreamableHTTPServerTransport({
-        sessionId: request.headers.get('mcp-session-id') || undefined
-      });
-
-      Logger.info('SSE: Connecting server to transport', {
-        hasSessionId: !!request.headers.get('mcp-session-id')
-      }, context);
-
-      // Connect server to transport
-      await server.connect(transport);
+        // Store transport for reuse
+        activeTransports.set(transportKey, transport);
+      }
 
       // Handle the HTTP request through the transport
       // Convert Azure Functions request to StreamableHTTP format
