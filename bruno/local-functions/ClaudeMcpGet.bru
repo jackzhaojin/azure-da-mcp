@@ -1,0 +1,98 @@
+meta {
+  name: Claude MCP Get Content
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:7071/api/ClaudeLlmClient
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "prompt": {
+      "systemInstructions": "You are a creative poet who writes haikus. You have access to MCP tools to read content from da.live. Always respond with valid JSON.",
+      "userCommand": "First, use the get_dalive_content tool to read the content from path: /source/jackzhaojin/da-live-postal-2025-07/index-copy.html. Then, write a haiku about today being October 11, 2025 at 09:00 PM. Return your response as JSON with this exact structure: {\"editedHtml\": \"your haiku here\", \"explanation\": \"brief explanation of the haiku and mention what content you found\", \"reasoning\": \"why you chose this imagery\"}",
+      "pageContext": "You should call get_dalive_content with path: /source/jackzhaojin/da-live-postal-2025-07/index-copy.html",
+      "editingGuidelines": "First use the get_dalive_content tool to fetch the content, then be creative with your haiku incorporating the date and time. Return valid JSON only, no markdown code blocks."
+    },
+    "mcpConfig": {
+      "serverUrl": "http://localhost:7071/api/mcp",
+      "bearerToken": "eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5LWF0LTEuY2VyIiwia2lkIjoiaW1zX25hMS1rZXktYXQtMSIsIml0dCI6ImF0In0.eyJpZCI6IjE3NTk2MzI1NzM0NDFfZWFiM2VmYmUtZjRhMy00YzRiLThmYzEtNWFjYmQxNDljMWZlX3VlMSIsInR5cGUiOiJhY2Nlc3NfdG9rZW4iLCJjbGllbnRfaWQiOiJkYXJrYWxsZXkiLCJ1c2VyX2lkIjoiQkNGOTI1NkM1QjdDOEFBOTBBNDk1RUVBQEFkb2JlSUQiLCJzdGF0ZSI6IntcInNlc3Npb25cIjpcImh0dHBzOi8vaW1zLW5hMS5hZG9iZWxvZ2luLmNvbS9pbXMvc2Vzc2lvbi92MS9NalkzWW1Sak5HVXRNekZqTXkwME5HSmpMVGcyT1dZdE1HUmpNbUUzWVdFell6Vm1MUzFDUTBZNU1qVTJRelZDTjBNNFFVRTVNRUUwT1RWRlJVRkFRV1J2WW1WSlJBXCJ9IiwiYXMiOiJpbXMtbmExIiwiYWFfaWQiOiJCQ0Y5MjU2QzVCN0M4QUE5MEE0OTVFRUFAQWRvYmVJRCIsImN0cCI6MCwiZmciOiJaMjdFU0lWV1ZMTTVRRFVLRkFRVklIQUFYND09PT09PSIsInNpZCI6IjE3NTkyODYxNjMyNzFfNDA4ZDE3YzEtMTM4OS00MmYwLThjZTEtN2RmYzk5ZTg2Y2ZkX3VlMSIsIm1vaSI6IjFhNjE0Yjc1IiwicGJhIjoiTWVkU2VjTm9FVixMb3dTZWMiLCJleHBpcmVzX2luIjoiODY0MDAwMDAiLCJzY29wZSI6ImFiLm1hbmFnZSxBZG9iZUlELGduYXYsb3BlbmlkLG9yZy5yZWFkLHJlYWRfb3JnYW5pemF0aW9ucyxzZXNzaW9uLGFlbS5mcm9udGVuZC5hbGwsYWRkaXRpb25hbF9pbmZvLm93bmVyT3JnLGFkZGl0aW9uYWxfaW5mby5wcm9qZWN0ZWRQcm9kdWN0Q29udGV4dCxhY2NvdW50X2NsdXN0ZXIucmVhZCIsImNyZWF0ZWRfYXQiOiIxNzU5NjMyNTczNDQxIn0.HKLIfUpwOmsrSWMuLz5AOdxxtemeX9O8t9X_IAfcDxOPPS3qZ-H-wem6VAYQRd4f0g0PHWd3a1OSIN5znlVYk1adE5ylPcBSEtRJVv59YIJzGEP8r89EegtNZLaPgUMqvVMg8YzlXqqUp81Cq6MqlE_wY_VtPGC-9xuT5RWF57-05tITkkQcjeBqWt4McwjK1qGJtyY_FsFoXLCy4GUw5zIhURwVo1xJMbM5rJBLakviiwvcdF3f9YktvUGXhgRBmHWpIedgEsXc5Ixy36y9CcAye-KDRZyh8ATAcANQwbQl3W2UfrMlPY3bOnAd_FLgWUcl1d5Ni6QUewaIAjbGAA"
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.editedHtml: isDefined
+  res.body.explanation: isDefined
+  res.body.reasoning: isDefined
+  res.body.tokenUsage: isDefined
+  res.body.mcpToolCalls: isDefined
+}
+
+tests {
+  test("Response has haiku", function() {
+    expect(res.body.editedHtml).to.be.a('string');
+    expect(res.body.editedHtml.length).to.be.greaterThan(0);
+  });
+
+  test("MCP tools were called", function() {
+    expect(res.body.mcpToolCalls).to.be.an('array');
+    expect(res.body.mcpToolCalls.length).to.be.greaterThan(0);
+  });
+
+  test("get_dalive_content was called", function() {
+    const toolNames = res.body.mcpToolCalls.map(call => call.toolName);
+    expect(toolNames).to.include('get_dalive_content');
+  });
+
+  test("Tool call completed successfully", function() {
+    const getContentCall = res.body.mcpToolCalls.find(c => c.toolName === 'get_dalive_content');
+    expect(getContentCall).to.exist;
+    expect(getContentCall.status).to.equal('completed');
+  });
+
+  test("Token usage information is present", function() {
+    expect(res.body.tokenUsage).to.have.property('inputTokens');
+    expect(res.body.tokenUsage).to.have.property('outputTokens');
+  });
+
+  test("LLM provided explanation mentioning content", function() {
+    expect(res.body.explanation).to.be.a('string');
+    expect(res.body.explanation.length).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  # Claude MCP Get Content - Tool Usage Test
+
+  This endpoint tests Claude's ability to autonomously use MCP tools to fetch content from da.live.
+
+  ## Workflow
+  1. Claude receives prompt instructing it to use get_dalive_content tool
+  2. Claude calls the MCP tool to fetch HTML from da.live
+  3. Claude analyzes the content
+  4. Claude generates a haiku incorporating themes from the content
+
+  ## Request Body
+  - `prompt.systemInstructions`: System prompt explaining tool access
+  - `prompt.userCommand`: Instruction to use tool and create haiku
+  - `prompt.pageContext`: Reminder about which path to fetch
+  - `prompt.editingGuidelines`: Format guidelines
+  - `mcpConfig.serverUrl`: MCP server endpoint
+  - `mcpConfig.bearerToken`: da.live authentication token
+
+  ## Response
+  - `editedHtml`: The generated haiku
+  - `explanation`: LLM's explanation referencing fetched content
+  - `reasoning`: LLM's reasoning for imagery choices
+  - `tokenUsage`: Input and output token counts (higher due to fetched content)
+  - `mcpToolCalls`: Array with get_dalive_content call details
+
+  ## Expected Response Time
+  ~15-20 seconds (multi-turn conversation with tool call)
+}
