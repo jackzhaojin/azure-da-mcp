@@ -381,22 +381,30 @@ async function initializeMcpSession(serverUrl, bearerToken) {
 
   const sessionId = initResponse.headers['mcp-session-id'];
 
-  // Step 2: Send initialized notification
-  await axios.post(
-    serverUrl,
-    {
-      jsonrpc: '2.0',
-      method: 'initialized',
-      params: {}
-    },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${bearerToken}`,
-        'Mcp-Session-Id': sessionId
+  // Step 2: Send initialized notification (best effort - notifications don't require responses)
+  try {
+    await axios.post(
+      serverUrl,
+      {
+        jsonrpc: '2.0',
+        method: 'initialized',
+        params: {}
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${bearerToken}`,
+          'Mcp-Session-Id': sessionId
+        },
+        validateStatus: () => true // Accept any status code for notification
       }
-    }
-  );
+    );
+  } catch (notificationError) {
+    // Ignore notification errors - it's optional per JSON-RPC spec
+    Logger.warn('Initialized notification failed (non-fatal)', {
+      error: notificationError.message
+    });
+  }
 
   return {
     serverUrl,
