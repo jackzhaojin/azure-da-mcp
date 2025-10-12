@@ -1,0 +1,84 @@
+meta {
+  name: Gemini Haiku (Simple)
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:7071/api/GeminiLlmClient
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "prompt": {
+      "systemInstructions": "You are a creative poet who writes haikus. Always respond with valid JSON.",
+      "userCommand": "Write a haiku about today being October 11, 2025 at 09:00 PM. Return your response as JSON with this exact structure: {\"editedHtml\": \"your haiku here\", \"explanation\": \"brief explanation of the haiku\", \"reasoning\": \"why you chose this imagery\"}",
+      "pageContext": "",
+      "editingGuidelines": "Be creative and include the date and time naturally. Return valid JSON only, no markdown code blocks."
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.editedHtml: isDefined
+  res.body.explanation: isDefined
+  res.body.reasoning: isDefined
+  res.body.tokenUsage: isDefined
+}
+
+tests {
+  test("Response has haiku", function() {
+    expect(res.body.editedHtml).to.be.a('string');
+    expect(res.body.editedHtml.length).to.be.greaterThan(0);
+  });
+
+  test("No MCP tools were called", function() {
+    if (res.body.mcpToolCalls) {
+      expect(res.body.mcpToolCalls.length).to.equal(0);
+    }
+  });
+
+  test("Token usage information is present", function() {
+    expect(res.body.tokenUsage).to.have.property('inputTokens');
+    expect(res.body.tokenUsage).to.have.property('outputTokens');
+  });
+
+  test("LLM provided explanation", function() {
+    expect(res.body.explanation).to.be.a('string');
+    expect(res.body.explanation.length).to.be.greaterThan(0);
+  });
+
+  test("LLM provided reasoning", function() {
+    expect(res.body.reasoning).to.be.a('string');
+    expect(res.body.reasoning.length).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  # Gemini Haiku - Simple Test (No MCP Tools)
+
+  This endpoint tests the Gemini LLM client without MCP tool integration.
+
+  ## Purpose
+  Simple haiku generation test to verify Gemini API integration works.
+  Uses Google's Gemini 2.5 Pro model (free tier).
+
+  ## Request Body
+  - `prompt.systemInstructions`: System prompt for the LLM
+  - `prompt.userCommand`: User's request (haiku about specific date/time)
+  - `prompt.pageContext`: Context about the page (empty for simple test)
+  - `prompt.editingGuidelines`: Guidelines for the LLM response format
+
+  ## Response
+  - `editedHtml`: The generated haiku
+  - `explanation`: LLM's explanation of the haiku
+  - `reasoning`: LLM's reasoning for imagery choices
+  - `tokenUsage`: Input and output token counts
+  - `mcpToolCalls`: Should be undefined or empty for simple test
+
+  ## Expected Response Time
+  ~8-12 seconds (single LLM call without tools, Gemini is fast)
+}
