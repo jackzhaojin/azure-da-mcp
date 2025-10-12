@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'functions/**'
+      - '.github/workflows/main_jack-mcp-azure-ai-function.yml'
   workflow_dispatch:
 
 env:
