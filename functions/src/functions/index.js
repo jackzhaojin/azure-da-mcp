@@ -5,7 +5,15 @@
  * Each function self-registers with the app when imported.
  */
 
-import './HealthCheckFunction.js';
-import './GetContentFunction.js';
+// Business Logic Endpoints
 import './EditContentFunction.js';
+
+// Infrastructure LLM Client Endpoints
+import './ClaudeLlmClientFunction.js';
+import './GeminiLlmClientFunction.js';
+import './AzureAIFoundryLlmClientFunction.js';
+
+// Legacy/Support Endpoints
+import './GetContentFunction.js';
+import './HealthCheckFunction.js';
 import './McpSessionFunction.js';
