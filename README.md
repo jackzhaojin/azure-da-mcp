@@ -103,11 +103,11 @@ curl http://localhost:7071/api/HealthCheck
 
 ### Infrastructure Endpoints (Direct LLM Access)
 
-- **POST /api/ClaudeLlmClient** - Direct Claude API with MCP tools
-- **POST /api/GeminiLlmClient** - Direct Gemini API with MCP tools (stubbed)
-- **POST /api/AzureAIFoundryLlmClient** - Direct Azure OpenAI API with MCP tools (stubbed)
+- **POST /api/ClaudeLlmClient** - Direct Claude API with MCP tools ✅
+- **POST /api/GeminiLlmClient** - Direct Gemini API with MCP tools ✅
+- **POST /api/AzureAIFoundryLlmClient** - Direct Azure OpenAI API with MCP tools ✅
 
-These endpoints provide infrastructure-level access to LLM providers for building custom workflows beyond content editing.
+These endpoints provide infrastructure-level access to LLM providers for building custom workflows beyond content editing. All three providers fully implemented and tested.
 
 ## Project Structure
 
