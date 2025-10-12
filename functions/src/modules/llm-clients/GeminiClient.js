@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 import * as Logger from '../Logger.js';
@@ -15,7 +16,7 @@ const MAX_TOOL_ITERATIONS = 10;
  * @param {Object} mcpConfig - MCP configuration
  * @param {string} mcpConfig.serverUrl - MCP server URL
  * @param {string} mcpConfig.bearerToken - da.live Bearer token for MCP session
- * @param {string} model - Gemini model to use (e.g., 'gemini-2.0-flash-exp')
+ * @param {string} model - Gemini model to use (e.g., 'gemini-2.5-pro')
  * @returns {Promise<Object>} LLM response with edited HTML, explanation, reasoning, token usage, and MCP tool calls
  * @throws {Error} On API failure or timeout
  */
@@ -29,46 +30,299 @@ export async function generateWithGemini(prompt, mcpConfig = null, model = null)
   // Use provided model or fall back to environment variable or default
   const geminiModel = model || process.env.GEMINI_MODEL || 'gemini-2.5-pro';
 
-  Logger.info('Gemini API call starting (STUBBED)', {
-    model: geminiModel,
-    hasMcpConfig: !!mcpConfig
-  });
+  const genAI = new GoogleGenerativeAI(apiKey);
 
-  // TODO: Implement Gemini API integration with MCP tool support
-  // The structure should follow:
-  // 1. Initialize MCP session if mcpConfig provided
-  // 2. Define function declarations for Gemini (equivalent to Claude's tools)
-  // 3. Multi-turn conversation loop with function calling
-  // 4. Parse final response and return structured result
-  //
-  // Gemini API documentation:
-  // - Function calling: https://ai.google.dev/gemini-api/docs/function-calling
-  // - Generative AI SDK: https://github.com/google/generative-ai-js
-  //
-  // Example function declaration structure for Gemini:
-  // {
-  //   name: 'get_dalive_content',
-  //   description: 'Fetch HTML content from da.live',
-  //   parameters: {
-  //     type: 'object',
-  //     properties: {
-  //       path: { type: 'string', description: 'da.live content path' }
-  //     },
-  //     required: ['path']
-  //   }
-  // }
+  // Initialize MCP session if config provided
+  let mcpSession = null;
+  if (mcpConfig && mcpConfig.serverUrl) {
+    mcpSession = await initializeMcpSession(mcpConfig.serverUrl, mcpConfig.bearerToken);
+  }
 
-  throw new Error(`Gemini integration not yet implemented. Please use 'claude' provider or implement Gemini client at: /functions/src/modules/llm-clients/GeminiClient.js
+  // Define function declarations for Gemini (equivalent to Claude's tools)
+  const tools = mcpSession ? [
+    {
+      functionDeclarations: [
+        {
+          name: 'get_dalive_content',
+          description: 'Fetch HTML content from da.live. Use this to retrieve the current content before editing.',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: "da.live content path (e.g., '/products/enterprise')"
+              }
+            },
+            required: ['path']
+          }
+        },
+        {
+          name: 'save_dalive_content',
+          description: 'Save edited HTML content to da.live. Use this after you have generated the edited HTML.',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: 'da.live content path to update'
+              },
+              htmlContent: {
+                type: 'string',
+                description: 'Complete edited HTML content to save'
+              }
+            },
+            required: ['path', 'htmlContent']
+          }
+        }
+      ]
+    }
+  ] : [];
 
-Required implementation steps:
-1. Install @google/generative-ai SDK: npm install @google/generative-ai
-2. Initialize Gemini client with API key
-3. Implement MCP session management (initializeMcpSession, callMcpTool)
-4. Define function declarations for get_dalive_content and save_dalive_content
-5. Implement multi-turn conversation loop with function calling
-6. Parse and return structured response matching Claude's format
+  // Build the prompt text
+  const promptText = `${prompt.systemInstructions}
 
-See ClaudeClient.js for reference implementation.`);
+Command: ${prompt.userCommand}
+
+${prompt.pageContext}
+
+Guidelines:
+${prompt.editingGuidelines}`;
+
+  const mcpToolCalls = [];
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let lastError;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      // Create model instance
+      const modelInstance = genAI.getGenerativeModel({
+        model: geminiModel,
+        generationConfig: {
+          maxOutputTokens: MAX_TOKENS,
+          temperature: TEMPERATURE
+        },
+        tools: tools.length > 0 ? tools : undefined
+      });
+
+      // Start chat session
+      const chat = modelInstance.startChat({
+        history: []
+      });
+
+      // Multi-turn conversation loop for function calling
+      let iterationCount = 0;
+      let finalResponse = null;
+      let currentPrompt = promptText;
+
+      while (iterationCount < MAX_TOOL_ITERATIONS) {
+        iterationCount++;
+
+        Logger.info('Gemini API call starting', {
+          model: geminiModel,
+          iteration: iterationCount,
+          hasTools: tools.length > 0,
+          temperature: TEMPERATURE,
+          maxTokens: MAX_TOKENS
+        });
+
+        const llmCallStart = Date.now();
+        const result = await chat.sendMessage(currentPrompt);
+        const llmCallDuration = Date.now() - llmCallStart;
+
+        const response = result.response;
+
+        // Track token usage (Gemini provides this in usageMetadata)
+        if (response.usageMetadata) {
+          totalInputTokens += response.usageMetadata.promptTokenCount || 0;
+          totalOutputTokens += response.usageMetadata.candidatesTokenCount || 0;
+        }
+
+        Logger.info('Gemini API call completed', {
+          iteration: iterationCount,
+          duration: `${llmCallDuration}ms`,
+          inputTokens: response.usageMetadata?.promptTokenCount || 0,
+          outputTokens: response.usageMetadata?.candidatesTokenCount || 0
+        });
+
+        // Check for function calls
+        const functionCalls = response.functionCalls();
+
+        if (functionCalls && functionCalls.length > 0 && mcpSession) {
+          // Gemini wants to use functions
+          const functionCall = functionCalls[0]; // Handle first function call
+          const functionName = functionCall.name;
+          const functionArgs = functionCall.args;
+
+          Logger.info('Gemini requested function call', {
+            iteration: iterationCount,
+            functionName,
+            functionArgs: JSON.stringify(functionArgs)
+          });
+
+          // Call MCP server to execute tool
+          const toolStartTime = Date.now();
+          let toolResult;
+          let toolStatus = 'completed';
+
+          try {
+            toolResult = await callMcpTool(mcpSession, functionName, functionArgs);
+            Logger.info('Tool call completed successfully', {
+              toolName: functionName,
+              duration: `${Date.now() - toolStartTime}ms`
+            });
+          } catch (toolError) {
+            toolStatus = 'failed';
+            toolResult = {
+              error: toolError.message
+            };
+            Logger.error('Tool call failed', {
+              toolName: functionName,
+              error: toolError.message,
+              duration: `${Date.now() - toolStartTime}ms`
+            });
+          }
+
+          const toolDuration = Date.now() - toolStartTime;
+
+          // Track tool call for logging
+          mcpToolCalls.push({
+            toolName: functionName,
+            parameters: functionArgs,
+            result: toolResult,
+            duration: toolDuration,
+            status: toolStatus
+          });
+
+          // Send function response back to Gemini
+          currentPrompt = [{
+            functionResponse: {
+              name: functionName,
+              response: toolResult
+            }
+          }];
+
+          // Continue conversation loop
+          continue;
+        }
+
+        // No function calls - this is the final response
+        const responseText = response.text();
+
+        Logger.info('Gemini raw response text', {
+          rawResponse: responseText
+        });
+
+        // Strip markdown code blocks if present
+        let cleanedResponseText = responseText.trim();
+
+        // Remove ```json and ``` wrapper if present
+        if (cleanedResponseText.startsWith('```json')) {
+          cleanedResponseText = cleanedResponseText.replace(/^```json\s*\n?/, '').replace(/\n?```\s*$/, '');
+        } else if (cleanedResponseText.startsWith('```')) {
+          cleanedResponseText = cleanedResponseText.replace(/^```\s*\n?/, '').replace(/\n?```\s*$/, '');
+        }
+
+        Logger.info('Cleaned Gemini response for parsing', {
+          originalLength: responseText.length,
+          cleanedLength: cleanedResponseText.length,
+          hadMarkdown: cleanedResponseText !== responseText.trim(),
+          cleanedResponse: cleanedResponseText.substring(0, 200) + '...'
+        });
+
+        let llmResponse;
+        try {
+          llmResponse = JSON.parse(cleanedResponseText);
+          Logger.info('Gemini response parsed successfully', {
+            parsedKeys: Object.keys(llmResponse)
+          });
+        } catch (parseError) {
+          Logger.error('Failed to parse Gemini response as JSON', {
+            parseError: parseError.message,
+            originalResponse: responseText.substring(0, 300),
+            cleanedResponse: cleanedResponseText.substring(0, 300),
+            responseType: typeof cleanedResponseText
+          });
+          throw new Error(`Gemini returned invalid JSON: ${parseError.message}. Cleaned response: ${cleanedResponseText.substring(0, 500)}...`);
+        }
+
+        Logger.info('Gemini generation completed successfully', {
+          totalIterations: iterationCount,
+          totalInputTokens,
+          totalOutputTokens,
+          toolCallsCount: mcpToolCalls.length,
+          editedHtmlLength: llmResponse.editedHtml?.length || 0
+        });
+
+        finalResponse = {
+          editedHtml: llmResponse.editedHtml || '',
+          explanation: llmResponse.explanation || '',
+          reasoning: llmResponse.reasoning || '',
+          tokenUsage: {
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens
+          },
+          mcpToolCalls: mcpToolCalls.length > 0 ? mcpToolCalls : undefined
+        };
+
+        break; // Exit iteration loop
+      }
+
+      if (!finalResponse) {
+        Logger.error('Gemini did not return final response', {
+          iterations: iterationCount,
+          maxIterations: MAX_TOOL_ITERATIONS
+        });
+        throw new Error('Gemini did not return a final response after tool iterations');
+      }
+
+      return finalResponse;
+
+    } catch (error) {
+      lastError = error;
+
+      Logger.error('Gemini API call failed in attempt', {
+        attempt: attempt + 1,
+        maxRetries: MAX_RETRIES,
+        errorMessage: error.message,
+        errorStatus: error.status,
+        errorType: error.constructor.name,
+        willRetry: attempt < MAX_RETRIES - 1
+      });
+
+      // Retry on rate limiting
+      if (error.message?.includes('rate limit') && attempt < MAX_RETRIES - 1) {
+        const backoffTime = INITIAL_BACKOFF_MS * (2 ** attempt);
+        Logger.info('Retrying after rate limit', { backoffTime });
+        await sleep(backoffTime);
+        continue;
+      }
+
+      // Retry on timeout
+      if (error.message?.includes('timeout') && attempt < MAX_RETRIES - 1) {
+        const backoffTime = INITIAL_BACKOFF_MS;
+        Logger.info('Retrying after timeout', { backoffTime });
+        await sleep(backoffTime);
+        continue;
+      }
+
+      // Don't retry on other errors
+      if (attempt === MAX_RETRIES - 1) {
+        Logger.error('Final Gemini API failure', {
+          totalAttempts: MAX_RETRIES,
+          finalError: error.message,
+          errorDetails: {
+            status: error.status,
+            type: error.constructor.name,
+            stack: error.stack
+          }
+        });
+        throw new Error(`Gemini API failed after ${MAX_RETRIES} attempts: ${error.message}`);
+      }
+    }
+  }
+
+  throw new Error(`Gemini API failed after ${MAX_RETRIES} attempts: ${lastError?.message || 'Unknown error'}`);
 }
 
 /**
