@@ -304,11 +304,31 @@ import FormData from 'form-data';
 import { randomUUID } from 'crypto';
 ```
 
+## n8n Integration (Optional)
+
+**Important**: The project includes a `docker-compose.yml` for n8n workflow automation. This is SEPARATE from the Azure Functions implementation and is optional.
+
+### Key Points
+
+- **n8n location**: Project root (`docker-compose.yml`)
+- **Azure Functions location**: `functions/` directory
+- **Do not confuse**: n8n configuration is independent of Azure Functions
+- **Purpose**: n8n is for testing and building automation workflows against the MCP server
+- **Not required**: Azure Functions work without n8n
+
+### When Suggesting n8n Code
+
+- n8n uses visual workflow builder (no code in this repo)
+- Suggest using n8n HTTP Request nodes to call MCP endpoints
+- Do not modify Azure Functions code for n8n integration
+- n8n configuration is in `docker-compose.yml` only
+
 ## Files to Never Modify
 
 - `host.json` - Azure Functions configuration (already optimized)
 - `package.json` - Dependencies and scripts (stable)
 - `local.settings.json` - Local environment (user-specific)
+- `docker-compose.yml` - n8n configuration (separate from Azure Functions)
 
 ## Deployment Notes
 
