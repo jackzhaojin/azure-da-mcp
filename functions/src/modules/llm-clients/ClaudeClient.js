@@ -5,7 +5,7 @@ import * as Logger from '../Logger.js';
 
 const MAX_TOKENS = 4096;
 const TEMPERATURE = 0.3;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 1; // Reduced to 1 for debugging
 const INITIAL_BACKOFF_MS = 1000;
 const REQUEST_TIMEOUT_MS = 120000; // 120 seconds for Claude API
 const MAX_TOOL_ITERATIONS = 10; // Prevent infinite tool calling loops
@@ -229,7 +229,42 @@ ${prompt.editingGuidelines}`
             responseTextLength: responseText.length
           });
 
-          const llmResponse = JSON.parse(responseText);
+          Logger.info('Claude raw response text', {
+            rawResponse: responseText
+          });
+
+          // Strip markdown code blocks if present
+          let cleanedResponseText = responseText.trim();
+          
+          // Remove ```json and ``` wrapper if present
+          if (cleanedResponseText.startsWith('```json')) {
+            cleanedResponseText = cleanedResponseText.replace(/^```json\s*\n?/, '').replace(/\n?```\s*$/, '');
+          } else if (cleanedResponseText.startsWith('```')) {
+            cleanedResponseText = cleanedResponseText.replace(/^```\s*\n?/, '').replace(/\n?```\s*$/, '');
+          }
+
+          Logger.info('Cleaned Claude response for parsing', {
+            originalLength: responseText.length,
+            cleanedLength: cleanedResponseText.length,
+            hadMarkdown: cleanedResponseText !== responseText.trim(),
+            cleanedResponse: cleanedResponseText.substring(0, 200) + '...'
+          });
+
+          let llmResponse;
+          try {
+            llmResponse = JSON.parse(cleanedResponseText);
+            Logger.info('Claude response parsed successfully', {
+              parsedKeys: Object.keys(llmResponse)
+            });
+          } catch (parseError) {
+            Logger.error('Failed to parse Claude response as JSON', {
+              parseError: parseError.message,
+              originalResponse: responseText.substring(0, 300),
+              cleanedResponse: cleanedResponseText.substring(0, 300),
+              responseType: typeof cleanedResponseText
+            });
+            throw new Error(`Claude returned invalid JSON: ${parseError.message}. Cleaned response: ${cleanedResponseText.substring(0, 500)}...`);
+          }
 
           Logger.info('Claude edit generation completed successfully', {
             totalIterations: iterationCount,
@@ -267,9 +302,19 @@ ${prompt.editingGuidelines}`
     } catch (error) {
       lastError = error;
 
+      Logger.error('Claude API call failed in attempt', {
+        attempt: attempt + 1,
+        maxRetries: MAX_RETRIES,
+        errorMessage: error.message,
+        errorStatus: error.status,
+        errorType: error.constructor.name,
+        willRetry: attempt < MAX_RETRIES - 1
+      });
+
       // Retry on rate limiting (429)
       if (error.status === 429 && attempt < MAX_RETRIES - 1) {
         const backoffTime = INITIAL_BACKOFF_MS * (2 ** attempt);
+        Logger.info('Retrying after rate limit', { backoffTime });
         await sleep(backoffTime);
         continue;
       }
@@ -277,12 +322,22 @@ ${prompt.editingGuidelines}`
       // Retry once on timeout
       if (error.message?.includes('timeout') && attempt < MAX_RETRIES - 1) {
         const backoffTime = INITIAL_BACKOFF_MS;
+        Logger.info('Retrying after timeout', { backoffTime });
         await sleep(backoffTime);
         continue;
       }
 
       // Don't retry on other errors
       if (attempt === MAX_RETRIES - 1) {
+        Logger.error('Final Claude API failure', {
+          totalAttempts: MAX_RETRIES,
+          finalError: error.message,
+          errorDetails: {
+            status: error.status,
+            type: error.constructor.name,
+            stack: error.stack
+          }
+        });
         throw new Error(`Claude API failed after ${MAX_RETRIES} attempts: ${error.message}`);
       }
     }
