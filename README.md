@@ -10,6 +10,40 @@ This project provides an HTTP API backend that orchestrates AI-powered content e
 **Status**: ✅ **WORKING** - MCP tools available in Claude Desktop
 **Branch**: `main`
 
+## n8n Workflow Automation (Optional)
+
+This project includes a Docker Compose setup for [n8n](https://n8n.io), a workflow automation tool that can be used to build automation workflows that interact with the MCP server endpoints.
+
+**Note**: n8n is separate from the Azure Functions implementation and is optional for testing and workflow automation.
+
+### Quick Start
+
+```bash
+# Start n8n
+docker-compose up -d
+
+# Access n8n UI
+open http://localhost:5678
+
+# Stop n8n
+docker-compose down
+```
+
+### Configuration
+
+Edit `docker-compose.yml` to customize:
+- **Timezone**: Set `GENERIC_TIMEZONE` and `TZ` to your timezone
+- **Port**: Change `5678:5678` to use a different port
+
+### Use Cases
+
+- Build HTTP request workflows to test MCP endpoints
+- Automate content editing workflows with EditContent API
+- Create scheduled jobs for batch content updates
+- Test API integrations without writing code
+
+For more details, see [n8n documentation](https://docs.n8n.io).
+
 ## Features
 
 - ✅ **Multi-LLM Provider Support** - Claude (premium), Gemini (free), Azure OpenAI (cost-effective)

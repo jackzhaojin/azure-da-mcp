@@ -433,6 +433,37 @@ npm start
 - ✅ Actual error handling from real failures
 - ✅ Clear logging for debugging
 
+## n8n Integration (Optional)
+
+**Important**: n8n is a separate workflow automation tool included for testing and automation workflows. It is NOT part of the Azure Functions implementation.
+
+### What is n8n?
+
+n8n is a workflow automation tool that can make HTTP requests to the MCP server endpoints for testing and automation.
+
+### Setup
+
+```bash
+# From project root (not functions/)
+docker-compose up -d
+
+# Access n8n UI
+open http://localhost:5678
+```
+
+### Configuration
+
+See `docker-compose.yml` in project root. Configure timezone in environment variables.
+
+### Use Cases
+
+- Test MCP endpoints with visual workflow builder
+- Build automation workflows for content editing
+- Create scheduled content updates
+- Debug API responses
+
+**Key Point**: n8n runs separately from Azure Functions. Do not confuse n8n configuration with Azure Functions configuration.
+
 ## Next Steps
 
 See `/specs/001-let-s-build/` for current implementation status and tasks.
