@@ -22,13 +22,15 @@ app.http('EditContent', {
     try {
       // Parse request body
       const body = await request.json();
-      const { command, path, metadata } = body;
+      const { command, path, metadata, provider, model } = body;
 
       Logger.info('EditContent request received', {
         requestId,
         command: command?.substring(0, 100), // Truncate for logging
         path,
-        hasMetadata: !!metadata
+        hasMetadata: !!metadata,
+        provider: provider || 'default',
+        model: model || 'default'
       }, context);
 
       // Validate request
@@ -116,13 +118,15 @@ app.http('EditContent', {
       // 3. Call save_dalive_content to save edited HTML
       Logger.info('Starting LLM edit generation with MCP tools', {
         requestId,
-        command: command.substring(0, 100)
+        command: command.substring(0, 100),
+        provider: provider || process.env.LLM_PROVIDER || 'claude',
+        model: model || 'default'
       }, context);
 
       const llmCallStart = Date.now();
       let llmResponse;
       try {
-        llmResponse = await generateEdit(llmPrompt, mcpConfig);
+        llmResponse = await generateEdit(llmPrompt, mcpConfig, provider, model);
         timing.llm_call = Date.now() - llmCallStart;
 
         // Extract MCP tool call timings
