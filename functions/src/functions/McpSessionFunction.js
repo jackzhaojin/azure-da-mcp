@@ -46,11 +46,14 @@ app.http('McpSession', {
       const params = jsonRpcRequest.params || {};
       const id = jsonRpcRequest.id;
 
-      // Extract Bearer token from Authorization header
+      // Extract Bearer token from Authorization header, fallback to environment variable
       const authHeader = request.headers.get('authorization');
       let bearerToken = null;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         bearerToken = authHeader.substring(7);
+      } else {
+        // Fallback to environment variable if no Bearer token in header
+        bearerToken = process.env.DALIVE_BEARER_TOKEN || null;
       }
 
       // Extract or create session ID
