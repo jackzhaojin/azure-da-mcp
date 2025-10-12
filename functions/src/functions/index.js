@@ -17,3 +17,4 @@ import './AzureAIFoundryLlmClientFunction.js';
 import './GetContentFunction.js';
 import './HealthCheckFunction.js';
 import './McpSessionFunction.js';
+import './McpStreamableFunction.js';
