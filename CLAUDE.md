@@ -18,6 +18,8 @@ User gets: explanation + reasoning + timing metrics
 
 ## Quick Start
 
+**⚠️ IMPORTANT**: Do NOT start the server (`npm start`) until explicitly instructed to do so.
+
 ```bash
 cd functions
 npm install
@@ -26,9 +28,10 @@ npm install
 # ANTHROPIC_API_KEY and Bearer token via Authorization header
 
 nvm use 20
-npm start
 
-# Test with real APIs
+# WAIT - only run 'npm start' when explicitly told to
+
+# Test with real APIs (when ready)
 node tests/e2e/manual-test.js
 ```
 
@@ -38,15 +41,23 @@ node tests/e2e/manual-test.js
 /
 ├── functions/              # Azure Functions implementation
 │   ├── src/
-│   │   ├── functions/      # HTTP endpoints (EditContent, GetContent, HealthCheck)
-│   │   └── modules/        # Core logic (DaliveClient, LlmClient, PromptBuilder)
-│   ├── tests/e2e/          # E2E tests with REAL APIs only
+│   │   ├── functions/      # HTTP endpoints
+│   │   │   ├── EditContentFunction.js          # Business logic
+│   │   │   ├── ClaudeLlmClientFunction.js      # Infrastructure
+│   │   │   ├── GeminiLlmClientFunction.js      # Infrastructure (stubbed)
+│   │   │   └── AzureAIFoundryLlmClientFunction.js # Infrastructure (stubbed)
+│   │   └── modules/        # Core logic
+│   │       ├── llm-clients/      # Provider implementations
+│   │       │   ├── ClaudeClient.js
+│   │       │   ├── GeminiClient.js (stubbed)
+│   │       │   └── AzureAIFoundryClient.js (stubbed)
+│   │       └── LlmClient.js      # Orchestrator
+│   ├── tests/
+│   │   ├── adhoc/          # Quick module tests
+│   │   └── e2e/            # Real API tests
 │   └── CLAUDE.md           # 📖 Detailed developer guide
 ├── specs/                  # Feature specs and planning docs
-│   └── 001-let-s-build/    # Current implementation spec
 └── ai-docs/                # Implementation insights
-    ├── REALITY-CHECK.md    # What we learned (plan vs reality)
-    └── CHANGES.md          # Migration guide and changelog
 ```
 
 ## Key Learnings
@@ -72,6 +83,11 @@ node tests/e2e/manual-test.js
 **Reasoning**: Claude consistently returns valid HTML
 **Impact**: Removed ResponseValidator module, system works better
 
+### 5. Multi-Provider Architecture
+**Decision**: Support Claude, Gemini, Azure OpenAI
+**Reasoning**: Different use cases need different cost/quality tradeoffs
+**Impact**: Infrastructure endpoints decoupled from business logic
+
 ## Documentation Map
 
 - **`/functions/CLAUDE.md`** - Complete developer guide (setup, API docs, architecture, troubleshooting)
@@ -82,7 +98,16 @@ node tests/e2e/manual-test.js
 ## What We Built
 
 ### API Endpoints
-- **POST /api/EditContent** - AI-assisted content editing
+
+**Business Logic:**
+- **POST /api/EditContent** - AI-assisted content editing (multi-provider support)
+
+**Infrastructure (Direct LLM Access):**
+- **POST /api/ClaudeLlmClient** - Claude API with MCP
+- **POST /api/GeminiLlmClient** - Gemini API with MCP (stubbed)
+- **POST /api/AzureAIFoundryLlmClient** - Azure OpenAI API with MCP (stubbed)
+
+**Support:**
 - **GET /api/GetContent/{*path}** - Fetch page content from da.live
 - **GET /api/HealthCheck** - Service status
 
@@ -94,7 +119,7 @@ node tests/e2e/manual-test.js
 
 ### Technologies
 - Azure Functions v4 (Node 20)
-- Anthropic Claude Sonnet 4
+- Multi-LLM: Claude Sonnet 4.5, Gemini 2.5 Pro, Azure OpenAI GPT-4o Mini
 - da.live Admin API
 - ES Modules (`type: "module"`)
 

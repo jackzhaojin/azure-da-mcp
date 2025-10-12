@@ -12,10 +12,11 @@ This project provides an HTTP API backend that orchestrates AI-powered content e
 
 ## Features
 
+- ✅ **Multi-LLM Provider Support** - Claude (premium), Gemini (free), Azure OpenAI (cost-effective)
 - ✅ **MCP Server Integration** - JSON-RPC 2.0 protocol for Model Context Protocol
 - ✅ **Claude Desktop Support** - stdio-to-HTTP bridge for seamless integration
 - ✅ **2 MCP Tools** - `get_dalive_content` and `save_dalive_content`
-- ✅ **AI-Powered Editing** using Anthropic Claude Sonnet 4
+- ✅ **AI-Powered Editing** using configurable LLM providers
 - ✅ **Session Management** - 24-hour session timeout for long conversations
 - ✅ **E2E Testing** - All tests use real APIs (no mocks)
 - ✅ **Backward Compatible** - HTTP APIs still available
@@ -42,7 +43,7 @@ curl http://localhost:7071/api/GetContent/products/enterprise \
 ```
 
 ### 2. POST /api/EditContent
-AI-assisted content editing with full orchestration.
+AI-assisted content editing with full orchestration. Supports provider and model selection.
 
 **Request:**
 ```bash
@@ -51,9 +52,15 @@ curl -X POST http://localhost:7071/api/EditContent \
   -H "Content-Type: application/json" \
   -d '{
     "command": "Make more concise",
-    "path": "/products/enterprise"
+    "path": "/products/enterprise",
+    "provider": "claude",
+    "model": "claude-sonnet-4-5-20250929"
   }'
 ```
+
+Optional parameters:
+- `provider`: 'claude' | 'gemini' | 'azure-ai-foundry' (defaults to LLM_PROVIDER env var)
+- `model`: Override default model for the provider
 
 **Response:** `200 OK`
 ```json
@@ -94,6 +101,14 @@ curl http://localhost:7071/api/HealthCheck
 }
 ```
 
+### Infrastructure Endpoints (Direct LLM Access)
+
+- **POST /api/ClaudeLlmClient** - Direct Claude API with MCP tools
+- **POST /api/GeminiLlmClient** - Direct Gemini API with MCP tools (stubbed)
+- **POST /api/AzureAIFoundryLlmClient** - Direct Azure OpenAI API with MCP tools (stubbed)
+
+These endpoints provide infrastructure-level access to LLM providers for building custom workflows beyond content editing.
+
 ## Project Structure
 
 ```
@@ -101,14 +116,21 @@ azure-da-mcp/
 └── functions/                     # Azure Functions App
     ├── src/
     │   ├── functions/             # HTTP-triggered Azure Functions
-    │   │   ├── EditContentFunction.js    # MCP-enabled editing
-    │   │   ├── McpSessionFunction.js     # MCP server endpoint
-    │   │   ├── GetContentFunction.js     # Legacy content fetch
-    │   │   └── HealthCheckFunction.js    # Health check
+    │   │   ├── EditContentFunction.js           # MCP-enabled editing (business logic)
+    │   │   ├── ClaudeLlmClientFunction.js       # Claude API endpoint (infrastructure)
+    │   │   ├── GeminiLlmClientFunction.js       # Gemini API endpoint (infrastructure)
+    │   │   ├── AzureAIFoundryLlmClientFunction.js # Azure OpenAI endpoint (infrastructure)
+    │   │   ├── McpSessionFunction.js            # MCP server endpoint
+    │   │   ├── GetContentFunction.js            # Legacy content fetch
+    │   │   └── HealthCheckFunction.js           # Health check
     │   ├── modules/               # Shared reusable modules
+    │   │   ├── llm-clients/              # LLM provider implementations
+    │   │   │   ├── ClaudeClient.js             # Claude with MCP
+    │   │   │   ├── GeminiClient.js             # Gemini with MCP (stubbed)
+    │   │   │   └── AzureAIFoundryClient.js     # Azure OpenAI with MCP (stubbed)
     │   │   ├── McpTools.js              # MCP tool implementations
     │   │   ├── DaliveClient.js          # da.live API client
-    │   │   ├── LlmClient.js             # Anthropic API client
+    │   │   ├── LlmClient.js             # LLM orchestrator (routes to providers)
     │   │   ├── PromptBuilder.js         # Prompt construction
     │   │   └── Logger.js                # Logging utility
     │   └── prompts/               # Versioned prompt templates
@@ -157,7 +179,13 @@ Update `local.settings.json`:
   "Values": {
     "FUNCTIONS_WORKER_RUNTIME": "node",
     "DALIVE_API_URL": "https://admin.da.live/api",
+    "LLM_PROVIDER": "claude",
     "ANTHROPIC_API_KEY": "sk-ant-api03-...",
+    "GEMINI_API_KEY": "your-gemini-key",
+    "AZURE_AI_FOUNDRY_API_KEY": "your-azure-key",
+    "CLAUDE_MODEL": "claude-sonnet-4-5-20250929",
+    "GEMINI_MODEL": "gemini-2.5-pro",
+    "AZURE_MODEL": "gpt-4o-mini",
     "LOG_LEVEL": "debug"
   }
 }
@@ -424,11 +452,14 @@ All logs include structured metadata for easy querying:
 
 ### Core Modules
 
+- **LLM Clients**: Provider-specific implementations with MCP support
+  - **ClaudeClient**: Claude Sonnet 4.5 (premium, best for writing)
+  - **GeminiClient**: Gemini 2.5 Pro (free tier, stubbed)
+  - **AzureAIFoundryClient**: GPT-4o Mini (cost-effective, stubbed)
+- **LlmClient**: Orchestrator that routes to provider based on configuration
 - **McpTools**: MCP tool implementations (get_dalive_content, save_dalive_content)
 - **DaliveClient**: HTTP client for da.live Admin API with multipart form upload
-- **LlmClient**: Anthropic Claude API with MCP session management
 - **PromptBuilder**: Constructs prompts from versioned templates (supports array format)
-- **PromptLoader**: Loads and caches versioned prompt files
 - **Logger**: Request correlation and structured logging
 
 ### MCP-Enabled Flow (EditContent)
