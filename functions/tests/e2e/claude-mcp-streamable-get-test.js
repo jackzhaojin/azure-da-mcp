@@ -152,13 +152,21 @@ async function testMcpStreamableGet() {
     console.log('✅ Tool call completed successfully!');
     console.log('');
 
-    // Display results
-    const result = toolCallResponse.result;
+    // Parse the result - MCP tools return in Claude message format
+    let result;
+    if (toolCallResponse.result.content && toolCallResponse.result.content[0] && toolCallResponse.result.content[0].text) {
+      // Parse the JSON string from the text field
+      result = JSON.parse(toolCallResponse.result.content[0].text);
+    } else {
+      // Direct result format
+      result = toolCallResponse.result;
+    }
+
     console.log('📋 Tool Call Results:');
     console.log('─'.repeat(50));
-    console.log(`Path: ${result.path}`);
-    console.log(`Last Modified: ${result.lastModified}`);
-    console.log(`Content Length: ${result.htmlContent.length} characters`);
+    console.log(`Path: ${result.path || 'undefined'}`);
+    console.log(`Last Modified: ${result.lastModified || 'undefined'}`);
+    console.log(`Content Length: ${result.htmlContent ? result.htmlContent.length : 'undefined'} characters`);
     console.log('');
 
     // Show a preview of the HTML content
@@ -172,7 +180,7 @@ async function testMcpStreamableGet() {
     }
 
     // Verify the content looks like valid HTML
-    if (!result.htmlContent.includes('<html') && !result.htmlContent.includes('<!DOCTYPE')) {
+    if (!result.htmlContent.includes('<body') && !result.htmlContent.includes('<html') && !result.htmlContent.includes('<!DOCTYPE')) {
       console.log('⚠️  Warning: Content does not appear to be HTML');
     } else {
       console.log('✅ Content appears to be valid HTML');
