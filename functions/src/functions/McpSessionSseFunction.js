@@ -136,6 +136,16 @@ app.http('McpSessionSse', {
       // Handle the HTTP request through the transport
       // Convert Azure Functions request to StreamableHTTP format
       const url = new URL(request.url);
+
+      // Debug: Log original request details
+      Logger.info('SSE: Azure Functions request details', {
+        method: request.method,
+        methodType: typeof request.method,
+        url: request.url,
+        hasUrl: !!request.url,
+        headers: Object.fromEntries(request.headers.entries())
+      }, context);
+
       const azureRequest = {
         method: request.method,
         url: url.pathname + url.search,
@@ -143,19 +153,43 @@ app.http('McpSessionSse', {
         body: request.method === 'POST' ? await request.text() : undefined
       };
 
-      Logger.info('SSE: Processing request through transport', {
+      Logger.info('SSE: Converted request for transport', {
         method: azureRequest.method,
-        url: azureRequest.url
+        url: azureRequest.url,
+        hasBody: !!azureRequest.body,
+        bodyType: typeof azureRequest.body,
+        requestObject: JSON.stringify(azureRequest, null, 2)
       }, context);
 
       // Handle request via transport
-      const response = await transport.handleRequest(azureRequest);
+      let response;
+      try {
+        Logger.info('SSE: About to call transport.handleRequest', {
+          transportType: transport.constructor.name,
+          hasTransport: !!transport,
+          hasHandleRequest: typeof transport.handleRequest === 'function'
+        }, context);
 
-      Logger.info('SSE: Transport returned response', {
-        status: response.status,
-        hasBody: !!response.body,
-        headers: response.headers
-      }, context);
+        response = await transport.handleRequest(azureRequest);
+
+        Logger.info('SSE: Transport returned response', {
+          status: response.status,
+          hasBody: !!response.body,
+          headers: response.headers
+        }, context);
+      } catch (transportError) {
+        Logger.error('SSE: Transport handleRequest failed', {
+          error: transportError.message,
+          stack: transportError.stack,
+          errorType: transportError.constructor.name,
+          azureRequestDetails: {
+            method: azureRequest.method,
+            url: azureRequest.url,
+            hasBody: !!azureRequest.body
+          }
+        }, context);
+        throw transportError;
+      }
 
       // Convert back to Azure Functions response format
       const azureResponse = {
