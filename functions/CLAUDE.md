@@ -273,7 +273,9 @@ Content-Type: application/json
 **Note**: Timing typically ~30 seconds (MCP workflow + LLM multi-turn conversation).
 
 ### POST /api/mcp
-MCP server endpoint (JSON-RPC 2.0). Handles MCP protocol messages for tool calling.
+MCP server endpoint (JSON-RPC 2.0) for Claude Desktop integration.
+
+**Use Case**: Claude Desktop via stdio-to-HTTP bridge (mcp-stdio-bridge.js)
 
 **Supported Methods**:
 - `initialize` - Start MCP session with Bearer token
@@ -284,6 +286,48 @@ MCP server endpoint (JSON-RPC 2.0). Handles MCP protocol messages for tool calli
 **MCP Tools**:
 1. **get_dalive_content**(path) - Fetch HTML from da.live
 2. **save_dalive_content**(path, htmlContent) - Save edited HTML to da.live
+
+### POST /api/mcp-streamable (NEW - Release 1.4)
+MCP server endpoint (Manual JSON-RPC 2.0) for n8n and HTTP-based MCP clients.
+
+**Use Case**: n8n, MCP Inspector, any HTTP-based MCP client
+
+**Key Differences from /api/mcp**:
+- Manual JSON-RPC 2.0 implementation (no MCP SDK Server class)
+- Stateless Bearer token fallback for tool calls
+- Handles both `initialized` and `notifications/initialized`
+- Relaxed session validation for compatibility
+- Works with Docker containers via `host.docker.internal:7071`
+
+**Supported Methods**:
+- `initialize` - Start MCP session, returns X-MCP-Session-Id header
+- `initialized` or `notifications/initialized` - Confirm session ready (no response)
+- `tools/list` - List available tools
+- `tools/call` - Execute a tool (get_dalive_content, save_dalive_content)
+
+**MCP Tools**:
+1. **get_dalive_content**(path) - Fetch HTML from da.live
+2. **save_dalive_content**(path, htmlContent) - Save edited HTML to da.live
+
+**Example Usage from Docker Container:**
+```bash
+# From n8n or other Docker containers
+curl -X POST http://host.docker.internal:7071/api/mcp-streamable \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "params": {},
+    "id": "1"
+  }'
+```
+
+**Why Manual Implementation?**:
+- MCP SDK Server class has module loading issues in Azure Functions
+- Manual JSON-RPC 2.0 provides full control and reliability
+- Avoids SSE transport issues in Azure Functions
+- Better compatibility with various MCP clients
 
 ### GET /api/GetContent/{*path}
 Fetch page content from da.live (backward compatibility endpoint)
@@ -404,6 +448,19 @@ npm start
 **Symptom**: "MCP session initialization failed"
 **Cause**: MCP_SERVER_URL not accessible or Bearer token invalid
 **Fix**: Verify MCP_SERVER_URL is correct and server is running
+
+### n8n Connection Issues
+**Symptom**: "Could not connect to your MCP server" from n8n
+**Cause**: n8n in Docker trying to access `localhost:7071` (container localhost ≠ host localhost)
+**Fix**: Use `host.docker.internal:7071` in n8n MCP Client endpoint URL
+
+**Example**:
+```
+❌ Wrong:  http://localhost:7071/api/mcp-streamable
+✅ Correct: http://host.docker.internal:7071/api/mcp-streamable
+```
+
+**Platform Note**: Works on Mac and Windows Docker Desktop. On Linux, use `--network host` mode instead.
 
 ## Dependencies
 

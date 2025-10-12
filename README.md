@@ -44,11 +44,26 @@ Edit `docker-compose.yml` to customize:
 
 For more details, see [n8n documentation](https://docs.n8n.io).
 
+### Docker Networking (IMPORTANT)
+
+When n8n runs in Docker, it **cannot access `localhost:7071`** directly because `localhost` inside the container refers to the container itself, not your host machine.
+
+**Solution**: Use `host.docker.internal:7071` in n8n MCP Client configuration:
+
+```
+Endpoint: http://host.docker.internal:7071/api/mcp-streamable
+```
+
+This special DNS name allows Docker containers on Mac and Windows to access the host machine's network.
+
 ## Features
 
 - ✅ **Multi-LLM Provider Support** - Claude (premium), Gemini (free), Azure OpenAI (cost-effective)
-- ✅ **MCP Server Integration** - JSON-RPC 2.0 protocol for Model Context Protocol
+- ✅ **Dual MCP Server Endpoints**:
+  - `POST /api/mcp` - For Claude Desktop integration (via stdio bridge)
+  - `POST /api/mcp-streamable` - For n8n, MCP Inspector (HTTP Streamable)
 - ✅ **Claude Desktop Support** - stdio-to-HTTP bridge for seamless integration
+- ✅ **n8n Integration** - Docker-based workflow automation
 - ✅ **2 MCP Tools** - `get_dalive_content` and `save_dalive_content`
 - ✅ **AI-Powered Editing** using configurable LLM providers
 - ✅ **Session Management** - 24-hour session timeout for long conversations
@@ -143,6 +158,36 @@ curl http://localhost:7071/api/HealthCheck
 
 These endpoints provide infrastructure-level access to LLM providers for building custom workflows beyond content editing. All three providers fully implemented and tested.
 
+### 4. POST /api/mcp-streamable (NEW - Release 1.4)
+MCP server endpoint for n8n and HTTP-based MCP clients.
+
+**Protocol**: JSON-RPC 2.0 (Manual implementation, no MCP SDK)
+
+**Supported Methods**:
+- `initialize` - Start MCP session, returns X-MCP-Session-Id header
+- `initialized` or `notifications/initialized` - Confirm session ready (no response)
+- `tools/list` - List available MCP tools
+- `tools/call` - Execute a tool (get_dalive_content, save_dalive_content)
+
+**Key Features**:
+- Stateless tool calls with Bearer token fallback
+- Relaxed session validation for compatibility
+- Works with n8n Docker containers via `host.docker.internal:7071`
+
+**Docker Container Access:**
+```bash
+# From n8n or other Docker containers
+curl -X POST http://host.docker.internal:7071/api/mcp-streamable \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "params": {},
+    "id": "1"
+  }'
+```
+
 ## Project Structure
 
 ```
@@ -154,7 +199,8 @@ azure-da-mcp/
     │   │   ├── ClaudeLlmClientFunction.js       # Claude API endpoint (infrastructure)
     │   │   ├── GeminiLlmClientFunction.js       # Gemini API endpoint (infrastructure)
     │   │   ├── AzureAIFoundryLlmClientFunction.js # Azure OpenAI endpoint (infrastructure)
-    │   │   ├── McpSessionFunction.js            # MCP server endpoint
+    │   │   ├── McpSessionFunction.js            # MCP server (Claude Desktop)
+    │   │   ├── McpStreamableFunction.js         # MCP server (n8n, Inspector)
     │   │   ├── GetContentFunction.js            # Legacy content fetch
     │   │   └── HealthCheckFunction.js           # Health check
     │   ├── modules/               # Shared reusable modules

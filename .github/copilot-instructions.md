@@ -224,6 +224,27 @@ process.env.LOG_LEVEL                  // 'info'
 
 ## MCP Protocol Integration
 
+### Dual MCP Server Endpoints
+
+**Two MCP endpoints with different use cases:**
+
+1. **POST /api/mcp** (McpSessionFunction)
+   - For: Claude Desktop (via stdio-to-HTTP bridge)
+   - Uses: MCP SDK Server class
+   - Session: Strict validation
+   - Transport: HTTP with stdio bridge
+
+2. **POST /api/mcp-streamable** (McpStreamableFunction) - NEW Release 1.4
+   - For: n8n, MCP Inspector, HTTP-based MCP clients
+   - Uses: Manual JSON-RPC 2.0 (no MCP SDK)
+   - Session: Relaxed with Bearer token fallback
+   - Transport: HTTP Streamable (no SSE)
+   - Docker: Use `host.docker.internal:7071` from containers
+
+**When to use which:**
+- Claude Desktop → `/api/mcp` (with stdio bridge)
+- n8n, Inspector, HTTP clients → `/api/mcp-streamable`
+
 ### Session Management
 ```javascript
 // MCP session lifecycle
@@ -235,6 +256,40 @@ const tools = [
     'get_dalive_content',    // Fetch HTML from da.live
     'save_dalive_content'    // Save edited HTML to da.live
 ];
+```
+
+### Manual JSON-RPC 2.0 Pattern (McpStreamableFunction)
+
+**Why manual implementation:**
+- MCP SDK Server class has module loading issues in Azure Functions
+- Full control over request/response handling
+- Better compatibility with various MCP clients
+- Avoids SSE transport limitations
+
+**Pattern:**
+```javascript
+app.http('McpStreamable', {
+    methods: ['POST'],
+    route: 'mcp-streamable',
+    authLevel: 'anonymous',
+    handler: async (request, context) => {
+        const body = await request.text();
+        const jsonRpcRequest = JSON.parse(body);
+
+        // Route based on method
+        switch (jsonRpcRequest.method) {
+            case 'initialize':
+                // Create session, return X-MCP-Session-Id header
+            case 'initialized':
+            case 'notifications/initialized':
+                // Notification - no response
+            case 'tools/list':
+                // Return tool schemas
+            case 'tools/call':
+                // Execute tool with Bearer token fallback
+        }
+    }
+});
 ```
 
 ### JSON-RPC 2.0 Format
@@ -322,6 +377,18 @@ import { randomUUID } from 'crypto';
 - Suggest using n8n HTTP Request nodes to call MCP endpoints
 - Do not modify Azure Functions code for n8n integration
 - n8n configuration is in `docker-compose.yml` only
+
+### Docker Networking for n8n
+
+**IMPORTANT**: When n8n runs in Docker, it CANNOT access `localhost:7071` directly.
+
+**Always suggest** using `host.docker.internal:7071` in n8n MCP Client configuration:
+```
+✅ Correct: http://host.docker.internal:7071/api/mcp-streamable
+❌ Wrong:   http://localhost:7071/api/mcp-streamable
+```
+
+**Reason**: `localhost` inside container refers to container itself, not host machine.
 
 ## Files to Never Modify
 
