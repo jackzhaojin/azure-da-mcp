@@ -10,6 +10,7 @@ import './EditContentFunction.js';
 
 // Infrastructure LLM Client Endpoints
 import './ClaudeLlmClientFunction.js';
+import './ClaudeAgentSdkFunction.js';
 import './GeminiLlmClientFunction.js';
 import './AzureAIFoundryLlmClientFunction.js';
 
