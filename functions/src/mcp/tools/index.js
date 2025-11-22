@@ -5,13 +5,15 @@
 
 import * as GetDaliveContent from './get-dalive-content.js';
 import * as SaveDaliveContent from './save-dalive-content.js';
+import * as PreviewPublishDaliveContent from './preview-publish-dalive-content.js';
 
 /**
  * All available MCP tools
  */
 export const tools = {
   'get_dalive_content': GetDaliveContent,
-  'save_dalive_content': SaveDaliveContent
+  'save_dalive_content': SaveDaliveContent,
+  'preview_publish_dalive_content': PreviewPublishDaliveContent
 };
 
 /**

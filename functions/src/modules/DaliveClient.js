@@ -108,6 +108,67 @@ export async function updateContent(path, html, bearerToken) {
 }
 
 /**
+ * Trigger preview publish on admin.hlx.page
+ * @param {string} path - da.live page path in /source/{org}/{site}/{file} format
+ * @param {string} bearerToken - Authentication Bearer token
+ * @param {string} branch - Git branch (defaults to 'main')
+ * @returns {Promise<Object>} Preview publish response
+ * @throws {Error} On 401 Unauthorized, 404 Not Found, or service unavailable
+ */
+export async function previewPublish(path, bearerToken, branch = 'main') {
+  try {
+    // Parse path: /source/{org}/{site}/{path}
+    // Example: /source/jackzhaojin/da-live-postal-2025-07/index-copy.html
+    const pathParts = path.split('/').filter(p => p.length > 0);
+
+    if (pathParts.length < 4 || pathParts[0] !== 'source') {
+      throw new Error(`Invalid path format: ${path}. Expected /source/{org}/{site}/{file}`);
+    }
+
+    const org = pathParts[1];
+    const site = pathParts[2];
+    let filePath = pathParts.slice(3).join('/');
+
+    // Strip .html extension for preview URL (admin.hlx.page doesn't use .html)
+    if (filePath.endsWith('.html')) {
+      filePath = filePath.slice(0, -5);
+    }
+
+    // Build preview URL: https://admin.hlx.page/preview/{org}/{site}/{ref}/{path}
+    const previewUrl = `https://admin.hlx.page/preview/${org}/${site}/${branch}/${filePath}`;
+
+    const response = await axios.post(previewUrl, null, {
+      headers: {
+        'Authorization': `Bearer ${bearerToken}`
+      },
+      timeout: 10000 // Preview can take longer than regular GET/POST
+    });
+
+    return {
+      status: response.status,
+      message: response.data,
+      previewUrl,
+      org,
+      site,
+      branch,
+      path: filePath
+    };
+  } catch (error) {
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 401) {
+        throw new Error(`401 Unauthorized: Invalid or expired Bearer token`);
+      }
+      if (status === 404) {
+        throw new Error(`404 Not Found: Path '${path}' does not exist or cannot be previewed`);
+      }
+      throw new Error(`admin.hlx.page preview error: ${status} ${error.response.statusText}`);
+    }
+    throw new Error(`Network error accessing admin.hlx.page: ${error.message}`);
+  }
+}
+
+/**
  * Sleep utility for retry backoff
  * @param {number} ms - Milliseconds to sleep
  * @returns {Promise<void>}
