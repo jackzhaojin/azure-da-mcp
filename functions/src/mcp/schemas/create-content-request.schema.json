@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "da.live content path in format: /source/{owner}/{site}/{path/to/page.html} (e.g., '/source/jackzhaojin/da-live-postal-2025-07/new-page.html')"
+    },
+    "htmlContent": {
+      "type": "string",
+      "description": "Initial HTML content for the new page (can be blank: '<html><body></body></html>' or a template)"
+    }
+  },
+  "required": ["path", "htmlContent"]
+}
