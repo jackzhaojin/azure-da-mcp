@@ -5,6 +5,7 @@
 
 import * as GetDaliveContent from './get-dalive-content.js';
 import * as SaveDaliveContent from './save-dalive-content.js';
+import * as CreateDaliveContent from './create-dalive-content.js';
 import * as PreviewPublishDaliveContent from './preview-publish-dalive-content.js';
 
 /**
@@ -13,6 +14,7 @@ import * as PreviewPublishDaliveContent from './preview-publish-dalive-content.j
 export const tools = {
   'get_dalive_content': GetDaliveContent,
   'save_dalive_content': SaveDaliveContent,
+  'create_dalive_content': CreateDaliveContent,
   'preview_publish_dalive_content': PreviewPublishDaliveContent
 };
 
