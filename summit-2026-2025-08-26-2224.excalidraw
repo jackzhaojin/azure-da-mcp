@@ -4756,7 +4756,7 @@
       "x": 1220.357915660224,
       "y": 497.369264960011,
       "width": 139.86739016267316,
-      "height": 153.7578951380469,
+      "height": 135,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -4772,8 +4772,8 @@
         "type": 3
       },
       "seed": 1682884799,
-      "version": 611,
-      "versionNonce": 2045503231,
+      "version": 613,
+      "versionNonce": 2130416031,
       "isDeleted": false,
       "boundElements": [
         {
@@ -4781,7 +4781,7 @@
           "id": "m0xjvSwA5YxuumNnzwpEv"
         }
       ],
-      "updated": 1764265456693,
+      "updated": 1764354607072,
       "link": null,
       "locked": false
     },
@@ -4789,7 +4789,7 @@
       "id": "m0xjvSwA5YxuumNnzwpEv",
       "type": "text",
       "x": 1234.9416427850176,
-      "y": 511.74821252903445,
+      "y": 502.369264960011,
       "width": 110.69993591308594,
       "height": 125,
       "angle": 0,
@@ -4805,11 +4805,11 @@
       "index": "b0s",
       "roundness": null,
       "seed": 504715487,
-      "version": 728,
-      "versionNonce": 634219071,
+      "version": 751,
+      "versionNonce": 965796351,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1764267127772,
+      "updated": 1764354609278,
       "link": null,
       "locked": false,
       "text": "AEM da.live\nGET /\nUPDATE /\nCREATE /\nPUBLISH",

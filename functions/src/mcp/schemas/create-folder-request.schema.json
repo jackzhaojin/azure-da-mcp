@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "da.live folder path in format: /source/{owner}/{site}/{path/to/folder} (e.g., '/source/jackzhaojin/da-live-postal-2025-07/migration-1/new-folder')"
+    }
+  },
+  "required": ["path"]
+}
