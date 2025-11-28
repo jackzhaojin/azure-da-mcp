@@ -169,6 +169,47 @@ export async function previewPublish(path, bearerToken, branch = 'main') {
 }
 
 /**
+ * Create a folder in da.live Admin API
+ * @param {string} path - da.live folder path (e.g., '/source/owner/site/folder-name')
+ * @param {string} bearerToken - Authentication Bearer token
+ * @returns {Promise<Object>} Create folder response
+ * @throws {Error} On 401 Unauthorized, 404 Not Found, or service unavailable
+ */
+export async function createFolder(path, bearerToken) {
+  try {
+    const response = await axios.put(
+      `${DALIVE_API_URL}${path}`,
+      null,
+      {
+        headers: {
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Length': '0'
+        },
+        timeout: 5000
+      }
+    );
+
+    return {
+      status: response.status,
+      message: response.data,
+      path
+    };
+  } catch (error) {
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 401) {
+        throw new Error(`401 Unauthorized: Invalid or expired Bearer token`);
+      }
+      if (status === 404) {
+        throw new Error(`404 Not Found: Parent path does not exist for '${path}'`);
+      }
+      throw new Error(`da.live API error: ${status} ${error.response.statusText}`);
+    }
+    throw new Error(`Network error accessing da.live API: ${error.message}`);
+  }
+}
+
+/**
  * Sleep utility for retry backoff
  * @param {number} ms - Milliseconds to sleep
  * @returns {Promise<void>}
