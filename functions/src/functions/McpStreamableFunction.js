@@ -14,6 +14,10 @@ import * as Logger from '../modules/Logger.js';
 // In-memory session storage
 const sessions = new Map();
 
+// Global bearer token fallback for stateless Claude AI sessions
+// Claude AI creates new sessions for each turn, so we need a global fallback
+let globalBearerToken = null;
+
 app.http('McpStreamable', {
   methods: ['POST'],
   route: 'mcp-streamable',
@@ -253,6 +257,17 @@ async function handleToolsCall(sessionId, params, id, bearerToken, context) {
     };
   }
 
+  // If still no session, try global bearer token fallback (for Claude AI stateless sessions)
+  if (!session && globalBearerToken) {
+    Logger.info('MCP Streamable tool call using global bearer token fallback', {
+      hasGlobalToken: !!globalBearerToken
+    }, context);
+    session = {
+      bearerToken: globalBearerToken,
+      sessionId: 'global-' + Date.now()
+    };
+  }
+
   // If still no session or bearer token, reject
   if (!session || !session.bearerToken) {
     return {
@@ -297,6 +312,9 @@ async function handleToolsCall(sessionId, params, id, bearerToken, context) {
     bearerToken: session.bearerToken || bearerToken,
     sessionId: session.sessionId,
     setSessionToken: (newToken) => {
+      // Always update global token (for Claude AI stateless sessions)
+      globalBearerToken = newToken;
+
       // Update session token if we have a real session
       if (sessionId && sessions.has(sessionId)) {
         const existingSession = sessions.get(sessionId);
@@ -304,12 +322,13 @@ async function handleToolsCall(sessionId, params, id, bearerToken, context) {
         sessions.set(sessionId, existingSession);
         Logger.info('MCP Streamable session token updated', {
           sessionId,
-          newTokenLength: newToken.length
+          newTokenLength: newToken.length,
+          alsoSetGlobal: true
         }, context);
       } else {
         // For temp sessions or no session, just update the local session object
         session.bearerToken = newToken;
-        Logger.info('MCP Streamable temp session token updated', {
+        Logger.info('MCP Streamable global token set (Claude AI stateless mode)', {
           sessionId: session.sessionId,
           newTokenLength: newToken.length
         }, context);
