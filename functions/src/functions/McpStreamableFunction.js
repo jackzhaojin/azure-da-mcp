@@ -295,7 +295,26 @@ async function handleToolsCall(sessionId, params, id, bearerToken, context) {
   // Create context for tool execution
   const toolContext = {
     bearerToken: session.bearerToken || bearerToken,
-    sessionId: session.sessionId
+    sessionId: session.sessionId,
+    setSessionToken: (newToken) => {
+      // Update session token if we have a real session
+      if (sessionId && sessions.has(sessionId)) {
+        const existingSession = sessions.get(sessionId);
+        existingSession.bearerToken = newToken;
+        sessions.set(sessionId, existingSession);
+        Logger.info('MCP Streamable session token updated', {
+          sessionId,
+          newTokenLength: newToken.length
+        }, context);
+      } else {
+        // For temp sessions or no session, just update the local session object
+        session.bearerToken = newToken;
+        Logger.info('MCP Streamable temp session token updated', {
+          sessionId: session.sessionId,
+          newTokenLength: newToken.length
+        }, context);
+      }
+    }
   };
 
   try {
