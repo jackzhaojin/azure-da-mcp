@@ -260,7 +260,15 @@ async function handleToolsCall(sessionId, params, id, context) {
   // Create context for tool execution
   const toolContext = {
     bearerToken: session.bearerToken,
-    sessionId: session.sessionId
+    sessionId: session.sessionId,
+    setSessionToken: (newToken) => {
+      session.bearerToken = newToken;
+      sessions.set(sessionId, session);
+      Logger.info('Session token updated', {
+        sessionId,
+        newTokenLength: newToken.length
+      }, context);
+    }
   };
 
   try {

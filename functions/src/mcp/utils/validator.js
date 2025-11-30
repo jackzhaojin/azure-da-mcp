@@ -130,8 +130,8 @@ export function validateBearerToken(context) {
     throw createErrorResponse(
       ErrorCodes.AUTH_FAILED,
       'Authentication failed: Bearer token not found in session context',
-      { 
-        hint: 'Ensure Bearer token is passed when initializing MCP session',
+      {
+        hint: 'Ensure Bearer token is passed when initializing MCP session or set via set_token_dalive tool',
         debugInfo: {
           hasContext: !!context,
           contextKeys: context ? Object.keys(context) : [],
@@ -140,4 +140,49 @@ export function validateBearerToken(context) {
       }
     );
   }
+}
+
+/**
+ * Resolve Bearer token with priority: params > context > env
+ * Priority order:
+ * 1. Token passed directly in params.token or params.bearerToken
+ * 2. Token set in session via set_token_dalive (context.bearerToken)
+ * 3. Environment variable DALIVE_BEARER_TOKEN
+ *
+ * @param {Object} params - Tool parameters (may contain token)
+ * @param {Object} context - MCP session context (may contain bearerToken)
+ * @returns {string} Resolved Bearer token
+ * @throws {Error} If no token found in any source
+ */
+export function resolveBearerToken(params, context) {
+  // Priority 1: Passed in params
+  const paramToken = params?.token || params?.bearerToken;
+  if (paramToken && typeof paramToken === 'string' && paramToken.trim().length > 0) {
+    return paramToken.trim();
+  }
+
+  // Priority 2: Set in session context
+  if (context?.bearerToken && typeof context.bearerToken === 'string' && context.bearerToken.trim().length > 0) {
+    return context.bearerToken.trim();
+  }
+
+  // Priority 3: Environment variable
+  const envToken = process.env.DALIVE_BEARER_TOKEN;
+  if (envToken && typeof envToken === 'string' && envToken.trim().length > 0) {
+    return envToken.trim();
+  }
+
+  // No token found in any source
+  throw createErrorResponse(
+    ErrorCodes.AUTH_FAILED,
+    'Authentication failed: Bearer token not found',
+    {
+      hint: 'Provide token via: (1) tool parameter, (2) set_token_dalive tool, or (3) DALIVE_BEARER_TOKEN environment variable',
+      checkedSources: {
+        params: !!paramToken,
+        context: !!(context?.bearerToken),
+        env: !!envToken
+      }
+    }
+  );
 }

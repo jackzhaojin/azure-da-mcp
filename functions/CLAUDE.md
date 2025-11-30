@@ -149,6 +149,10 @@ npm start
 **Available Tools**:
 - `get_dalive_content(path)` - Fetch HTML from da.live
 - `save_dalive_content(path, htmlContent)` - Save edited HTML
+- `set_token_dalive(token)` - Set da.live Bearer token for the session
+- `create_dalive_content(path, htmlContent)` - Create new HTML content
+- `create_folder_dalive(path)` - Create a new folder
+- `preview_publish_dalive_content(path, branch)` - Trigger preview publish
 
 **stdio-to-HTTP Bridge Architecture**:
 
@@ -281,11 +285,15 @@ MCP server endpoint (JSON-RPC 2.0) for Claude Desktop integration.
 - `initialize` - Start MCP session with Bearer token
 - `initialized` - Confirm session ready
 - `tools/list` - List available tools
-- `tools/call` - Execute a tool (get_dalive_content, save_dalive_content)
+- `tools/call` - Execute a tool
 
 **MCP Tools**:
 1. **get_dalive_content**(path) - Fetch HTML from da.live
 2. **save_dalive_content**(path, htmlContent) - Save edited HTML to da.live
+3. **set_token_dalive**(token) - Set da.live Bearer token for the session
+4. **create_dalive_content**(path, htmlContent) - Create new HTML content
+5. **create_folder_dalive**(path) - Create a new folder
+6. **preview_publish_dalive_content**(path, branch) - Trigger preview publish
 
 ### POST /api/mcp-streamable (NEW - Release 1.4)
 MCP server endpoint (Manual JSON-RPC 2.0) for n8n and HTTP-based MCP clients.
@@ -303,11 +311,15 @@ MCP server endpoint (Manual JSON-RPC 2.0) for n8n and HTTP-based MCP clients.
 - `initialize` - Start MCP session, returns X-MCP-Session-Id header
 - `initialized` or `notifications/initialized` - Confirm session ready (no response)
 - `tools/list` - List available tools
-- `tools/call` - Execute a tool (get_dalive_content, save_dalive_content)
+- `tools/call` - Execute a tool
 
 **MCP Tools**:
 1. **get_dalive_content**(path) - Fetch HTML from da.live
 2. **save_dalive_content**(path, htmlContent) - Save edited HTML to da.live
+3. **set_token_dalive**(token) - Set da.live Bearer token for the session
+4. **create_dalive_content**(path, htmlContent) - Create new HTML content
+5. **create_folder_dalive**(path) - Create a new folder
+6. **preview_publish_dalive_content**(path, branch) - Trigger preview publish
 
 **Example Usage from Docker Container:**
 ```bash
@@ -336,6 +348,65 @@ Fetch page content from da.live (backward compatibility endpoint)
 Service health status
 
 ## Key Implementation Details
+
+### Bearer Token Management
+
+**Token Priority System** (NEW - Release 1.5):
+
+All da.live tools now support flexible token resolution with the following priority:
+1. **Passed in tool parameters** - Token provided directly in `params.token` or `params.bearerToken`
+2. **Set via set_token_dalive** - Token set during MCP session (persists across tool calls)
+3. **Environment variable** - `DALIVE_BEARER_TOKEN` from `.env` or system environment
+
+**Usage Examples**:
+
+```javascript
+// Option 1: Set token once for entire session (recommended)
+// Using AI in Claude Desktop:
+"Set token to eyJhbGciOiJSUzI1NiIs..."
+
+// Then all subsequent calls use this token automatically
+"Get content from /source/owner/site/page.html"
+"Save content to /source/owner/site/page.html"
+
+// Option 2: Override token for a specific call
+// Pass token parameter directly:
+{
+  "path": "/source/owner/site/page.html",
+  "token": "different-token-for-this-call"
+}
+
+// Option 3: Use environment variable (backward compatible)
+// Set in .env file:
+DALIVE_BEARER_TOKEN=your_default_token
+```
+
+**Benefits**:
+- ✅ Switch tokens mid-session without restarting server
+- ✅ Multi-user sessions with different tokens
+- ✅ Per-call token override for advanced use cases
+- ✅ Backward compatible with environment variables
+- ✅ Secure (tokens only in memory, 24-hour session timeout)
+
+**set_token_dalive Tool**:
+```json
+{
+  "name": "set_token_dalive",
+  "arguments": {
+    "token": "eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5LWF0LTEuY2VyIi..."
+  }
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "da.live Bearer token set successfully for this session",
+  "tokenLength": 1234,
+  "timestamp": "2025-11-30T..."
+}
+```
 
 ### MCP Integration Architecture
 

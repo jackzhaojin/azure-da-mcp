@@ -5,7 +5,7 @@
 
 import * as DaliveClient from '../../modules/DaliveClient.js';
 import { createSuccessResponse, createErrorResponse, ErrorCodes } from '../utils/response-builder.js';
-import { validateRequiredParams, validatePath, validateBearerToken } from '../utils/validator.js';
+import { validateRequiredParams, validatePath, resolveBearerToken } from '../utils/validator.js';
 import { normalizePath } from '../../modules/PathNormalizer.js';
 import requestSchema from '../schemas/preview-publish-dalive-content-request.schema.json' assert { type: 'json' };
 
@@ -14,8 +14,9 @@ import requestSchema from '../schemas/preview-publish-dalive-content-request.sch
  * @param {Object} params - Tool parameters
  * @param {string} params.path - da.live content path
  * @param {string} [params.branch] - Git branch (defaults to 'main')
+ * @param {string} [params.token] - Optional Bearer token (overrides session/env token)
  * @param {Object} context - MCP session context
- * @param {string} context.bearerToken - da.live Bearer token
+ * @param {string} [context.bearerToken] - da.live Bearer token from session
  * @returns {Promise<Object>} MCP-formatted response
  */
 export async function execute(params, context) {
@@ -24,7 +25,9 @@ export async function execute(params, context) {
   try {
     // Validate inputs
     validateRequiredParams(params, ['path']);
-    validateBearerToken(context);
+
+    // Resolve Bearer token with priority: params > context > env
+    const bearerToken = resolveBearerToken(params, context);
 
     // Normalize path (accepts multiple URL formats)
     const normalizedPath = normalizePath(params.path);
@@ -36,7 +39,7 @@ export async function execute(params, context) {
     // Trigger preview publish
     const previewResult = await DaliveClient.previewPublish(
       normalizedPath,
-      context.bearerToken,
+      bearerToken,
       branch
     );
 

@@ -9,7 +9,7 @@ import {
   validateRequiredParams,
   validatePath,
   validateHtmlContent,
-  validateBearerToken
+  resolveBearerToken
 } from '../utils/validator.js';
 import { normalizePath } from '../../modules/PathNormalizer.js';
 import requestSchema from '../schemas/create-content-request.schema.json' assert { type: 'json' };
@@ -19,8 +19,9 @@ import requestSchema from '../schemas/create-content-request.schema.json' assert
  * @param {Object} params - Tool parameters
  * @param {string} params.path - da.live content path for new page
  * @param {string} params.htmlContent - Initial HTML content (can be blank template)
+ * @param {string} [params.token] - Optional Bearer token (overrides session/env token)
  * @param {Object} context - MCP session context
- * @param {string} context.bearerToken - da.live Bearer token
+ * @param {string} [context.bearerToken] - da.live Bearer token from session
  * @returns {Promise<Object>} MCP-formatted response
  */
 export async function execute(params, context) {
@@ -30,7 +31,9 @@ export async function execute(params, context) {
     // Validate inputs
     validateRequiredParams(params, ['path', 'htmlContent']);
     const contentSizeBytes = validateHtmlContent(params.htmlContent);
-    validateBearerToken(context);
+
+    // Resolve Bearer token with priority: params > context > env
+    const bearerToken = resolveBearerToken(params, context);
 
     // Normalize path (accepts multiple URL formats)
     const normalizedPath = normalizePath(params.path);
@@ -41,7 +44,7 @@ export async function execute(params, context) {
     const daliveResponse = await DaliveClient.updateContent(
       normalizedPath,
       params.htmlContent,
-      context.bearerToken
+      bearerToken
     );
 
     const duration = Date.now() - startTime;

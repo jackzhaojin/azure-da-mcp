@@ -6,8 +6,8 @@ Backend MCP (Model Context Protocol) server for AI-assisted da.live content edit
 
 This project provides an HTTP API backend that orchestrates AI-powered content editing for da.live pages. It integrates da.live Admin API for content management with Anthropic Claude for intelligent content editing.
 
-**Release**: 1.2 (Claude Desktop Integration)
-**Status**: ✅ **WORKING** - MCP tools available in Claude Desktop
+**Release**: 1.5 (Bearer Token Management)
+**Status**: ✅ **WORKING** - MCP tools available in Claude Desktop with dynamic token support
 **Branch**: `main`
 
 ## n8n Workflow Automation (Optional)
@@ -64,7 +64,7 @@ This special DNS name allows Docker containers on Mac and Windows to access the 
   - `POST /api/mcp-streamable` - For n8n, MCP Inspector (HTTP Streamable)
 - ✅ **Claude Desktop Support** - stdio-to-HTTP bridge for seamless integration
 - ✅ **n8n Integration** - Docker-based workflow automation
-- ✅ **2 MCP Tools** - `get_dalive_content` and `save_dalive_content`
+- ✅ **6 MCP Tools** - get, save, set_token, create, create_folder, preview_publish
 - ✅ **AI-Powered Editing** using configurable LLM providers
 - ✅ **Session Management** - 24-hour session timeout for long conversations
 - ✅ **E2E Testing** - All tests use real APIs (no mocks)
@@ -611,12 +611,56 @@ From spec.md requirements:
 ### Available MCP Tools
 
 - **`get_dalive_content`** - Fetch HTML content from da.live
-  - Input: `path` (e.g., `/products/enterprise`)
+  - Input: `path` (e.g., `/source/owner/site/page.html`)
   - Returns: HTML content, last modified timestamp, content length
 
 - **`save_dalive_content`** - Save edited HTML to da.live
   - Input: `path`, `htmlContent`
   - Returns: Success confirmation with updated timestamp
+
+- **`set_token_dalive`** - Set da.live Bearer token for the session (NEW - Release 1.5)
+  - Input: `token` (da.live Bearer token)
+  - Returns: Success confirmation with token length
+  - **Purpose**: Dynamically set authentication token mid-session without restarting
+  - **Priority**: Token passed in params > session token (set via this tool) > environment variable
+
+- **`create_dalive_content`** - Create new HTML content in da.live
+  - Input: `path`, `htmlContent`
+  - Returns: Success confirmation with URLs
+
+- **`create_folder_dalive`** - Create a new folder in da.live
+  - Input: `path` (e.g., `/source/owner/site/new-folder`)
+  - Returns: Success confirmation
+
+- **`preview_publish_dalive_content`** - Trigger preview publish on admin.hlx.page
+  - Input: `path`, `branch` (optional, defaults to 'main')
+  - Returns: Preview URL and status
+
+### Token Management (NEW - Release 1.5)
+
+**Dynamic Bearer Token Support**: You can now set or change the da.live Bearer token during an active MCP session without restarting the server.
+
+**Usage in Claude Desktop**:
+```
+You: "Set token to eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5LWF0..."
+
+Claude: ✓ Token set successfully for this session
+
+You: "Now get content from /source/owner/site/page.html"
+
+Claude: [Uses the token you just set to fetch content]
+```
+
+**Token Priority**:
+1. **Parameter** - Token passed directly in tool call parameters (highest priority)
+2. **Session** - Token set via `set_token_dalive` tool (persists across calls)
+3. **Environment** - `DALIVE_BEARER_TOKEN` from environment variables (fallback)
+
+**Benefits**:
+- ✅ Switch between different da.live accounts without restarting
+- ✅ Multiple concurrent sessions with different tokens
+- ✅ No need to restart server or edit config files
+- ✅ Tokens stored securely in memory only (24-hour session timeout)
 
 ### stdio-to-HTTP Bridge
 

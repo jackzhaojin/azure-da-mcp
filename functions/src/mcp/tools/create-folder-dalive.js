@@ -5,7 +5,7 @@
 
 import * as DaliveClient from '../../modules/DaliveClient.js';
 import { createSuccessResponse, createErrorResponse, ErrorCodes } from '../utils/response-builder.js';
-import { validateRequiredParams, validatePath, validateBearerToken } from '../utils/validator.js';
+import { validateRequiredParams, validatePath, resolveBearerToken } from '../utils/validator.js';
 import { normalizePath } from '../../modules/PathNormalizer.js';
 import requestSchema from '../schemas/create-folder-request.schema.json' assert { type: 'json' };
 
@@ -13,8 +13,9 @@ import requestSchema from '../schemas/create-folder-request.schema.json' assert 
  * Tool implementation
  * @param {Object} params - Tool parameters
  * @param {string} params.path - da.live folder path
+ * @param {string} [params.token] - Optional Bearer token (overrides session/env token)
  * @param {Object} context - MCP session context
- * @param {string} context.bearerToken - da.live Bearer token
+ * @param {string} [context.bearerToken] - da.live Bearer token from session
  * @returns {Promise<Object>} MCP-formatted response
  */
 export async function execute(params, context) {
@@ -23,7 +24,9 @@ export async function execute(params, context) {
   try {
     // Validate inputs
     validateRequiredParams(params, ['path']);
-    validateBearerToken(context);
+
+    // Resolve Bearer token with priority: params > context > env
+    const bearerToken = resolveBearerToken(params, context);
 
     // Normalize path (accepts multiple URL formats)
     const normalizedPath = normalizePath(params.path);
@@ -32,7 +35,7 @@ export async function execute(params, context) {
     // Create folder in da.live
     const daliveResponse = await DaliveClient.createFolder(
       normalizedPath,
-      context.bearerToken
+      bearerToken
     );
 
     const duration = Date.now() - startTime;
