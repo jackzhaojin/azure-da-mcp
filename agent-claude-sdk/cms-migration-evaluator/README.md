@@ -18,12 +18,20 @@ Compares expected content (PDFs, specs, original pages) against actual migrated 
 # Install dependencies
 npm install
 
-# Run Phase 1: PDF → Webpage comparison
+# Phase 1: PDF → Webpage comparison
 npm run evaluate examples/test-migration.json
 
-# Example input file:
+# Phase 2: Generate AI-powered dashboard
+npm run dashboard
+
+# Open dashboard in browser
+open output/dashboards/migration-quality-dashboard.html
+```
+
+**Example Input** (`examples/test-migration.json`):
+```json
 {
-  "pdfPath": "input/pdfs/ai-powered-package-tracking-2025.pdf",
+  "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/ai-powered-package-tracking-2025.pdf",
   "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/ai-powered-package-tracking"
 }
 ```
@@ -36,21 +44,26 @@ npm run evaluate examples/test-migration.json
 - AI reasoning for quality assessment
 - JSON reports with scores and findings
 
+**Phase 2 ✅**: AI-Generated Quality Dashboard
+- Agent SDK generates interactive HTML dashboards
+- Chart.js visualizations (bar charts, donut charts, tables)
+- Self-contained HTML (works offline)
+- Responsive design (mobile, tablet, desktop)
+- WCAG 2.2 AA accessible
+- AI-generated executive summaries
+
 ## Project Structure
 
 ```
 cms-migration-evaluator/
 ├── src/
-│   ├── evaluator.ts              # Agent SDK orchestrator
-│   ├── cliEvaluator.ts           # CLI interface
-│   └── utils/
-│       └── promptLoader.ts       # Load evaluation prompts
-├── prompts/
-│   └── pdf-webpage-evaluation.md # Agent SDK evaluation prompt
-├── input/
-│   └── pdfs/                     # PDF files to evaluate
+│   ├── evaluator.ts              # Phase 1: Agent SDK evaluator
+│   ├── cliEvaluator.ts           # Phase 1: CLI interface
+│   ├── dashboardGenerator.ts     # Phase 2: Dashboard generator
+│   └── cliDashboard.ts           # Phase 2: Dashboard CLI
 ├── output/
-│   └── reports/                  # JSON evaluation reports
+│   ├── reports/                  # Phase 1: JSON evaluation reports
+│   └── dashboards/               # Phase 2: HTML dashboards
 ├── config/
 │   ├── evaluation-criteria.json  # Scoring weights
 │   └── default-config.json       # Default settings
@@ -89,13 +102,59 @@ cms-migration-evaluator/
 
 ## Phase Roadmap
 
-- **Phase 1** ✅ MVP - PDF → Webpage comparison (current)
-- **Phase 2** 📋 Planning - AI-generated dashboard
-- **Phase 3** 📋 Planning - Enhanced visual regression + accessibility
+- **Phase 1** ✅ COMPLETE - PDF → Webpage comparison
+- **Phase 2** ✅ COMPLETE - AI-generated quality dashboards
+- **Phase 3** 📋 Planning - Enhanced visual regression + accessibility (Playwright MCP, Lighthouse, aXe)
 - **Phase 4** 📋 Planning - JSON spec → Webpage validation
-- **Phase 5** 📋 Planning - Source webpage → Migrated webpage
+- **Phase 5** 📋 Planning - Source webpage → Migrated webpage comparison
+
+## Usage
+
+### Phase 1: Evaluate Migration Quality
+
+```bash
+# Evaluate single PDF → webpage migration
+npm run evaluate examples/test-migration.json
+
+# View report
+cat output/reports/ai-powered-package-tracking-2025-report.json
+```
+
+**Output**: JSON report with:
+- Overall score (0-100) + grade
+- Scores per dimension (SEO, Accessibility, Visual, Content, Intent)
+- 16+ findings with severity levels (critical, high, medium, low)
+- Actionable recommendations
+
+### Phase 2: Generate Dashboard
+
+```bash
+# Generate interactive HTML dashboard from all reports
+npm run dashboard
+
+# Or with custom title
+npm run dashboard -- --title "Q4 2025 Migration Report"
+
+# Open in browser
+open output/dashboards/migration-quality-dashboard.html
+```
+
+**Output**: Self-contained HTML dashboard with:
+- Executive summary with AI-generated insights
+- Interactive charts (Chart.js)
+- Filterable findings table
+- Prioritized recommendations
+- Works offline, responsive, accessible (WCAG 2.2 AA)
 
 ## Documentation
 
-- **Plan**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/cms-migration-evaluator-plan.md`
+- **Full Plan**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/cms-migration-evaluator-plan.md`
+- **Phase 1 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-1-handoff.md`
+- **Phase 2 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-2-handoff.md`
 - **Init Prompt Log**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/init-prompt.md`
+
+## Requirements
+
+- Node.js 18+
+- Anthropic API key (set in `.env`)
+- Chart.js 4.4.0 (loaded from CDN in dashboards)

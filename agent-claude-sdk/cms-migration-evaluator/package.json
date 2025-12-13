@@ -6,10 +6,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist output/reports output/screenshots",
+    "clean": "rm -rf dist output/reports output/screenshots output/dashboards",
     "dev": "tsx src/cliEvaluator.ts",
+    "dev:dashboard": "tsx src/cliDashboard.ts",
     "start": "npm run build && node dist/cliEvaluator.js",
-    "evaluate": "npm run dev"
+    "evaluate": "npm run dev",
+    "dashboard": "npm run dev:dashboard"
   },
   "keywords": [
     "claude",
