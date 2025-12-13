@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist output",
+    "clean": "rm -rf dist output/deterministic output/agent-sdk output/specs",
     "dev:deterministic": "tsx src/cliDeterministic.ts",
     "dev:agent": "tsx src/cliSdk.ts",
     "dev:compare": "tsx src/cliComparison.ts",
@@ -15,7 +15,10 @@
     "start:agent": "npm run build && node dist/cliSdk.js",
     "start:compare": "npm run build && node dist/cliComparison.js",
     "start": "npm run start:deterministic",
-    "generate": "npm run dev"
+    "generate": "npm run dev",
+    "generate:specs": "tsx src/cliSpecGenerator.ts",
+    "generate:specs:validate": "tsx src/cliSpecGenerator.ts --validate",
+    "start:generate:specs": "npm run build && node dist/cliSpecGenerator.js"
   },
   "keywords": [
     "claude",

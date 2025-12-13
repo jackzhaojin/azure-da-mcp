@@ -1,0 +1,51 @@
+{
+  "generation": {
+    "count": 10,
+    "theme": "postal_services_technology",
+    "description": "Modern postal services and logistics technology trends for B2B postal operators and B2C consumers",
+    "topics": [
+      "AI-Powered Package Tracking Systems for 2025",
+      "Sustainable Last-Mile Delivery Solutions",
+      "Drone Delivery: B2B vs B2C Applications",
+      "Smart Lockers and the Future of Parcel Collection",
+      "Blockchain in Supply Chain Transparency",
+      "Robotics in Warehouse Automation",
+      "Real-Time Route Optimization for Postal Fleets",
+      "Customer Experience in Digital Postal Services",
+      "IoT Sensors for Temperature-Controlled Mail Delivery",
+      "Machine Learning for Demand Forecasting in Logistics"
+    ],
+    "variety": "high",
+    "contentDepth": "detailed",
+    "wordCountRange": {
+      "min": 500,
+      "max": 1500
+    }
+  },
+  "templates": {
+    "distribution": {
+      "basic": 0.3,
+      "featured": 0.7
+    }
+  },
+  "media": {
+    "includeImages": true,
+    "averageImageCount": 2,
+    "includeYouTube": 50
+  },
+  "output": {
+    "directory": "./output/specs",
+    "filenamePattern": "blog-{index}-{slug}.json"
+  },
+  "metadata": {
+    "author": "Tech Research Team",
+    "datePattern": "2025-12-{day}",
+    "tagSets": [
+      ["AI", "logistics", "B2B", "tracking"],
+      ["sustainability", "delivery", "B2C", "green"],
+      ["automation", "robotics", "warehouse", "efficiency"],
+      ["blockchain", "transparency", "supply-chain", "security"],
+      ["IoT", "sensors", "monitoring", "real-time"]
+    ]
+  }
+}
