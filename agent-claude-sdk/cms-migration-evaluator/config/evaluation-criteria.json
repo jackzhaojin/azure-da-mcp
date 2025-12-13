@@ -1,0 +1,19 @@
+{
+  "weights": {
+    "seo": 0.25,
+    "accessibility": 0.25,
+    "visualFidelity": 0.20,
+    "contentQuality": 0.20,
+    "intentAlignment": 0.10
+  },
+  "thresholds": {
+    "excellent": 90,
+    "good": 75,
+    "acceptable": 60,
+    "needsImprovement": 40,
+    "critical": 0
+  },
+  "wcagLevel": "AA",
+  "wcagVersion": "2.2",
+  "minContrast": 4.5
+}

@@ -1,0 +1,20 @@
+{
+  "evaluation": {
+    "includeAIReasoning": true,
+    "captureScreenshots": true,
+    "runAutomatedChecks": true,
+    "verbose": false
+  },
+  "playwright": {
+    "viewport": { "width": 1920, "height": 1080 },
+    "timeout": 30000,
+    "captureConsoleErrors": true,
+    "captureNetworkRequests": false
+  },
+  "output": {
+    "format": "json",
+    "includeRecommendations": true,
+    "includeReasoning": true,
+    "saveScreenshots": true
+  }
+}
