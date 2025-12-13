@@ -65,7 +65,7 @@ async function main(): Promise<void> {
         prompt: userMessage,
         options: {
           model,
-          maxTurns: 1
+          maxTurns: 10
         }
       });
 
