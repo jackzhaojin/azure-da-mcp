@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #fff;
+        }
+
+        .hero {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hero-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.9;
+        }
+
+        .hero-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6));
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            color: white;
+            padding: 40px;
+            max-width: 800px;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            line-height: 1.2;
+        }
+
+        .hero .teaser {
+            font-size: 20px;
+            font-weight: 300;
+            line-height: 1.6;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        .hero .metadata {
+            font-size: 14px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hero .metadata span {
+            margin: 0 15px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        .content p {
+            margin-bottom: 20px;
+            font-size: 17px;
+            line-height: 1.8;
+            color: #2c3e50;
+        }
+
+        .content h2 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-top: 50px;
+            margin-bottom: 20px;
+            color: #1a1a1a;
+            border-left: 5px solid #667eea;
+            padding-left: 20px;
+        }
+
+        .content h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 35px;
+            margin-bottom: 15px;
+            color: #34495e;
+        }
+
+        .content ul,
+        .content ol {
+            margin-bottom: 25px;
+            margin-left: 30px;
+        }
+
+        .content li {
+            margin-bottom: 10px;
+            line-height: 1.8;
+            font-size: 17px;
+        }
+
+        .content img {
+            max-width: 100%;
+            height: auto;
+            margin: 40px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .content pre {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            overflow-x: auto;
+            margin-bottom: 25px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .content code {
+            background: #f8f9fa;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #e83e8c;
+        }
+
+        .content pre code {
+            background: none;
+            padding: 0;
+            color: #2c3e50;
+        }
+
+        .image-container {
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .image-container img {
+            margin: 0;
+            border-radius: 8px;
+        }
+
+        .image-caption {
+            font-size: 15px;
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+
+        .video-container {
+            margin: 40px 0;
+            text-align: center;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .video-container img {
+            margin: 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .video-caption {
+            font-size: 15px;
+            color: #495057;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+
+        .callout {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 20px 25px;
+            margin: 30px 0;
+            border-radius: 4px;
+        }
+
+        .callout p {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        @page {
+            margin: 0;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    {{#if HERO_IMAGE}}
+    <div class="hero">
+        <img src="{{HERO_IMAGE}}" alt="Hero image" class="hero-image">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1>{{TITLE}}</h1>
+            {{#if TEASER}}
+            <p class="teaser">{{TEASER}}</p>
+            {{/if}}
+            <div class="metadata">
+                {{#if AUTHOR}}<span>{{AUTHOR}}</span>{{/if}}
+                {{#if DATE}}<span>{{DATE}}</span>{{/if}}
+            </div>
+        </div>
+    </div>
+    {{/if}}
+
+    {{#if !HERO_IMAGE}}
+    <div class="hero">
+        <div class="hero-content">
+            <h1>{{TITLE}}</h1>
+            {{#if TEASER}}
+            <p class="teaser">{{TEASER}}</p>
+            {{/if}}
+            <div class="metadata">
+                {{#if AUTHOR}}<span>{{AUTHOR}}</span>{{/if}}
+                {{#if DATE}}<span>{{DATE}}</span>{{/if}}
+                {{#if TAGS}}<span>{{TAGS}}</span>{{/if}}
+            </div>
+        </div>
+    </div>
+    {{/if}}
+
+    <div class="container">
+        <div class="content">
+            {{CONTENT}}
+        </div>
+    </div>
+</body>
+</html>

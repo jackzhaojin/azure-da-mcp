@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Blog PDF Generator CLI
- * Command-line interface for generating blog PDFs
+ * Blog PDF Generator CLI - Agent SDK Version
+ * Command-line interface using Claude Agent SDK with autonomous tool selection
  */
 
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { generateBlogPdf, type BlogPdfSpec } from './agent.js';
+import { generateBlogPdfWithAgent, type BlogPdfSpec } from './agentSdk.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,8 +17,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 async function main() {
-  console.log('📄 Blog PDF Generator');
-  console.log('=====================\n');
+  console.log('📄 Blog PDF Generator (Agent SDK)');
+  console.log('==================================\n');
 
   // Verify authentication
   const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -34,9 +34,9 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.log('Usage: npm run generate <input.json>');
-    console.log('   or: npm run dev <input.json>\n');
-    console.log('Example: npm run dev examples/sample-blog.json\n');
+    console.log('Usage: npm run agent <input.json>');
+    console.log('   or: npm run dev:agent <input.json>\n');
+    console.log('Example: npm run dev:agent examples/sample-blog-phase2.json\n');
     process.exit(0);
   }
 
@@ -55,12 +55,13 @@ async function main() {
     const outputDir = path.join(process.cwd(), 'output');
     await fs.mkdir(outputDir, { recursive: true });
 
-    console.log('🤖 Starting agent...');
-    console.log('   (This may take 20-30 seconds)\n');
+    console.log('🤖 Starting Agent SDK...');
+    console.log('   (Claude will autonomously select tools and workflow)');
+    console.log('   (This may take 15-30 seconds)\n');
 
-    // Generate PDF
+    // Generate PDF using Agent SDK
     const startTime = Date.now();
-    const result = await generateBlogPdf(spec, outputDir);
+    const result = await generateBlogPdfWithAgent(spec, outputDir);
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
     // Display results
