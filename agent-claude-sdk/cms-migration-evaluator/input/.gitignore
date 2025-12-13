@@ -1,0 +1,6 @@
+# Ignore all input files
+*
+
+# Keep directory structure
+!.gitkeep
+!.gitignore

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+*.log
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+
+# Input files (PDFs, specs, URLs)
+input/**/*
+!input/**/.gitkeep
+!input/**/.gitignore
+
+# Output files (reports, screenshots)
+output/**/*
+!output/**/.gitkeep
+!output/**/.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

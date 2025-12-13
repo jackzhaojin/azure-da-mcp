@@ -1,0 +1,38 @@
+{
+  "name": "cms-migration-evaluator",
+  "version": "1.0.0",
+  "description": "Claude Agent SDK powered CMS migration quality evaluator",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist output/reports output/screenshots",
+    "dev": "tsx src/cliEvaluator.ts",
+    "start": "npm run build && node dist/cliEvaluator.js",
+    "evaluate": "npm run dev"
+  },
+  "keywords": [
+    "claude",
+    "agent-sdk",
+    "cms",
+    "migration",
+    "quality-evaluation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.30",
+    "dotenv": "^16.4.5",
+    "pdf-parse": "^1.1.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pdf-parse": "^1.1.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
