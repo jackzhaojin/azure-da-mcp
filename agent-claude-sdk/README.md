@@ -35,13 +35,17 @@ A simple command-line chat interface demonstrating the Claude Agent SDK with OAu
 
 ### Demo Agents
 
-The `demos/` directory contains third-party agent examples that we're testing and experimenting with locally. These are TypeScript ports or examples from the community that demonstrate different agent capabilities and patterns.
+The `demos/` directory contains third-party agent examples cloned from GitHub for local testing and experimentation. These repos are gitignored and follow the naming convention `org--repo` for clarity.
 
-**Planned demos:**
-- Web automation agents
-- File processing agents
-- Multi-tool integration examples
-- Advanced conversation patterns
+**Currently available:**
+- `anthropics--claude-quickstarts/` - Official Claude quickstart examples from Anthropic
+- `anthropics--claude-agent-sdk-demos/` - Official Agent SDK demo implementations
+
+**Note:** The demos directory is gitignored. To add more examples:
+```bash
+cd demos
+git clone https://github.com/org/repo.git org--repo
+```
 
 ## Getting Started
 
