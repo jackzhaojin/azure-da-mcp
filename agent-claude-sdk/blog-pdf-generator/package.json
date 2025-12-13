@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist output/deterministic output/agent-sdk output/specs",
+    "clean": "rm -rf dist output/deterministic output/agent-sdk output/specs output/bulk-pdfs",
     "dev:deterministic": "tsx src/cliDeterministic.ts",
     "dev:agent": "tsx src/cliSdk.ts",
     "dev:compare": "tsx src/cliComparison.ts",
@@ -18,7 +18,9 @@
     "generate": "npm run dev",
     "generate:specs": "tsx src/cliSpecGenerator.ts",
     "generate:specs:validate": "tsx src/cliSpecGenerator.ts --validate",
-    "start:generate:specs": "npm run build && node dist/cliSpecGenerator.js"
+    "start:generate:specs": "npm run build && node dist/cliSpecGenerator.js",
+    "generate:bulk": "tsx src/cliBulk.ts",
+    "start:generate:bulk": "npm run build && node dist/cliBulk.js"
   },
   "keywords": [
     "claude",
@@ -33,6 +35,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.1.30",
     "axios": "^1.7.9",
     "dotenv": "^16.4.5",
+    "p-queue": "^8.0.1",
     "pdf-lib": "^1.17.1",
     "puppeteer": "^23.11.1",
     "sharp": "^0.34.5",
