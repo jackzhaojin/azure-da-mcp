@@ -35,16 +35,26 @@ A simple command-line chat interface demonstrating the Claude Agent SDK with OAu
 
 ### Demo Agents
 
-The `demos/` directory contains third-party agent examples cloned from GitHub for local testing and experimentation. These repos are gitignored and follow the naming convention `org--repo` for clarity.
+The `demos/` directory contains third-party agent examples cloned from GitHub for local testing and experimentation.
+
+**Setup:**
+- The directory uses a gitignore pattern: everything in `demos/` is ignored except the directory itself
+- Demo repos are checked out initially with the naming convention `org--repo` for clarity
+- Each demo is a standalone Git repository
 
 **Currently available:**
 - `anthropics--claude-quickstarts/` - Official Claude quickstart examples from Anthropic
 - `anthropics--claude-agent-sdk-demos/` - Official Agent SDK demo implementations
 
-**Note:** The demos directory is gitignored. To add more examples:
+**To add more examples:**
 ```bash
 cd demos
 git clone https://github.com/org/repo.git org--repo
+```
+
+**Python demos:** Some demos require Python execution. Use `python3.12` directly (already in PATH):
+```bash
+python3.12 script.py  # Not python3 (which points to system Python 3.9.6)
 ```
 
 ## Getting Started
