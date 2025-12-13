@@ -1,6 +1,6 @@
 # Blog PDF Generator
 
-AI-powered blog PDF generation system with **three-phase architecture**: Spec Generation (Agent SDK) → PDF Generation (Deterministic) → Bulk Orchestration (Phase 4, planned).
+AI-powered blog PDF generation system with **four-phase architecture**: Spec Generation (Agent SDK) → PDF Generation (Deterministic) → Bulk Orchestration (Deterministic).
 
 ## What This Does
 
@@ -17,6 +17,13 @@ AI-powered blog PDF generation system with **three-phase architecture**: Spec Ge
 - **Asset Management**: Downloads, optimizes, and embeds all media
 - **Self-Validation**: Ensures output quality before completion
 - **Dual Implementation**: Choose between deterministic or agent-driven workflows
+
+**Phase 4: Bulk PDF generation** (Deterministic orchestration of 1-50 PDFs):
+- **High-Speed Generation**: Average 0.77s per PDF with parallel processing
+- **Concurrency Control**: Configurable worker pool (default: 5 parallel workers)
+- **Real-Time Progress**: Live console updates during bulk operations
+- **Error Resilience**: Continue processing on individual failures
+- **Results Reporting**: JSON reports with success/failure details
 
 ## Two Approaches
 
@@ -72,6 +79,18 @@ npm run dev:compare output/specs/blog-01-*.json
 
 # Or use example specs
 npm run dev examples/sample-blog-phase2.json
+
+# ========================================
+# Phase 4: Bulk PDF Generation
+# ========================================
+# Generate all PDFs from Phase 3 specs (10 PDFs in ~8s)
+npm run generate:bulk output/specs
+
+# Custom output directory
+npm run generate:bulk output/specs --output output/my-pdfs
+
+# Adjust concurrency (default: 5 workers)
+npm run generate:bulk output/specs --concurrency 10
 ```
 
 ## Input Format
@@ -135,6 +154,8 @@ blog-pdf-generator/
 ├── src/
 │   ├── specGenerator.ts              # Phase 3: Agent SDK spec generator
 │   ├── cliSpecGenerator.ts           # Phase 3: Spec generator CLI
+│   ├── bulkOrchestrator.ts           # Phase 4: Bulk PDF orchestration
+│   ├── cliBulk.ts                    # Phase 4: Bulk generation CLI
 │   ├── agentDeterministic.ts         # Phases 1-2: Deterministic PDF generator
 │   ├── agentSdk.ts                   # Phases 1-2: Agent SDK PDF generator
 │   ├── cliDeterministic.ts           # Phases 1-2: Deterministic CLI
@@ -166,6 +187,7 @@ blog-pdf-generator/
 │   └── sample-blog-phase2.json       # Featured with YouTube & images
 └── output/                           # Generated output
     ├── specs/                        # Phase 3: Generated BlogPdfSpec JSONs
+    ├── bulk-pdfs/                    # Phase 4: Bulk generated PDFs + reports
     ├── deterministic/                # Phases 1-2: PDFs from deterministic
     ├── agent-sdk/                    # Phases 1-2: PDFs from Agent SDK
     └── generated-specs-test/         # Phase 3: Test output (preserved)
@@ -218,6 +240,26 @@ blog-pdf-generator/
 4. **Adaptive Workflow**: Claude decides which tools to use and in what order based on the content
 5. **Output**: Professional PDF (same quality as deterministic) + agent execution log
 
+### Phase 4: Bulk PDF Generation (Deterministic Orchestration)
+
+1. **Input**: Directory of BlogPdfSpec JSON files (from Phase 3)
+2. **Orchestration Setup**:
+   - Load all JSON specs from directory
+   - Create p-queue with concurrency limit (default: 5 workers)
+   - Initialize progress tracking
+3. **Parallel Processing**:
+   - Spawn deterministic PDF generator for each spec
+   - Process up to N specs concurrently (configurable via .env)
+   - Track progress in real-time with console updates
+   - Continue processing on individual failures
+4. **Results Aggregation**:
+   - Collect success/failure status for each PDF
+   - Calculate performance metrics (total time, average time per PDF)
+   - Generate JSON results report
+5. **Output**: N PDFs + JSON results report with detailed metrics
+
+**Performance**: 10 PDFs in ~8s (0.77s per PDF average) with 5 workers
+
 ## Requirements
 
 - Node.js 18+
@@ -237,6 +279,10 @@ CLAUDE_CODE_OAUTH_TOKEN=sk-ant-...
 
 # Optional: Model selection
 MODEL=claude-sonnet-4-5-20250929
+
+# Phase 4: Bulk PDF Generation Configuration
+# Number of parallel workers for bulk PDF generation (default: 5)
+BULK_CONCURRENCY=5
 ```
 
 ## Current Implementation
@@ -264,11 +310,12 @@ MODEL=claude-sonnet-4-5-20250929
 - ✅ Spec validation
 - ✅ Default postal services theme
 
-### Phase 4 (Planned)
-- ❌ Bulk PDF orchestration (1-50 PDFs in single execution)
-- ❌ Concurrency control with p-queue
-- ❌ Progress tracking and reporting
-- ❌ Results aggregation and summary
+### Phase 4 ✅ (Complete)
+- ✅ Bulk PDF orchestration (1-50 PDFs in single execution)
+- ✅ Concurrency control with p-queue (configurable workers)
+- ✅ Real-time progress tracking and reporting
+- ✅ Results aggregation with JSON reports
+- ✅ Error-resilient processing (continues on individual failures)
 
 See `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/blog-pdf-generator/blog-pdf-generator-plan.md` for full roadmap.
 
@@ -297,6 +344,14 @@ See `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/blog-pdf-ge
   - Agent decides workflow autonomously
   - Same quality output as deterministic
 - **Token Cost**: ~$0.01-0.05 per PDF (depends on content complexity)
+
+### Phase 4: Bulk PDF Generation (Deterministic)
+- **Test Results** (10 PDFs): 7.69s total
+- **Average**: 0.77s per PDF
+- **Concurrency**: 5 parallel workers
+- **Success Rate**: 100% (10/10 successful)
+- **Token Cost**: $0 (uses deterministic PDF generator)
+- **Scalability**: Estimated ~40s for 50 PDFs with 5 workers
 
 ### When to Use Each
 
