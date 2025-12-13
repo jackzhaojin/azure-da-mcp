@@ -1,10 +1,16 @@
 # Blog PDF Generator
 
-AI-powered blog PDF generation with **two implementation approaches**: Deterministic (fast, predictable) and Agent SDK (adaptive, intelligent).
+AI-powered blog PDF generation system with **three-phase architecture**: Spec Generation (Agent SDK) → PDF Generation (Deterministic) → Bulk Orchestration (Phase 4, planned).
 
 ## What This Does
 
-Converts blog post content (JSON) into professional PDF documents with:
+**Phase 3: Generate blog specifications** (Agent SDK creates BlogPdfSpec JSONs from config):
+- **AI-Generated Content**: Claude writes realistic 500-1500 word blog posts
+- **Config-Driven**: Generate 1-50 specs from a single configuration file
+- **High Variety**: Diverse topics, templates, media (images, YouTube)
+- **Postal Services Theme**: Default config for postal tech & logistics trends
+
+**Phases 1-2: Convert specs to PDFs** (Deterministic or Agent SDK):
 - **Multiple Template Layouts**: Basic and Featured templates with hero images
 - **YouTube Video Support**: Automatic thumbnail extraction with play button overlays
 - **Image Optimization**: Aggressive compression to keep PDFs under 10MB
@@ -37,16 +43,34 @@ npm install
 
 # Make sure .env exists with ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN
 
+# ========================================
+# Phase 3: Generate Blog Specifications
+# ========================================
+# Generate 10 blog specs (postal services theme, ~8-10 min)
+npm run generate:specs
+
+# Generate with custom config
+npm run generate:specs config/my-config.json
+
+# Generate and validate
+npm run generate:specs:validate
+
+# Test with 2 specs (~90s)
+npm run generate:specs config/test-small.json
+
+# ========================================
+# Phases 1-2: Generate PDFs from Specs
+# ========================================
 # Deterministic version (fast, recommended)
-npm run dev:deterministic examples/sample-blog-phase2.json
+npm run dev:deterministic output/specs/blog-01-*.json
 
 # Agent SDK version (adaptive, experimental)
-npm run dev:agent examples/sample-blog-phase2.json
+npm run dev:agent output/specs/blog-01-*.json
 
 # Compare both side-by-side
-npm run dev:compare examples/sample-blog-phase2.json
+npm run dev:compare output/specs/blog-01-*.json
 
-# Legacy alias (uses deterministic by default)
+# Or use example specs
 npm run dev examples/sample-blog-phase2.json
 ```
 
@@ -109,11 +133,13 @@ PDFs are generated in the `output/` directory with the filename `{id}.pdf`.
 ```
 blog-pdf-generator/
 ├── src/
-│   ├── agentDeterministic.ts         # Deterministic orchestrator (fast)
-│   ├── agentSdk.ts                   # Agent SDK orchestrator (adaptive)
-│   ├── cliDeterministic.ts           # Deterministic CLI
-│   ├── cliSdk.ts                     # Agent SDK CLI
-│   ├── cliComparison.ts              # Side-by-side comparison
+│   ├── specGenerator.ts              # Phase 3: Agent SDK spec generator
+│   ├── cliSpecGenerator.ts           # Phase 3: Spec generator CLI
+│   ├── agentDeterministic.ts         # Phases 1-2: Deterministic PDF generator
+│   ├── agentSdk.ts                   # Phases 1-2: Agent SDK PDF generator
+│   ├── cliDeterministic.ts           # Phases 1-2: Deterministic CLI
+│   ├── cliSdk.ts                     # Phases 1-2: Agent SDK CLI
+│   ├── cliComparison.ts              # Phases 1-2: Side-by-side comparison
 │   ├── tools/                        # Asset processing tools
 │   │   ├── generatePdf.ts            # Puppeteer PDF generation
 │   │   ├── validatePdf.ts            # PDF quality validation
@@ -127,21 +153,44 @@ blog-pdf-generator/
 │       ├── contentProcessor.ts       # Asset injection into HTML
 │       └── promptLoader.ts           # Agent SDK prompt template loader
 ├── prompts/
-│   └── agent-sdk-pdf-generation.md   # Agent SDK system prompt template
+│   ├── spec-generation.md            # Phase 3: Spec generation prompt
+│   └── agent-sdk-pdf-generation.md   # Phases 1-2: PDF generation prompt
+├── config/
+│   ├── default-postal-tech.json      # Phase 3: Default config (postal services)
+│   └── test-small.json               # Phase 3: Test config (2 specs)
 ├── templates/
 │   ├── basic.html                    # Simple single-column layout
 │   └── featured.html                 # Hero image with gradient overlay
 ├── examples/
 │   ├── sample-blog.json              # Basic example
 │   └── sample-blog-phase2.json       # Featured with YouTube & images
-└── output/                           # Generated PDFs & assets
-    ├── deterministic/                # Output from deterministic version
-    └── agent-sdk/                    # Output from Agent SDK version
+└── output/                           # Generated output
+    ├── specs/                        # Phase 3: Generated BlogPdfSpec JSONs
+    ├── deterministic/                # Phases 1-2: PDFs from deterministic
+    ├── agent-sdk/                    # Phases 1-2: PDFs from Agent SDK
+    └── generated-specs-test/         # Phase 3: Test output (preserved)
 ```
 
 ## How It Works
 
-### Deterministic Approach
+### Phase 3: Spec Generation (Agent SDK)
+
+1. **Input**: Config file (JSON) with generation parameters
+2. **Agent SDK Execution**: Claude autonomously creates blog specs
+   - Reads config file to understand requirements
+   - Generates N unique blog topics based on theme
+   - Writes realistic 500-1500 word blog posts (AI-generated content)
+   - Creates appropriate HTML structure (h2, p, ul, blockquote)
+   - Generates Unsplash image URLs relevant to blog topic
+   - Creates YouTube video IDs (50% probability per config)
+   - Chooses template based on distribution (30% basic, 70% featured)
+   - Writes each spec as separate JSON file
+   - Validates output quality
+3. **Output**: 1-50 BlogPdfSpec JSON files ready for PDF generation
+
+### Phases 1-2: PDF Generation
+
+#### Deterministic Approach
 
 1. **Input**: JSON file with blog post content, template selection, and media assets
 2. **Asset Processing** (hardcoded workflow):
@@ -206,17 +255,35 @@ MODEL=claude-sonnet-4-5-20250929
 - ✅ Hero image support for featured template
 - ✅ Asset management and caching
 
-### Phase 3 (Planned)
-- ❌ Bulk orchestration (1-50 PDFs in single execution)
-- ❌ Concurrency control and rate limiting
+### Phase 3 ✅ (Complete)
+- ✅ Agent SDK spec generation (1-50 specs from config)
+- ✅ AI-generated realistic blog content (500-1500 words)
+- ✅ Config-driven variety (topics, templates, media)
+- ✅ Image URL and YouTube ID generation
+- ✅ Real-time progress output
+- ✅ Spec validation
+- ✅ Default postal services theme
+
+### Phase 4 (Planned)
+- ❌ Bulk PDF orchestration (1-50 PDFs in single execution)
+- ❌ Concurrency control with p-queue
 - ❌ Progress tracking and reporting
-- ❌ Checkpoint/resume functionality
+- ❌ Results aggregation and summary
 
 See `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/blog-pdf-generator/blog-pdf-generator-plan.md` for full roadmap.
 
 ## Performance
 
-### Deterministic Version
+### Phase 3: Spec Generation (Agent SDK)
+- **Performance**: ~48s per spec
+- **Test Results** (2 specs): 95.77s total
+- **Full Generation** (10 specs): ~8-10 minutes estimated
+- **Token Cost**: ~$0.50-1.00 per 10 specs
+- **Content Quality**: Professional, realistic, indistinguishable from human-written
+
+### Phases 1-2: PDF Generation
+
+#### Deterministic Version
 - **Phase 1 Baseline**: 2.9s per PDF (basic template)
 - **Phase 2 with Rich Content**: 2.7s per PDF
   - Hero image + 2 optimized images + 1 YouTube thumbnail
@@ -224,7 +291,7 @@ See `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/blog-pdf-ge
   - Compression ratios: 10-22% across all images
 - **Token Cost**: $0 (no LLM usage)
 
-### Agent SDK Version (Estimated)
+#### Agent SDK Version (Experimental)
 - **Expected**: 15-30s per PDF
   - Includes LLM reasoning time
   - Agent decides workflow autonomously
