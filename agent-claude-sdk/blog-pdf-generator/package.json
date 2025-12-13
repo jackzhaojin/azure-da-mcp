@@ -6,10 +6,16 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "npm run build && node dist/cli.js",
-    "dev": "tsx src/cli.ts",
-    "generate": "npm run dev",
-    "clean": "rm -rf dist output"
+    "clean": "rm -rf dist output",
+    "dev:deterministic": "tsx src/cliDeterministic.ts",
+    "dev:agent": "tsx src/cliSdk.ts",
+    "dev:compare": "tsx src/cliComparison.ts",
+    "dev": "npm run dev:deterministic",
+    "start:deterministic": "npm run build && node dist/cliDeterministic.js",
+    "start:agent": "npm run build && node dist/cliSdk.js",
+    "start:compare": "npm run build && node dist/cliComparison.js",
+    "start": "npm run start:deterministic",
+    "generate": "npm run dev"
   },
   "keywords": [
     "claude",
@@ -22,10 +28,12 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.30",
+    "axios": "^1.7.9",
     "dotenv": "^16.4.5",
-    "puppeteer": "^23.11.1",
     "pdf-lib": "^1.17.1",
-    "axios": "^1.7.9"
+    "puppeteer": "^23.11.1",
+    "sharp": "^0.34.5",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

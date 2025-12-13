@@ -17,6 +17,7 @@ export interface BlogContent {
   author?: string;
   date?: string;
   tags?: string[];
+  heroImage?: string;
 }
 
 export async function renderTemplate(
@@ -71,6 +72,26 @@ export async function renderTemplate(
     );
   } else {
     template = template.replace(/\{\{#if TAGS\}\}.*?\{\{\/if\}\}/g, '');
+  }
+
+  // Handle hero image - process negations FIRST
+  if (data.heroImage) {
+    // Remove !if HERO_IMAGE blocks when hero image exists
+    template = template.replace(
+      /\{\{#if !HERO_IMAGE\}\}[\s\S]*?\{\{\/if\}\}/gm,
+      ''
+    );
+    // Then handle positive if HERO_IMAGE blocks
+    template = template.replace(/\{\{#if HERO_IMAGE\}\}/g, '');
+    template = template.replace(/\{\{HERO_IMAGE\}\}/g, data.heroImage);
+  } else {
+    // Remove if HERO_IMAGE blocks when no hero image
+    template = template.replace(
+      /\{\{#if HERO_IMAGE\}\}[\s\S]*?\{\{\/if\}\}/gm,
+      ''
+    );
+    // Keep !if HERO_IMAGE blocks when no hero image
+    template = template.replace(/\{\{#if !HERO_IMAGE\}\}/g, '');
   }
 
   // Clean up any remaining conditional blocks

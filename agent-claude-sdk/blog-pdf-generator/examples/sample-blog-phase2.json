@@ -1,0 +1,32 @@
+{
+  "id": "phase2-demo-ai-development",
+  "title": "Building AI Agents with Claude in 2025",
+  "teaser": "A comprehensive guide to creating intelligent agents using the Claude Agent SDK, complete with practical examples and best practices.",
+  "template": "featured",
+  "heroImage": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1600&q=80",
+  "content": "<h2>Introduction to AI Agent Development</h2><p>The landscape of AI development has transformed dramatically with the introduction of agentic AI frameworks. Claude Agent SDK represents the cutting edge of this evolution, enabling developers to build sophisticated, autonomous agents that can reason, plan, and execute complex tasks.</p><p>In this guide, we'll explore the fundamental concepts of agent development, walk through practical implementations, and discuss best practices for building production-ready AI agents.</p><h2>Understanding the Agent Architecture</h2><p>Modern AI agents operate on a few key principles:</p><ul><li><strong>Tool Use:</strong> Agents can leverage external tools to perform actions beyond text generation</li><li><strong>Planning:</strong> Breaking down complex tasks into manageable steps</li><li><strong>Self-Validation:</strong> Verifying outputs meet quality standards before completion</li><li><strong>Iteration:</strong> Refining results based on feedback and validation</li></ul><p>This architecture enables agents to handle sophisticated workflows that would be impractical with traditional programming approaches.</p><h2>Getting Started with Claude Agent SDK</h2><p>The Claude Agent SDK provides a powerful foundation for building agents. Here's a minimal example:</p><pre><code>import { AgentExecutor } from '@anthropic-ai/claude-agent-sdk';\n\nconst agent = new AgentExecutor({\n  model: 'claude-sonnet-4-5',\n  tools: myTools,\n  systemPrompt: 'You are a helpful assistant...'\n});\n\nconst result = await agent.run({\n  input: userRequest,\n  timeout: 60000\n});</code></pre><p>This simple structure belies the sophisticated capabilities underneath. The agent can autonomously decide which tools to use, in what order, and how to combine their results.</p><h2>Real-World Applications</h2><p>We've seen tremendous success deploying AI agents across various domains:</p><ol><li><strong>Content Generation:</strong> Automated blog post creation, PDF generation, and multimedia content</li><li><strong>Data Analysis:</strong> Financial reporting, trend analysis, and predictive modeling</li><li><strong>Customer Support:</strong> Intelligent ticketing, FAQ generation, and personalized responses</li><li><strong>Development Tools:</strong> Code review, testing automation, and documentation generation</li></ol><p>Each of these applications benefits from the agent's ability to understand context, use appropriate tools, and self-validate its outputs.</p><h2>Best Practices for Production Deployment</h2><p>When deploying AI agents to production, several considerations are critical:</p><ul><li>Implement comprehensive error handling and retry logic</li><li>Use structured logging to track agent decision-making</li><li>Set appropriate timeouts and resource limits</li><li>Validate agent outputs before exposing them to end users</li><li>Monitor costs and performance metrics continuously</li></ul><p>These practices ensure your agents remain reliable, cost-effective, and performant at scale.</p><h2>Conclusion</h2><p>AI agent development represents a paradigm shift in how we build software. By combining the reasoning capabilities of large language models with practical tool use and self-validation, we can create systems that are both powerful and reliable.</p><p>The future of software development is agentic, and the tools to build that future are available today. Start small, experiment often, and scale what works.</p>",
+  "images": [
+    {
+      "url": "https://images.unsplash.com/photo-1555255707-c07966088b7b?w=1200&q=80",
+      "alt": "Modern technology workspace",
+      "position": "after-paragraph-2"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80",
+      "alt": "Digital network visualization",
+      "position": "after-paragraph-5"
+    }
+  ],
+  "youtube": [
+    {
+      "videoId": "dQw4w9WgXcQ",
+      "caption": "Watch: Introduction to AI Agent Development",
+      "position": "after-section-2"
+    }
+  ],
+  "metadata": {
+    "author": "Alex Chen",
+    "date": "2025-12-13",
+    "tags": ["AI", "Claude", "Agent SDK", "Development", "Tutorial"]
+  }
+}
