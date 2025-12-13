@@ -1,191 +1,105 @@
-# Claude Agent SDK OAuth Demo (TypeScript)
+# Claude Agent SDK Examples
 
-A command-line chat application demonstrating the Claude Agent SDK with OAuth token authentication. This TypeScript implementation is based on [weidwonder/claude_agent_sdk_oauth_demo](https://github.com/weidwonder/claude_agent_sdk_oauth_demo).
+A collection of TypeScript-based agents built with the [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents), demonstrating various use cases and integration patterns.
 
-## What This Demo Does
+## Overview
 
-This is a simple CLI chat interface that lets you have conversations with Claude using either:
-- **OAuth Token** - For Claude Pro/Max subscribers (uses your subscription quota)
-- **API Key** - For developers and enterprises (pay-per-use)
+This repository contains custom-built agents and third-party demo agents for testing and learning. All agents are implemented in TypeScript and support both OAuth token and API key authentication.
 
-## Prerequisites
-
-- **Node.js** 18 or higher
-- One of the following authentication methods:
-  - Claude Pro/Max subscription (for OAuth)
-  - Anthropic API key (for API access)
-
-## Installation
-
-```bash
-# Install dependencies
-npm install
-
-# Copy environment template
-cp .env.example .env
-
-# Edit .env and add your credentials (see Configuration below)
-```
-
-## Configuration
-
-### Option 1: OAuth Token (Claude Pro/Max Subscribers)
-
-If you have a Claude Pro or Max subscription:
-
-```bash
-# Install Claude CLI globally (if not already installed)
-npm install -g @anthropic-ai/claude-cli
-
-# Set up OAuth token (this will open your browser for authentication)
-claude setup-token
-
-# The token will be automatically configured
-# Or you can manually add it to .env:
-# CLAUDE_CODE_OAUTH_TOKEN=your_token_here
-```
-
-### Option 2: API Key (Developers)
-
-If you have an Anthropic API key:
-
-1. Get your API key from [https://console.anthropic.com/](https://console.anthropic.com/)
-2. Add it to your `.env` file:
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-api03-...
-```
-
-### Optional Configuration
-
-You can specify which Claude model to use (defaults to `claude-sonnet-4-5-20250929`):
-
-```bash
-MODEL=claude-sonnet-4-5-20250929
-```
-
-## Usage
-
-### Development Mode (with auto-recompile)
-
-```bash
-npm run dev
-```
-
-### Production Mode
-
-```bash
-# Build TypeScript to JavaScript
-npm run build
-
-# Run the compiled application
-npm start
-```
-
-### Interactive Chat
-
-Once running, you'll see:
-
-```
-🤖 Claude Agent SDK Chat Demo
-══════════════════════════════════════════════════
-Model: claude-sonnet-4-5-20250929
-Auth: OAuth Token
-══════════════════════════════════════════════════
-Type your message and press Enter. Type "exit" or "quit" to end.
-
-You:
-```
-
-Type your message and press Enter to chat with Claude. Type `exit` or `quit` to end the conversation.
-
-## Project Structure
+## Directory Structure
 
 ```
 agent-claude-sdk/
-├── src/
-│   └── index.ts          # Main TypeScript application
-├── dist/                 # Compiled JavaScript (generated)
-├── package.json          # Dependencies and scripts
-├── tsconfig.json         # TypeScript configuration
-├── .env.example          # Environment template
-└── README.md            # This file
+├── chat-cli/           # Simple CLI chat interface
+├── demos/              # Third-party demo agents for local testing
+└── README.md          # This file
 ```
 
-## Key Features
+## Agents
 
-- **TypeScript** - Fully typed implementation
-- **OAuth Support** - Use your Claude Pro/Max subscription
-- **API Key Support** - Alternative authentication method
-- **Streaming Responses** - See Claude's responses in real-time
-- **Error Handling** - Clear error messages and guidance
-- **Clean CLI Interface** - Simple and intuitive chat experience
+### Custom Agents
 
-## Authentication Comparison
+#### chat-cli
+A simple command-line chat interface demonstrating the Claude Agent SDK with OAuth token authentication.
 
-| Feature | OAuth Token | API Key |
-|---------|------------|---------|
-| **Who** | Claude Pro/Max subscribers | Developers & enterprises |
-| **Cost** | Uses subscription quota | Pay-per-use |
-| **Setup** | `claude setup-token` | Get from console.anthropic.com |
-| **Use Case** | Personal use, testing | Production applications |
+**Features:**
+- Interactive CLI chat with Claude
+- OAuth token support (Claude Pro/Max)
+- API key authentication fallback
+- Streaming responses
+- TypeScript implementation
 
-## 📖 Complete Setup Guide
+**Use case:** Basic conversational AI, testing OAuth authentication, learning the Agent SDK fundamentals.
 
-**For detailed setup instructions, troubleshooting, and lessons learned, see:**
+[View README](./chat-cli/README.md)
 
-👉 **[SETUP-GUIDE.md](./SETUP-GUIDE.md)** - Comprehensive guide with:
-- Step-by-step OAuth token setup
-- Common issues and solutions
-- Token format requirements
-- Security best practices
-- Advanced configuration
+### Demo Agents
 
-## Troubleshooting
+The `demos/` directory contains third-party agent examples that we're testing and experimenting with locally. These are TypeScript ports or examples from the community that demonstrate different agent capabilities and patterns.
 
-### "No authentication credentials found"
+**Planned demos:**
+- Web automation agents
+- File processing agents
+- Multi-tool integration examples
+- Advanced conversation patterns
 
-Make sure you have either `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` set in your `.env` file.
+## Getting Started
 
-### OAuth token expired
+### Prerequisites
+- Node.js 18 or higher
+- Claude Pro/Max subscription (for OAuth) OR Anthropic API key
 
-OAuth tokens expire after **1 year**. Run `claude setup-token` again to get a new token.
+### Quick Start
 
-**Important:** Tokens must start with `sk-ant-`
-
-### TypeScript compilation errors
-
-Make sure you're using Node.js 18 or higher:
+Each agent has its own setup instructions. Navigate to the agent directory and follow its README:
 
 ```bash
-node --version  # Should be 18.0.0 or higher
-```
-
-### Module not found errors
-
-Reinstall dependencies:
-
-```bash
-rm -rf node_modules package-lock.json
+# Example: Run the chat-cli agent
+cd chat-cli
 npm install
+cp .env.example .env
+# Edit .env with your credentials
+npm run dev
 ```
 
-### More Issues?
+### Authentication Options
 
-See [SETUP-GUIDE.md](./SETUP-GUIDE.md) for comprehensive troubleshooting
+All agents support two authentication methods:
 
-## Scripts
+1. **OAuth Token** (Claude Pro/Max subscribers)
+   ```bash
+   npm install -g @anthropic-ai/claude-cli
+   claude setup-token
+   ```
 
-- `npm run dev` - Run in development mode with auto-recompile (using tsx)
-- `npm run build` - Compile TypeScript to JavaScript
-- `npm start` - Build and run the compiled application
-- `npm run clean` - Remove compiled output
+2. **API Key** (Developers)
+   - Get your key from [console.anthropic.com](https://console.anthropic.com/)
+   - Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-api03-...`
+
+## Project Goals
+
+1. **Learn by Building** - Hands-on experience with the Claude Agent SDK
+2. **Test Patterns** - Experiment with different agent architectures
+3. **Evaluate Demos** - Try third-party examples and understand their approaches
+4. **Build Reusable Components** - Create utilities and patterns that work across agents
+
+## Technology Stack
+
+- **Language:** TypeScript
+- **Runtime:** Node.js 18+
+- **SDK:** [@anthropic-ai/claude-agent-sdk](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk)
+- **Authentication:** OAuth tokens or API keys
 
 ## Learn More
 
 - [Claude Agent SDK Documentation](https://docs.anthropic.com/en/docs/agents)
 - [Anthropic API Documentation](https://docs.anthropic.com/)
-- [Original Demo Repository](https://github.com/weidwonder/claude_agent_sdk_oauth_demo)
+- [Claude Agent SDK Demos](https://github.com/anthropics/claude-agent-sdk-demos)
+- [Claude Quickstarts](https://github.com/anthropics/claude-quickstarts/)
+
+## Contributing
+
+This is a personal learning and experimentation repository. Each agent is self-contained with its own dependencies and configuration.
 
 ## License
 
