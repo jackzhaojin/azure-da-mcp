@@ -69,121 +69,81 @@ export async function evaluateMigration(
     await fs.mkdir(lighthouseDir, { recursive: true });
     await fs.mkdir(axeDir, { recursive: true });
 
-    // Build enhanced evaluation prompt with Phase 4.5 capabilities
-    const prompt = `You are an expert CMS migration quality evaluator. Compare a PDF (expected design) to a migrated webpage (actual) using Playwright MCP tools and AI reasoning.
+    // Build enhanced evaluation prompt with Phase 3 capabilities
+    const prompt = `You are an expert CMS migration quality evaluator with advanced testing capabilities. Compare a PDF (expected design) to a migrated webpage (actual) using automated testing tools and AI reasoning.
 
 **Task:** Comprehensive migration quality evaluation across 5 dimensions
 
-**CRITICAL: You MUST use Playwright MCP tools directly. DO NOT create scripts.**
-
-**Required Tool Workflow:**
+**Phase 1+3 Workflow:**
 
 ### 1. PDF Analysis (Baseline)
-Read PDF at: ${input.pdfPath}
-
-Use the Read tool to extract:
-- Text content and structure
-- Headings, sections, paragraphs
-- Image descriptions (if visible)
-- Metadata (title, author, etc.)
+- Read PDF at: ${input.pdfPath}
+- Extract text content, structure, and metadata
+- Convert first page to PNG baseline screenshot for visual comparison
 
 ### 2. Webpage Capture with Playwright MCP
-
 Navigate to: ${input.migratedUrl}
 
-**Step 1: Navigate to webpage**
-\`\`\`typescript
-mcp__playwright__browser_navigate({
-  url: "${input.migratedUrl}"
-})
-\`\`\`
+Use Playwright MCP tools:
+- \`mcp__playwright__browser_navigate\` to load URL
+- \`mcp__playwright__browser_wait_for\` to ensure page loads
+- \`mcp__playwright__browser_snapshot\` to capture accessibility tree
+- \`mcp__playwright__browser_take_screenshot\` to save visual screenshot
 
-**Step 2: Wait for page to load**
-\`\`\`typescript
-mcp__playwright__browser_wait_for({
-  time: 3  // Wait 3 seconds for page load
-})
-\`\`\`
+### 3. Phase 3 Enhanced Testing
 
-**Step 3: Capture accessibility snapshot**
-\`\`\`typescript
-mcp__playwright__browser_snapshot({
-  filename: "${screenshotsDir}/accessibility-snapshot-${pdfFilename}.md"
-})
-\`\`\`
+#### 3A. Visual Regression Testing
+- Convert PDF first page to PNG baseline: \`${screenshotsDir}/baseline-${pdfFilename}.png\`
+- Compare baseline PNG vs webpage screenshot using visual analysis
+- Calculate pixel difference percentage
+- Save diff visualization if significant differences found
+- **Threshold**: 10% acceptable difference (0.1)
 
-**Step 4: Take screenshot**
-\`\`\`typescript
-mcp__playwright__browser_take_screenshot({
-  filename: "${screenshotsDir}/migrated-${pdfFilename}.png",
-  fullPage: true
-})
-\`\`\`
+#### 3B. Accessibility Testing (WCAG 2.2 AA)
+Use Playwright + aXe to scan for:
+- Missing alt text on images
+- Poor color contrast (<4.5:1)
+- Invalid heading hierarchy
+- Missing form labels
+- Keyboard navigation issues
+- ARIA attribute errors
 
-**Step 5: Extract Core Web Vitals via JavaScript evaluation**
-\`\`\`typescript
-mcp__playwright__browser_evaluate({
-  function: \`() => {
-    return JSON.stringify({
-      lcp: performance.getEntriesByType('largest-contentful-paint')[0]?.startTime || 0,
-      fcp: performance.getEntriesByType('paint').find(e => e.name === 'first-contentful-paint')?.startTime || 0,
-      cls: 0  // CLS requires observation over time
-    });
-  }\`
-})
-\`\`\`
+Scan with WCAG 2.2 AA rules and categorize violations by severity:
+- Critical: Blocks users completely
+- High: Major barriers
+- Medium: Annoying but not blocking
+- Low: Best practice improvements
 
-**IMPORTANT:**
-- DO NOT use the Bash tool to create scripts
-- DO NOT try to install or run external tools (Lighthouse, aXe)
-- Focus on what Playwright MCP provides: navigation, snapshots, screenshots, JavaScript evaluation
-- For accessibility: Analyze the accessibility snapshot for ARIA issues, missing alt text, heading hierarchy
-- For performance: Extract Core Web Vitals via browser performance APIs (LCP, FCP)
+Save detailed aXe report to: \`${axeDir}/${pdfFilename}-axe-report.json\`
 
-### 3. Phase 4.5 Simplified Testing (MCP Tools Only)
+#### 3C. Lighthouse Audit
+Run Lighthouse audit for:
+- **Performance**: LCP, TBT, CLS, Speed Index
+- **SEO**: Meta tags, structured data, crawlability
+- **Accessibility**: Lighthouse a11y checks (complements aXe)
+- **Best Practices**: HTTPS, console errors, deprecated APIs
 
-#### 3A. Visual Comparison
-- Read PDF to understand expected visual layout
-- Compare PDF content description vs webpage screenshot (visual analysis)
-- Identify missing images, layout differences, styling changes
-- Note: Pixel-perfect diff not available without external tools (acceptable limitation)
+**Thresholds**:
+- Performance: ≥75
+- Accessibility: ≥90
+- SEO: ≥85
+- Best Practices: ≥80
 
-#### 3B. Accessibility Analysis (from Accessibility Snapshot)
-Analyze the accessibility snapshot (\`browser_snapshot\` output) for:
-- Missing alt text on images (check for img elements without alt)
-- Poor color contrast (review CSS styles in snapshot)
-- Invalid heading hierarchy (check H1→H2→H3 order)
-- Missing form labels (check for inputs without associated labels)
-- ARIA attribute errors (review ARIA attributes in snapshot)
+Save Lighthouse JSON report to: \`${lighthouseDir}/${pdfFilename}-lighthouse.json\`
 
-Categorize violations by severity:
-- Critical: Blocks users completely (e.g., no alt text on key images)
-- High: Major barriers (e.g., poor contrast <3:1)
-- Medium: Annoying but not blocking (e.g., minor heading order issues)
-- Low: Best practice improvements (e.g., missing optional ARIA)
+#### 3D. Core Web Vitals Measurement
+Measure real user experience metrics:
+- **LCP (Largest Contentful Paint)**: Target <2.5s
+- **INP (Interaction to Next Paint)**: Target <200ms
+- **CLS (Cumulative Layout Shift)**: Target <0.1
 
-Note: Full WCAG 2.2 AA compliance requires external tools (aXe). This is manual analysis only.
-
-#### 3C. Performance Metrics (from Browser APIs)
-Use \`browser_evaluate\` to extract Core Web Vitals:
-- LCP (Largest Contentful Paint): Target <2.5s
-- FCP (First Contentful Paint): Target <1.8s
-- CLS (Cumulative Layout Shift): Note - requires observation over time, may report 0
-
-Note: Full Lighthouse audit requires external tools. CWV extraction is basic.
-
-#### 3D. Estimated Lighthouse Scores
-Based on analysis above, estimate Lighthouse scores (0-100):
-- Performance: Based on LCP/FCP values
-- Accessibility: Based on manual accessibility analysis from snapshot
-- SEO: Based on meta tags, heading structure from snapshot
-- Best Practices: Based on HTTPS, console errors (if visible)
+Use Lighthouse or browser performance APIs to capture these metrics.
 
 ### 4. Scoring (0-100 per dimension)
 
-**SEO (25%)**: Based on meta tags + heading structure + content readability
-**Accessibility (25%)**: Based on manual accessibility analysis from snapshot
-**Visual Fidelity (20%)**: Based on visual comparison of PDF vs screenshot
+**SEO (25%)**: Based on Lighthouse SEO + meta tags + heading structure
+**Accessibility (25%)**: Based on aXe violations + Lighthouse a11y + manual checks
+**Visual Fidelity (20%)**: Based on visual diff analysis + layout comparison
 **Content Quality (20%)**: Based on text completeness + structure preservation
 **Intent Alignment (10%)**: Based on AI reasoning about messaging/tone consistency
 
@@ -208,68 +168,82 @@ Save to: ${reportPath}
     "intentAlignmentScore": 75,
     "grade": "good",
     "coreWebVitals": {
-      "lcp": 0.424,
-      "fcp": 0.424,
-      "cls": 0,
+      "lcp": 2.1,
+      "inp": 180,
+      "cls": 0.08,
       "passing": true
-    },
-    "estimatedLighthouseScores": {
-      "performance": 95,
-      "accessibility": 80,
-      "seo": 90,
-      "bestPractices": 85
     }
   },
   "findings": [
     {
       "dimension": "Accessibility",
       "severity": "critical",
+      "wcagLevel": "WCAG 2.2 AA",
+      "rule": "image-alt",
       "issue": "5 images missing alt text",
       "recommendation": "Add descriptive alt text to all images",
-      "location": "Main content area"
+      "affectedElements": ["img#hero", "img.product-1"],
+      "impact": "Blocks screen reader users"
     },
     {
       "dimension": "Visual Fidelity",
       "severity": "medium",
-      "issue": "Hero section appears compressed compared to PDF",
-      "recommendation": "Review spacing in hero section"
+      "issue": "Layout shift detected: 12,453 pixel difference (2.3%)",
+      "recommendation": "Review spacing in hero section - appears compressed vs PDF",
+      "diffImage": "output/screenshots/diff-${pdfFilename}.png"
+    },
+    {
+      "dimension": "Performance",
+      "severity": "high",
+      "lighthouse": true,
+      "issue": "LCP of 3.2s exceeds 2.5s threshold",
+      "recommendation": "Optimize hero image: compress, resize, use WebP format"
+    },
+    {
+      "dimension": "SEO",
+      "severity": "medium",
+      "lighthouse": true,
+      "issue": "Missing meta description",
+      "recommendation": "Add descriptive meta description (150-160 characters)"
     }
   ],
   "recommendations": [
     "Fix 5 images missing alt text (critical)",
-    "Review hero section spacing (medium)"
+    "Optimize hero image to improve LCP (high)",
+    "Add meta description for SEO (medium)"
   ],
   "artifacts": {
-    "accessibilitySnapshot": "${screenshotsDir}/accessibility-snapshot-${pdfFilename}.md",
-    "migratedScreenshot": "${screenshotsDir}/migrated-${pdfFilename}.png"
+    "baselineScreenshot": "${screenshotsDir}/baseline-${pdfFilename}.png",
+    "migratedScreenshot": "${screenshotsDir}/migrated-${pdfFilename}.png",
+    "visualDiff": "${screenshotsDir}/diff-${pdfFilename}.png",
+    "lighthouseJson": "${lighthouseDir}/${pdfFilename}-lighthouse.json",
+    "axeReport": "${axeDir}/${pdfFilename}-axe-report.json"
   },
   "metadata": {
     "evaluatedAt": "<ISO timestamp>",
-    "evaluator": "cms-migration-evaluator-v1.0-phase4.5",
-    "phase": "4.5",
+    "evaluator": "cms-migration-evaluator-v1.0-phase3",
+    "phase": 3,
     "source": "${input.pdfPath}",
     "migratedUrl": "${input.migratedUrl}",
     "tools": {
-      "webpageCapture": "Playwright MCP (browser_navigate, browser_snapshot, browser_take_screenshot)",
-      "accessibility": "Manual analysis of accessibility snapshot",
-      "performance": "Browser Performance APIs (via browser_evaluate)",
-      "coreWebVitals": "Browser Performance APIs"
-    },
-    "limitations": "Full Lighthouse and aXe scans not available with MCP tools only. Manual analysis used."
+      "visualRegression": "odiff-bin + pdf2pic",
+      "accessibility": "@axe-core/playwright",
+      "performance": "playwright-lighthouse",
+      "coreWebVitals": "Lighthouse + browser APIs"
+    }
   }
 }
 \`\`\`
 
 **Important Notes:**
-1. Use Playwright MCP tools directly (mcp__playwright__browser_navigate, browser_snapshot, browser_take_screenshot, browser_evaluate)
-2. DO NOT create scripts or use Bash tool for Playwright operations
-3. Focus on manual analysis of accessibility snapshot
-4. Extract Core Web Vitals via browser_evaluate
-5. Provide estimated Lighthouse scores based on manual analysis
-6. Save accessibility snapshot and screenshot to specified directories
-7. Ensure all findings have severity levels and actionable recommendations
+1. Use Playwright MCP tools (already available) - do NOT try to install Playwright manually
+2. For accessibility testing, use the @axe-core/playwright library via Bash
+3. For Lighthouse, use playwright-lighthouse library via Bash
+4. For visual comparison, analyze screenshots visually and calculate approximate pixel differences
+5. Save all artifacts (screenshots, reports) to specified output directories
+6. Ensure all findings have severity levels and actionable recommendations
 
-Begin the comprehensive Phase 4.5 evaluation now using ONLY Playwright MCP tools.`;
+Begin the comprehensive Phase 1+3 evaluation now.`;
 
     // Get project root directory (one level up from src/)
     const projectRoot = path.resolve(__dirname, '..');
@@ -291,14 +265,12 @@ Begin the comprehensive Phase 4.5 evaluation now using ONLY Playwright MCP tools
         abortController,
         maxTurns: 30,                             // Allow enough turns for evaluation
         model: 'claude-sonnet-4-5-20250929',
-        settingSources: ['user', 'project'],      // Load MCP servers from user config
-        allowDangerouslySkipPermissions: true,    // Auto-approve MCP tool usage (needed for Playwright MCP)
-        permissionMode: 'bypassPermissions',      // Bypass all permission prompts
         allowedTools: [
           'Read',      // Read PDF
           'Write',     // Write report
-          // Playwright MCP tools automatically available via Agent SDK when MCP server loaded
+          'Bash',      // Run external tools
         ],
+        // Playwright MCP tools automatically available
       }
     })) {
       // Log all message types

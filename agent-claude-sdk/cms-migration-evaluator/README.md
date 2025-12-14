@@ -44,14 +44,15 @@ open output/dashboards/migration-quality-dashboard.html
 
 ## Architecture
 
-**Phase 1+3 ✅**: Enhanced PDF → Migrated Webpage Comparison
-- Agent SDK orchestrates comprehensive migration evaluation
-- **Visual Regression**: PDF→PNG baseline comparison (10% threshold)
-- **Accessibility**: WCAG 2.2 AA testing with @axe-core/playwright
-- **Performance**: Core Web Vitals (LCP, INP, CLS) + Lighthouse audits
+**Phase 1+3+4.5 ✅**: Enhanced PDF → Migrated Webpage Comparison (MCP Tools Only)
+- Agent SDK orchestrates comprehensive migration evaluation using Playwright MCP tools
+- **Visual Comparison**: PDF content description vs webpage screenshot (visual analysis)
+- **Accessibility**: Manual WCAG 2.2 AA analysis from accessibility snapshots
+- **Performance**: Core Web Vitals (LCP, FCP, CLS) via browser performance APIs
 - **Content Quality**: Text/metadata/structure validation
 - **AI Reasoning**: Intent alignment and subjective quality assessment
-- Enhanced JSON reports with artifacts (screenshots, aXe reports)
+- Enhanced JSON reports with estimated Lighthouse scores
+- **Phase 4.5 Fix**: Evaluator uses Playwright MCP tools directly (no script creation)
 
 **Phase 2 ✅**: AI-Generated Quality Dashboard
 - Agent SDK generates interactive HTML dashboards
@@ -158,9 +159,11 @@ cms-migration-evaluator/
 
 - **Phase 1** ✅ COMPLETE - PDF → Webpage comparison
 - **Phase 2** ✅ COMPLETE - AI-generated quality dashboards
-- **Phase 3** ✅ COMPLETE - Enhanced visual regression + accessibility + performance (Playwright MCP, aXe, Core Web Vitals)
-- **Phase 4** 📋 Planning - JSON spec → Webpage validation
-- **Phase 5** 📋 Planning - Source webpage → Migrated webpage comparison
+- **Phase 3** ✅ COMPLETE - Enhanced visual regression + accessibility + performance
+- **Phase 4** ✅ COMPLETE - Batch orchestration + cumulative dashboard
+- **Phase 4.5** ✅ COMPLETE - Evaluator fix (Playwright MCP tools only, no script creation)
+- **Phase 5** 📋 Planning - JSON spec → Webpage validation
+- **Phase 6** 📋 Planning - Source webpage → Migrated webpage comparison
 
 ## Usage
 
@@ -222,12 +225,36 @@ open output/dashboards/migration-quality-dashboard.html
 - Prioritized recommendations
 - Works offline, responsive, accessible (WCAG 2.2 AA)
 
+## Phase 4.5 Note: Simplified MCP-Only Approach
+
+**What Changed**: Evaluator now uses Playwright MCP tools directly instead of creating temporary scripts.
+
+**What We Lost** (vs Phase 3 with scripts):
+- ❌ Full Lighthouse audit (official scores)
+- ❌ Full aXe WCAG scan (automated violation detection)
+- ❌ Pixel-perfect visual diff (ODiff comparison)
+- ❌ PDF→PNG baseline conversion
+
+**What We Gained**:
+- ✅ No script failures (playwright-lighthouse setup errors eliminated)
+- ✅ Cleaner codebase (no temporary scripts in root)
+- ✅ Reliable batch processing (no script-related failures)
+- ✅ Follows architecture principle (MCP tools via Agent SDK)
+
+**Report Quality**: Still provides actionable findings with estimated scores based on manual analysis.
+
+**Documentation**:
+- **Phase 4.5 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4.5-handoff.md` - Implementation details and trade-offs
+- **Phase 4.5 Plan**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4.5-plan.md` - Original plan
+
 ## Documentation
 
 - **Full Plan**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/cms-migration-evaluator-plan.md`
 - **Phase 1 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-1-handoff.md`
 - **Phase 2 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-2-handoff.md`
 - **Phase 3 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-3-handoff.md`
+- **Phase 4 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4-handoff.md`
+- **Phase 4.5 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4.5-handoff.md`
 - **Init Prompt Log**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/init-prompt.md`
 
 ## Requirements
