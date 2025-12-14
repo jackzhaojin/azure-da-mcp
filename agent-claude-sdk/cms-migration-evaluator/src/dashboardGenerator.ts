@@ -5,7 +5,8 @@ import * as path from "path";
 /**
  * Dashboard Generator using Agent SDK
  *
- * Generates interactive HTML dashboards from Phase 1 JSON evaluation reports.
+ * Generates interactive HTML dashboards from Phase 1+3 JSON evaluation reports.
+ * Phase 3 enhancements: Core Web Vitals, Lighthouse scores, enhanced WCAG findings.
  * Uses Chart.js for visualizations and generates self-contained HTML files.
  */
 
@@ -24,6 +25,20 @@ interface EvaluationReport {
     contentQualityScore: number;
     intentAlignmentScore: number;
     grade: string;
+    // Phase 3 additions
+    coreWebVitals?: {
+      lcp: number;
+      inp: number;
+      cls: number;
+      fcp: number;
+      passing: boolean;
+    };
+    estimatedLighthouseScores?: {
+      performance: number;
+      accessibility: number;
+      seo: number;
+      bestPractices: number;
+    };
   };
   findings: Finding[];
   recommendations: string[];
@@ -32,6 +47,8 @@ interface EvaluationReport {
     evaluator: string;
     source: string;
     migratedUrl?: string;
+    phase?: number; // Phase 3 addition
+    tools?: Record<string, string>; // Phase 3 addition
   };
 }
 
@@ -41,6 +58,12 @@ interface Finding {
   issue: string;
   recommendation: string;
   location?: string;
+  // Phase 3 additions
+  wcagLevel?: string;
+  rule?: string;
+  affectedElements?: string[];
+  impact?: string;
+  helpUrl?: string;
 }
 
 export async function generateDashboard(
@@ -76,7 +99,6 @@ export async function generateDashboard(
 
   const abortController = new AbortController();
   const agentMessages: string[] = [];
-  let dashboardGenerated = false;
 
   for await (const message of query({
     prompt,
@@ -104,7 +126,6 @@ export async function generateDashboard(
           console.log(`🔧 Tool: ${block.name}`);
           if (block.name === 'Write') {
             console.log(`   Writing to: ${block.input.file_path}`);
-            dashboardGenerated = true;
           }
         }
       }
@@ -195,9 +216,33 @@ function buildDashboardPrompt(
    - AI-generated narrative summary (2-3 sentences):
      * Analyze patterns across all reports
      * Connect technical findings to business impact
+     * **NEW**: Mention Core Web Vitals performance if available (e.g., "excellent Core Web Vitals with LCP of 0.4s")
+     * **NEW**: Reference Lighthouse scores for performance/accessibility context
      * Highlight top 3 priority actions
 
-3. **Charts Section** (use Chart.js):
+3. **Phase 3 Enhanced Metrics** (NEW):
+
+   a) **Core Web Vitals Card**:
+      - Display Core Web Vitals metrics from Phase 3 reports
+      - Grid layout with 4 metrics:
+        * LCP (Largest Contentful Paint): Show value in seconds, threshold <2.5s, green checkmark if passing
+        * INP (Interaction to Next Paint): Show value in ms, threshold <200ms, green checkmark if passing
+        * CLS (Cumulative Layout Shift): Show value, threshold <0.1, green checkmark if passing
+        * FCP (First Contentful Paint): Show value in seconds (informational)
+      - Overall status: "✅ Passing" if all metrics pass thresholds, "⚠️ Needs Improvement" otherwise
+      - If coreWebVitals data not available, show "N/A - Run Phase 3 evaluation"
+
+   b) **Lighthouse Scores Card**:
+      - Display estimated Lighthouse scores from Phase 3 reports
+      - Use horizontal progress bars or gauge charts showing:
+        * Performance: X/100 (green if ≥75, yellow if ≥50, red if <50)
+        * Accessibility: X/100 (green if ≥90, yellow if ≥75, red if <75)
+        * SEO: X/100 (green if ≥85, yellow if ≥70, red if <70)
+        * Best Practices: X/100 (green if ≥80, yellow if ≥65, red if <65)
+      - Show threshold indicators and color-code based on performance
+      - If estimatedLighthouseScores not available, show "N/A - Run Phase 3 evaluation"
+
+4. **Charts Section** (use Chart.js):
 
    a) **Dimension Scores Bar Chart**:
       - Show average scores for: SEO, Accessibility, Visual Fidelity, Content Quality, Intent Alignment
@@ -216,20 +261,30 @@ function buildDashboardPrompt(
       - Segments: Critical (red), High (orange), Medium (yellow), Low (blue)
       - Center label showing total findings count
 
-4. **Findings Table**:
+5. **Enhanced Findings Table** (Phase 3):
    - Sortable and filterable table showing all findings
-   - Columns: Dimension | Severity | Issue | Recommendation | Location
+   - Columns:
+     * Dimension (SEO, Accessibility, Visual, Content, Intent)
+     * Severity badge (color-coded: Critical/High/Medium/Low)
+     * Issue description
+     * Recommendation
+     * **NEW**: WCAG Rule (if available from Phase 3: wcagLevel, rule ID as badge)
+     * **NEW**: Affected Elements (show count with tooltip/expandable section)
+     * **NEW**: Help URL (clickable link icon with "Learn More")
    - Filter buttons at top: [All] [Critical] [High] [Medium] [Low]
    - Sort by severity (critical first) by default
-   - Severity badges with color coding
+   - For Phase 3 findings with wcagLevel/rule/affectedElements:
+     * Display WCAG badge (e.g., "WCAG 2.2 AA" with rule ID "color-contrast")
+     * Show affected elements count (e.g., "2 elements affected")
+     * Make helpUrl a clickable external link icon
    - Responsive: stack columns on mobile
 
-5. **Recommendations Section**:
+6. **Recommendations Section**:
    - Prioritized list of top recommendations across all reports
    - Group by severity
    - Show count of reports affected by each issue
 
-6. **Footer**:
+7. **Footer**:
    - Report metadata (evaluator version, evaluation dates)
    - "Generated by CMS Migration Evaluator Phase 2"
 
