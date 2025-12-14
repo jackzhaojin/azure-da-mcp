@@ -5,6 +5,9 @@ node_modules/
 # Build output
 dist/
 
+# Agent-generated temporary scripts
+*.cjs
+
 # Environment
 .env
 .env.local

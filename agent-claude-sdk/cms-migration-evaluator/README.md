@@ -38,11 +38,14 @@ open output/dashboards/migration-quality-dashboard.html
 
 ## Architecture
 
-**Phase 1 (MVP)**: PDF → Migrated Webpage Comparison
-- Agent SDK orchestrates PDF analysis + webpage capture
-- Basic automated checks (text/metadata comparison)
-- AI reasoning for quality assessment
-- JSON reports with scores and findings
+**Phase 1+3 ✅**: Enhanced PDF → Migrated Webpage Comparison
+- Agent SDK orchestrates comprehensive migration evaluation
+- **Visual Regression**: PDF→PNG baseline comparison (10% threshold)
+- **Accessibility**: WCAG 2.2 AA testing with @axe-core/playwright
+- **Performance**: Core Web Vitals (LCP, INP, CLS) + Lighthouse audits
+- **Content Quality**: Text/metadata/structure validation
+- **AI Reasoning**: Intent alignment and subjective quality assessment
+- Enhanced JSON reports with artifacts (screenshots, aXe reports)
 
 **Phase 2 ✅**: AI-Generated Quality Dashboard
 - Agent SDK generates interactive HTML dashboards
@@ -57,13 +60,16 @@ open output/dashboards/migration-quality-dashboard.html
 ```
 cms-migration-evaluator/
 ├── src/
-│   ├── evaluator.ts              # Phase 1: Agent SDK evaluator
-│   ├── cliEvaluator.ts           # Phase 1: CLI interface
+│   ├── evaluator.ts              # Phase 1+3: Enhanced Agent SDK evaluator
+│   ├── cliEvaluator.ts           # Phase 1+3: CLI interface
 │   ├── dashboardGenerator.ts     # Phase 2: Dashboard generator
 │   └── cliDashboard.ts           # Phase 2: Dashboard CLI
 ├── output/
-│   ├── reports/                  # Phase 1: JSON evaluation reports
-│   └── dashboards/               # Phase 2: HTML dashboards
+│   ├── reports/                  # Phase 1+3: Enhanced JSON evaluation reports
+│   ├── screenshots/              # Phase 3: Baseline + migrated + diff images
+│   ├── axe-reports/              # Phase 3: WCAG 2.2 AA violation reports
+│   ├── lighthouse-reports/       # Phase 3: Performance audit reports
+│   └── dashboards/               # Phase 2: Interactive HTML dashboards
 ├── config/
 │   ├── evaluation-criteria.json  # Scoring weights
 │   └── default-config.json       # Default settings
@@ -71,30 +77,56 @@ cms-migration-evaluator/
     └── test-migration.json       # Example input
 ```
 
-## Output Format
+## Output Format (Phase 3 Enhanced)
 
 ```json
 {
   "summary": {
-    "overallScore": 78,
-    "seoScore": 85,
-    "accessibilityScore": 72,
-    "visualFidelityScore": 80,
-    "contentQualityScore": 90,
-    "intentAlignmentScore": 65,
-    "grade": "good"
+    "overallScore": 73,
+    "seoScore": 100,
+    "accessibilityScore": 55,
+    "visualFidelityScore": 40,
+    "contentQualityScore": 80,
+    "intentAlignmentScore": 100,
+    "grade": "acceptable",
+    "coreWebVitals": {
+      "lcp": 0.424,
+      "inp": 0,
+      "cls": 0,
+      "fcp": 0.424,
+      "passing": true
+    },
+    "estimatedLighthouseScores": {
+      "performance": 95,
+      "accessibility": 55,
+      "seo": 100,
+      "bestPractices": 90
+    }
   },
   "findings": [
     {
       "dimension": "Accessibility",
       "severity": "high",
-      "issue": "3 images missing alt text",
-      "recommendation": "Add descriptive alt text to all images"
+      "wcagLevel": "WCAG 2.2 AA",
+      "rule": "color-contrast",
+      "issue": "Elements must meet minimum color contrast ratio thresholds",
+      "recommendation": "Ensure contrast meets WCAG 2 AA minimum (4.5:1)",
+      "affectedElements": ["a[href$=\"docs/\"]"],
+      "impact": "Element has insufficient color contrast of 3.67",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast"
     }
   ],
+  "artifacts": {
+    "baselineScreenshot": "output/screenshots/baseline-*.png",
+    "migratedScreenshot": "output/screenshots/migrated-*.png",
+    "visualDiff": "output/screenshots/diff-*.png",
+    "lighthouseJson": "output/lighthouse-reports/*-lighthouse.json",
+    "axeReport": "output/axe-reports/*-axe-report.json"
+  },
   "metadata": {
     "evaluatedAt": "2025-12-13T20:15:00Z",
-    "evaluator": "cms-migration-evaluator-v1.0",
+    "evaluator": "cms-migration-evaluator-v1.0-phase3",
+    "phase": 3,
     "source": "input/pdfs/ai-powered-package-tracking-2025.pdf"
   }
 }
@@ -104,27 +136,49 @@ cms-migration-evaluator/
 
 - **Phase 1** ✅ COMPLETE - PDF → Webpage comparison
 - **Phase 2** ✅ COMPLETE - AI-generated quality dashboards
-- **Phase 3** 📋 Planning - Enhanced visual regression + accessibility (Playwright MCP, Lighthouse, aXe)
+- **Phase 3** ✅ COMPLETE - Enhanced visual regression + accessibility + performance (Playwright MCP, aXe, Core Web Vitals)
 - **Phase 4** 📋 Planning - JSON spec → Webpage validation
 - **Phase 5** 📋 Planning - Source webpage → Migrated webpage comparison
 
 ## Usage
 
-### Phase 1: Evaluate Migration Quality
+### Phase 1+3: Evaluate Migration Quality (Enhanced)
 
 ```bash
-# Evaluate single PDF → webpage migration
+# Run comprehensive evaluation (includes Phase 3 enhancements)
 npm run evaluate examples/test-migration.json
 
-# View report
+# View enhanced report
 cat output/reports/ai-powered-package-tracking-2025-report.json
+
+# View Core Web Vitals
+cat output/reports/ai-powered-package-tracking-2025-report.json | jq '.summary.coreWebVitals'
+
+# View accessibility violations
+cat output/axe-reports/ai-powered-package-tracking-2025-axe-report.json | jq '.violations[] | {rule: .id, severity: .impact, nodes: .nodes | length}'
+
+# Compare visual screenshots
+open output/screenshots/baseline-ai-powered-package-tracking-2025.png
+open output/screenshots/migrated-ai-powered-package-tracking-2025.png
 ```
 
-**Output**: JSON report with:
-- Overall score (0-100) + grade
-- Scores per dimension (SEO, Accessibility, Visual, Content, Intent)
-- 16+ findings with severity levels (critical, high, medium, low)
-- Actionable recommendations
+**Output**: Enhanced JSON report with:
+- **Overall score** (0-100) + grade
+- **Dimension scores**: SEO, Accessibility, Visual Fidelity, Content Quality, Intent Alignment
+- **Core Web Vitals**: LCP, INP, CLS, FCP with passing status
+- **Estimated Lighthouse scores**: Performance, Accessibility, SEO, Best Practices
+- **Enhanced findings** with:
+  - Severity levels (critical, high, medium, low)
+  - WCAG 2.2 AA rule violations
+  - Affected elements (CSS selectors)
+  - Help URLs for fixing issues
+  - Impact descriptions
+- **Artifacts**:
+  - Baseline screenshot (PDF first page as PNG)
+  - Migrated webpage screenshot
+  - Visual diff image (when differences found)
+  - aXe accessibility report (JSON)
+  - Lighthouse audit (JSON)
 
 ### Phase 2: Generate Dashboard
 
@@ -151,10 +205,23 @@ open output/dashboards/migration-quality-dashboard.html
 - **Full Plan**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/cms-migration-evaluator-plan.md`
 - **Phase 1 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-1-handoff.md`
 - **Phase 2 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-2-handoff.md`
+- **Phase 3 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-3-handoff.md`
 - **Init Prompt Log**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/init-prompt.md`
 
 ## Requirements
 
+**Runtime**:
 - Node.js 18+
 - Anthropic API key (set in `.env`)
+
+**Phase 1+3 Dependencies**:
+- `@anthropic-ai/claude-agent-sdk` - Agent orchestration
+- `pdf-parse`, `pdf2pic` - PDF processing
+- `playwright`, `@axe-core/playwright` - Accessibility testing
+- `playwright-lighthouse`, `lighthouse` - Performance audits
+- `web-vitals` - Core Web Vitals measurement
+- `odiff-bin`, `pixelmatch`, `pngjs` - Visual regression
+- PyMuPDF (`pip3 install PyMuPDF`) - PDF→PNG conversion
+
+**Phase 2 Dependencies**:
 - Chart.js 4.4.0 (loaded from CDN in dashboards)
