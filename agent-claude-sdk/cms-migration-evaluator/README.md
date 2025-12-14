@@ -24,6 +24,12 @@ npm run evaluate examples/test-migration.json
 # Phase 2: Generate AI-powered dashboard
 npm run dashboard
 
+# Phase 4: Batch evaluation (1-50 pages)
+npm run evaluate:batch input/test-migration.json
+
+# Phase 4: Generate cumulative batch dashboard
+npm run dashboard:batch
+
 # Open dashboard in browser
 open output/dashboards/migration-quality-dashboard.html
 ```
@@ -55,6 +61,15 @@ open output/dashboards/migration-quality-dashboard.html
 - WCAG 2.2 AA accessible
 - AI-generated executive summaries
 
+**Phase 4 ✅**: Batch Orchestration + Cumulative Dashboard
+- Sequential processing of 1-50 migration entries
+- Batch summary with aggregate statistics
+- Continue-on-error pattern with detailed logging
+- Cumulative dashboard with aggregate + individual views
+- Interactive filtering (score range, dimension, severity, search)
+- Best/worst performing pages, common issues analysis
+- Core Web Vitals pass rate tracking
+
 ## Project Structure
 
 ```
@@ -63,18 +78,25 @@ cms-migration-evaluator/
 │   ├── evaluator.ts              # Phase 1+3: Enhanced Agent SDK evaluator
 │   ├── cliEvaluator.ts           # Phase 1+3: CLI interface
 │   ├── dashboardGenerator.ts     # Phase 2: Dashboard generator
-│   └── cliDashboard.ts           # Phase 2: Dashboard CLI
+│   ├── cliDashboard.ts           # Phase 2: Dashboard CLI
+│   ├── batchEvaluator.ts         # Phase 4: Batch orchestrator
+│   ├── cliBatch.ts               # Phase 4: Batch evaluation CLI
+│   ├── batchDashboardGenerator.ts # Phase 4: Cumulative dashboard generator
+│   └── cliBatchDashboard.ts      # Phase 4: Batch dashboard CLI
+├── input/
+│   └── test-migration.json       # Batch input (3 entries)
 ├── output/
-│   ├── reports/                  # Phase 1+3: Enhanced JSON evaluation reports
+│   ├── reports/                  # Phase 1+3+4: JSON evaluation reports + batch summaries
 │   ├── screenshots/              # Phase 3: Baseline + migrated + diff images
 │   ├── axe-reports/              # Phase 3: WCAG 2.2 AA violation reports
 │   ├── lighthouse-reports/       # Phase 3: Performance audit reports
-│   └── dashboards/               # Phase 2: Interactive HTML dashboards
+│   ├── dashboards/               # Phase 2+4: Interactive HTML dashboards
+│   └── playwright-validation/    # Temporary test scripts (if generated)
 ├── config/
 │   ├── evaluation-criteria.json  # Scoring weights
 │   └── default-config.json       # Default settings
 └── examples/
-    └── test-migration.json       # Example input
+    └── batch-migrations.json     # Example batch input
 ```
 
 ## Output Format (Phase 3 Enhanced)
