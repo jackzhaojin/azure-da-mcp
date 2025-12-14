@@ -250,7 +250,6 @@ Begin the comprehensive Phase 1+3 evaluation now.`;
 
     // Invoke Agent SDK with Skills enabled
     const agentMessages: string[] = [];
-    let lastMessage = '';
 
     console.log(`\n🔧 Agent SDK Configuration:`);
     console.log(`   CWD: ${projectRoot}`);
@@ -290,7 +289,6 @@ Begin the comprehensive Phase 1+3 evaluation now.`;
         for (const block of message.message.content) {
           if (block.type === 'text' && block.text) {
             agentMessages.push(block.text);
-            lastMessage = block.text;
             console.log(`💭 ${block.text}`);
             console.log('');
           } else if (block.type === 'tool_use') {
