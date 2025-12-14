@@ -1,4 +1,20 @@
 {
-  "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/ai-powered-package-tracking-2025.pdf",
-  "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/ai-powered-package-tracking"
+  "batchName": "Migration Batch 2025-12-13",
+  "entries": [
+    {
+      "id": "ai-powered-package-tracking",
+      "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/ai-powered-package-tracking-2025.pdf",
+      "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/ai-powered-package-tracking"
+    },
+    {
+      "id": "blockchain-supply-chain-transparency",
+      "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/blockchain-supply-chain-transparency.pdf",
+      "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/blockchain-supply-chain-transparency"
+    },
+    {
+      "id": "customer-experience-digital-postal",
+      "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/customer-experience-digital-postal.pdf",
+      "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/customer-experience-digital-postal"
+    }
+  ]
 }
