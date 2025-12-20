@@ -1,5 +1,8 @@
 # EDS Content Migration Agent — Execution Instructions
 
+> **VARIABLE NOTATION:** This document uses `${variable}` syntax for template variables.
+> These placeholders will be replaced with actual values during execution.
+
 You are executing a content migration workflow. Your mission is to take source content and produce a validated, published da.live page that conforms to EDS block architecture.
 
 ---
@@ -10,17 +13,17 @@ Before any content creation, load context in this order:
 
 ### 1.1 Read Memory Page (Optional)
 
-- Path: `/source/{{owner}}/{{site}}/agent-memory.html`
+- Path: `/source/${owner}/${site}/agent-memory.html`
 - This contains lessons learned from previous migrations
 - Pay attention to: common errors, block mapping decisions, formatting fixes
 - **If the memory page doesn't exist, skip this step and proceed**
 
 ### 1.2 Read Block Library Index
 
-- Entry point: `/source/{{owner}}/{{site}}/block-library/index.html`
+- Entry point: `/source/${owner}/${site}/block-library/index.html`
 - Use `get_dalive_content` to fetch the index
 - The index page lists and links to all available block examples
-- Published URL: `https://main--{{site}}--{{owner}}.aem.page/block-library/`
+- Published URL: `https://main--${site}--${owner}.aem.page/block-library/`
 
 **Block Library Discovery Process:**
 
@@ -51,7 +54,7 @@ Before any content creation, load context in this order:
 
 ### 1.3 Analyze Source Content
 
-- Source: `{{source_url_or_pdf}}`
+- Source: `${source_url_or_pdf}`
 - Use Playwright `browser_navigate` to load the source
 - Use `browser_snapshot` to get the content structure
 - If PDF: extract text and structure; identify headings, paragraphs, images, tables
@@ -156,14 +159,14 @@ Transform the source content into da.live HTML format.
 
 ### 2.3 Create the Page
 
-- Target path: `/source/{{owner}}/{{site}}/migration-batch-{{date}}/{{page_slug}}.html`
+- Target path: `/source/${owner}/${site}/migration-batch-${date}/${page_slug}.html`
 - Use `create_dalive_content` with your generated HTML
 - Log the exact path used
 
 ### 2.4 Preview Publish
 
 - Use `preview_publish_dalive_content` with the path (without .html extension)
-- Preview URL: `https://main--{{site}}--{{owner}}.aem.page/migration-batch-{{date}}/{{page_slug}}`
+- Preview URL: `https://main--${site}--${owner}.aem.page/migration-batch-${date}/${page_slug}`
 - Wait for publish confirmation before validation
 
 ---
@@ -177,7 +180,7 @@ You have a **MAXIMUM of 3 refinement iterations**. Use them wisely.
 After preview publish completes:
 
 1. **Navigate to preview URL**
-   - `browser_navigate` to `https://main--{{site}}--{{owner}}.aem.page/{{path}}`
+   - `browser_navigate` to `https://main--${site}--${owner}.aem.page/${path}`
    - Wait for page load
 
 2. **Capture snapshot**
@@ -303,9 +306,9 @@ Provide a structured summary:
 ```
 ## Migration Complete
 
-**Source:** {{source_url_or_pdf}}
-**Target:** /source/{{owner}}/{{site}}/migration-batch-{{date}}/{{page_slug}}
-**Preview URL:** https://main--{{site}}--{{owner}}.aem.page/migration-batch-{{date}}/{{page_slug}}
+**Source:** ${source_url_or_pdf}
+**Target:** /source/${owner}/${site}/migration-batch-${date}/${page_slug}
+**Preview URL:** https://main--${site}--${owner}.aem.page/migration-batch-${date}/${page_slug}
 
 **Status:** ✅ Success | ⚠️ Partial | ❌ Failed
 **Confidence Score:** XX%
@@ -339,7 +342,7 @@ Provide a structured summary:
 **Memory update process:**
 
 1. **Fetch current memory page**
-   - Use `get_dalive_content` on `/source/{{owner}}/{{site}}/agent-memory.html`
+   - Use `get_dalive_content` on `/source/${owner}/${site}/agent-memory.html`
    - If page doesn't exist, skip memory update
 
 2. **Append new entry**
@@ -357,11 +360,11 @@ Provide a structured summary:
 <div class="memory-entry">
   <div>
     <div>Date</div>
-    <div>{{date}}</div>
+    <div>${date}</div>
   </div>
   <div>
     <div>Page</div>
-    <div>{{page_slug}}</div>
+    <div>${page_slug}</div>
   </div>
   <div>
     <div>Issue</div>
@@ -413,11 +416,11 @@ These will be provided for each execution:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `{{owner}}` | GitHub owner/org | `jackzhaojin` |
-| `{{site}}` | Site repository name | `da-live-postal-2025-07` |
-| `{{date}}` | Migration batch date (YYYY-MM-DD) | `2025-01-15` |
-| `{{page_slug}}` | URL-safe page name from source | `product-overview` |
-| `{{source_url_or_pdf}}` | Input content URL or PDF path | `https://example.com/page` |
+| `${owner}` | GitHub owner/org | `jackzhaojin` |
+| `${site}` | Site repository name | `da-live-postal-2025-07` |
+| `${date}` | Migration batch date (YYYY-MM-DD) | `2025-01-15` |
+| `${page_slug}` | URL-safe page name from source | `product-overview` |
+| `${source_url_or_pdf}` | Input content URL or PDF path | `https://example.com/page` |
 
 ---
 
@@ -425,12 +428,12 @@ These will be provided for each execution:
 
 | Purpose | Pattern |
 |---------|---------|
-| da.live edit | `https://da.live/edit#/{{owner}}/{{site}}/{{path}}` |
-| Preview/publish | `https://main--{{site}}--{{owner}}.aem.page/{{path}}` |
-| Block library index | `/source/{{owner}}/{{site}}/block-library/index.html` |
-| Block library preview | `https://main--{{site}}--{{owner}}.aem.page/block-library/` |
-| Memory page | `/source/{{owner}}/{{site}}/agent-memory.html` |
-| Migration batch | `/source/{{owner}}/{{site}}/migration-batch-{{date}}/` |
+| da.live edit | `https://da.live/edit#/${owner}/${site}/${path}` |
+| Preview/publish | `https://main--${site}--${owner}.aem.page/${path}` |
+| Block library index | `/source/${owner}/${site}/block-library/index.html` |
+| Block library preview | `https://main--${site}--${owner}.aem.page/block-library/` |
+| Memory page | `/source/${owner}/${site}/agent-memory.html` |
+| Migration batch | `/source/${owner}/${site}/migration-batch-${date}/` |
 
 ---
 
