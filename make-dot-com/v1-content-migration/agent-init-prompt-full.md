@@ -35,6 +35,13 @@ These variables use `${variable}` syntax and are defined within this prompt:
 - **Page Slug:** `customer-experience-digital-postal`
 - **Folder Postfix:** `trial-run-3` (example - set via Make.com)
 
+**Pre-Execution Setup:**
+
+When `{{5.sourceType}}` is **pdf**, the Make.com workflow should:
+1. Download the PDF from `{{5.sourceLocation}}`
+2. Upload it to the agent's context using "Upsert Agent Context (file)"
+3. The PDF filename will be extracted from `{{5.sourceLocation}}` (e.g., `customer-experience-digital-postal.pdf`)
+
 ---
 
 ## PHASE 1: CONTEXT LOADING
@@ -95,9 +102,14 @@ Before any content creation, load context in this order:
   - Identify components, navigation, content blocks, media
 
 - If `{{5.sourceType}}` is **pdf**:
-  - Load PDF from `{{5.sourceLocation}}`
-  - Extract text and structure
-  - Identify headings, paragraphs, images, tables, lists
+  - **IMPORTANT**: The PDF has been pre-loaded into your context in the previous step
+  - Look for the PDF file in your available context files (filename extracted from `{{5.sourceLocation}}`)
+  - **DO NOT attempt to download or fetch the PDF again**
+  - Access and analyze the PDF content directly from context:
+    - Extract text and structure
+    - Identify headings, paragraphs, images, tables, lists
+    - Note visual elements and layout
+  - If you cannot find the PDF in context, report this error immediately
 
 **Document your source analysis:**
 
