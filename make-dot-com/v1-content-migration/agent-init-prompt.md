@@ -1,9 +1,39 @@
 # EDS Content Migration Agent — Execution Instructions
 
-> **VARIABLE NOTATION:** This document uses `${variable}` syntax for template variables.
-> These placeholders will be replaced with actual values during execution.
-
 You are executing a content migration workflow. Your mission is to take source content and produce a validated, published da.live page that conforms to EDS block architecture.
+
+---
+
+## VARIABLE LOADING
+
+### Make.com Runtime Variables
+
+These variables are set by the Make.com workflow and injected at runtime:
+
+| Variable | Description | Example Values |
+|----------|-------------|----------------|
+| `{{5.sourceType}}` | Type of source content | `pdf` or `webpage` |
+| `{{5.sourceLocation}}` | URL/path to source content | `https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/customer-experience-digital-postal.pdf`<br>or `https://example.com/page` |
+| `{{5.folderPostfix}}` | Unique identifier for this migration run | `trial-run-3` |
+
+### Internal Template Variables
+
+These variables use `${variable}` syntax and are defined within this prompt:
+
+| Variable | Description | Example Value |
+|----------|-------------|---------------|
+| `${owner}` | GitHub owner/org | `jackzhaojin` |
+| `${site}` | Site repository name | `da-live-postal-2025-07` |
+| `${date}` | Migration batch date (MM-DD format) | `12-20` |
+| `${page_slug}` | URL-safe page name from source | `product-overview` |
+
+**Current Execution Values:**
+
+- **Owner:** `jackzhaojin`
+- **Site:** `da-live-postal-2025-07`
+- **Date:** `12-20`
+- **Page Slug:** `customer-experience-digital-postal`
+- **Folder Postfix:** `trial-run-3` (example - set via Make.com)
 
 ---
 
@@ -54,11 +84,20 @@ Before any content creation, load context in this order:
 
 ### 1.3 Analyze Source Content
 
-- Source: `${source_url_or_pdf}`
-- Use Playwright `browser_navigate` to load the source
-- Use `browser_snapshot` to get the content structure
-- If PDF: extract text and structure; identify headings, paragraphs, images, tables
-- If webpage: identify components, navigation, content blocks, media
+**Source Type:** `{{5.sourceType}}` (pdf or webpage)
+**Source Location:** `{{5.sourceLocation}}`
+
+**Analysis Process:**
+
+- If `{{5.sourceType}}` is **webpage**:
+  - Use Playwright `browser_navigate` to load `{{5.sourceLocation}}`
+  - Use `browser_snapshot` to get the content structure
+  - Identify components, navigation, content blocks, media
+
+- If `{{5.sourceType}}` is **pdf**:
+  - Load PDF from `{{5.sourceLocation}}`
+  - Extract text and structure
+  - Identify headings, paragraphs, images, tables, lists
 
 **Document your source analysis:**
 
@@ -159,14 +198,14 @@ Transform the source content into da.live HTML format.
 
 ### 2.3 Create the Page
 
-- Target path: `/source/${owner}/${site}/migration-batch-${date}/${page_slug}.html`
+- Target path: `/source/${owner}/${site}/migration-batch-${date}-{{5.folderPostfix}}/${page_slug}.html`
 - Use `create_dalive_content` with your generated HTML
 - Log the exact path used
 
 ### 2.4 Preview Publish
 
 - Use `preview_publish_dalive_content` with the path (without .html extension)
-- Preview URL: `https://main--${site}--${owner}.aem.page/migration-batch-${date}/${page_slug}`
+- Preview URL: `https://main--${site}--${owner}.aem.page/migration-batch-${date}-{{5.folderPostfix}}/${page_slug}`
 - Wait for publish confirmation before validation
 
 ---
@@ -306,9 +345,11 @@ Provide a structured summary:
 ```
 ## Migration Complete
 
-**Source:** ${source_url_or_pdf}
-**Target:** /source/${owner}/${site}/migration-batch-${date}/${page_slug}
-**Preview URL:** https://main--${site}--${owner}.aem.page/migration-batch-${date}/${page_slug}
+**Source Type:** {{5.sourceType}}
+**Source Location:** {{5.sourceLocation}}
+**Folder Postfix:** {{5.folderPostfix}}
+**Target:** /source/${owner}/${site}/migration-batch-${date}-{{5.folderPostfix}}/${page_slug}
+**Preview URL:** https://main--${site}--${owner}.aem.page/migration-batch-${date}-{{5.folderPostfix}}/${page_slug}
 
 **Status:** ✅ Success | ⚠️ Partial | ❌ Failed
 **Confidence Score:** XX%
@@ -410,20 +451,6 @@ Provide a structured summary:
 
 ---
 
-## EXECUTION VARIABLES
-
-These will be provided for each execution:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `${owner}` | GitHub owner/org | `jackzhaojin` |
-| `${site}` | Site repository name | `da-live-postal-2025-07` |
-| `${date}` | Migration batch date (YYYY-MM-DD) | `2025-01-15` |
-| `${page_slug}` | URL-safe page name from source | `product-overview` |
-| `${source_url_or_pdf}` | Input content URL or PDF path | `https://example.com/page` |
-
----
-
 ## URL REFERENCE
 
 | Purpose | Pattern |
@@ -433,7 +460,7 @@ These will be provided for each execution:
 | Block library index | `/source/${owner}/${site}/block-library/index.html` |
 | Block library preview | `https://main--${site}--${owner}.aem.page/block-library/` |
 | Memory page | `/source/${owner}/${site}/agent-memory.html` |
-| Migration batch | `/source/${owner}/${site}/migration-batch-${date}/` |
+| Migration batch folder | `/source/${owner}/${site}/migration-batch-${date}-{{5.folderPostfix}}/` |
 
 ---
 
