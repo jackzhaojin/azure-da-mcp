@@ -34,10 +34,13 @@ open output/dashboards/migration-quality-dashboard.html
 **Example Input** (`examples/test-migration.json`):
 ```json
 {
+  "outputFolderName": "test-migration",
   "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/ai-powered-package-tracking-2025.pdf",
   "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/ai-powered-package-tracking"
 }
 ```
+
+**Note:** The `outputFolderName` field is optional but recommended. It determines the name of the timestamped output folder (e.g., `output/test-migration-2025-12-21-1545/`). If omitted, the PDF filename will be used.
 
 ## Architecture: Deterministic vs Agentic
 
@@ -132,6 +135,46 @@ export async function evaluateMigration(input: EvaluationInput) {
 - Claude generates findings with recommendations
 - Claude writes JSON report using Write tool
 
+## Output Folder Structure
+
+Each evaluation run creates a **timestamped directory** to keep runs isolated and organized:
+
+```
+output/
+├── 2025-12-20-or-before/         # Archive of pre-timestamp runs
+├── test-migration-2025-12-21-1545/  # Single evaluation run (format: {name}-{timestamp})
+│   ├── reports/
+│   │   └── ai-powered-package-tracking-2025-report.json
+│   ├── screenshots/
+│   │   └── migrated-*.png
+│   ├── dashboards/
+│   │   └── migration-quality-dashboard.html
+│   ├── lighthouse-reports/
+│   └── axe-reports/
+└── batch-migration-2025-12-21-1612/  # Batch evaluation run
+    ├── reports/
+    │   ├── page-1-report.json
+    │   ├── page-2-report.json
+    │   └── batch-summary.json
+    ├── screenshots/
+    ├── dashboards/
+    │   └── migration-batch-dashboard.html
+    ├── lighthouse-reports/
+    └── axe-reports/
+```
+
+**Timestamp Format:** `YYYY-MM-DD-HHmm` (e.g., `2025-12-21-1545` = Dec 21, 2025 at 3:45 PM)
+
+**Folder Naming:**
+- Single evaluations: `{outputFolderName}-{timestamp}` or `{pdfFilename}-{timestamp}`
+- Batch evaluations: `{outputFolderName}-{timestamp}` or `{batchName}-{timestamp}`
+
+**Benefits:**
+- Each run is isolated (no file conflicts)
+- Easy to compare runs over time
+- Clean separation between test cases
+- Archive old runs without losing history
+
 ## Project Structure
 
 ```
@@ -144,14 +187,13 @@ cms-migration-evaluator/
 │   ├── dashboardGenerator.ts     # Dashboard generation (deterministic wrapper + agentic HTML generation)
 │   ├── cliDashboard.ts           # CLI for dashboard
 │   ├── batchDashboardGenerator.ts # Batch dashboard (agentic)
-│   └── cliBatchDashboard.ts      # CLI for batch dashboard
+│   ├── cliBatchDashboard.ts      # CLI for batch dashboard
+│   └── utils/
+│       └── outputPaths.ts        # Timestamped directory management
 ├── input/
 │   └── *.json                    # Evaluation inputs (single or batch)
 ├── output/
-│   ├── reports/                  # JSON evaluation reports + batch summaries
-│   ├── screenshots/              # Webpage screenshots from Playwright
-│   ├── dashboards/               # Interactive HTML dashboards
-│   └── .playwright-mcp/          # Accessibility snapshots
+│   └── {name}-{timestamp}/       # Timestamped run directories (see above)
 ├── config/
 │   ├── evaluation-criteria.json  # Scoring weights and thresholds
 │   └── default-config.json       # Default settings
@@ -182,7 +224,9 @@ npm run evaluate examples/test-migration.json
 - Finding generation with severity levels
 - JSON report writing
 
-**Output:** `output/reports/{name}-report.json`
+**Output:** `output/{name}-{timestamp}/reports/{name}-report.json`
+
+Example: `output/test-migration-2025-12-21-1545/reports/ai-powered-package-tracking-2025-report.json`
 
 ### 2. Batch Processing
 
@@ -208,10 +252,13 @@ npm run evaluate:batch input/batch-migrations.json
     }
   ],
   "config": {
-    "continueOnError": true
+    "continueOnError": true,
+    "outputFolderName": "q4-migration"
   }
 }
 ```
+
+**Note:** The `outputFolderName` in config is optional. If omitted, the `batchName` will be converted to a folder-friendly format (lowercase, hyphens).
 
 **What's Deterministic:**
 - Sequential processing (for loop)
@@ -223,9 +270,11 @@ npm run evaluate:batch input/batch-migrations.json
 **What's Agentic:**
 - Each individual evaluation (same as single evaluation)
 
-**Output:**
-- Individual reports: `output/reports/{name}-report.json` (one per entry)
-- Batch summary: `output/reports/batch-summary-{date}.json`
+**Output:** (all within one timestamped directory)
+- Individual reports: `output/{name}-{timestamp}/reports/{id}-report.json` (one per entry)
+- Batch summary: `output/{name}-{timestamp}/reports/batch-summary.json`
+
+Example: `output/q4-migration-2025-12-21-1612/reports/batch-summary.json`
 
 ### 3. Interactive Dashboard Generation
 
@@ -247,7 +296,9 @@ npm run dashboard
 - Build responsive HTML with inline CSS/JS
 - Implement filtering/sorting logic
 
-**Output:** `output/dashboards/migration-quality-dashboard.html`
+**Output:** `output/{latest-run}/dashboards/migration-quality-dashboard.html`
+
+The dashboard is generated in the **latest evaluation run directory**. The CLI automatically finds the most recent timestamped directory.
 
 **Dashboard Features:**
 - Executive summary with AI-generated insights

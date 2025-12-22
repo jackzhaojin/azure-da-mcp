@@ -8,6 +8,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createTimestampedOutputDirs } from './utils/outputPaths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,7 @@ export interface EvaluationInput {
   pdfPath: string;
   migratedUrl: string;
   outputDir?: string;
+  outputFolderName?: string; // Optional name for the output folder (e.g., "test-migration")
 }
 
 export interface EvaluationResult {
@@ -49,25 +51,20 @@ export async function evaluateMigration(
       };
     }
 
-    // Prepare output directory
-    const outputDir = input.outputDir || path.join(process.cwd(), 'output', 'reports');
-    await fs.mkdir(outputDir, { recursive: true });
+    // Create timestamped output directories
+    // Use outputFolderName if provided, otherwise extract from PDF filename
+    const folderName = input.outputFolderName || path.basename(input.pdfPath, path.extname(input.pdfPath));
+    const outputDirs = await createTimestampedOutputDirs(input.outputDir, folderName);
+    const { runDir, reportsDir, screenshotsDir, lighthouseDir, axeDir } = outputDirs;
 
     // Extract PDF filename for report ID
     const pdfFilename = path.basename(input.pdfPath, path.extname(input.pdfPath));
-    const reportPath = path.join(outputDir, `${pdfFilename}-report.json`);
+    const reportPath = path.join(reportsDir, `${pdfFilename}-report.json`);
 
+    messages.push(`Run directory: ${runDir}`);
     messages.push(`Output report: ${reportPath}`);
     messages.push('');
     messages.push('Invoking Agent SDK with cms-eval Skill...');
-
-    // Prepare output directories for Phase 3 artifacts
-    const screenshotsDir = path.join(process.cwd(), 'output', 'screenshots');
-    const lighthouseDir = path.join(process.cwd(), 'output', 'lighthouse-reports');
-    const axeDir = path.join(process.cwd(), 'output', 'axe-reports');
-    await fs.mkdir(screenshotsDir, { recursive: true });
-    await fs.mkdir(lighthouseDir, { recursive: true });
-    await fs.mkdir(axeDir, { recursive: true });
 
     // Build enhanced evaluation prompt with Phase 4.5 capabilities
     const prompt = `You are an expert CMS migration quality evaluator. Compare a PDF (expected design) to a migrated webpage (actual) using Playwright MCP tools and AI reasoning.
