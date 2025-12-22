@@ -1,5 +1,5 @@
 {
-  "batchName": "Migration Batch 2025-12-13",
+  "batchName": "Migration Batch 2025-12-21",
   "entries": [
     {
       "id": "ai-powered-package-tracking",
@@ -16,5 +16,9 @@
       "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/customer-experience-digital-postal.pdf",
       "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/customer-experience-digital-postal"
     }
-  ]
+  ],
+  "config": {
+    "continueOnError": true,
+    "outputFolderName": "batch-migration-2025-12-21-2030"
+  }
 }

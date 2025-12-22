@@ -31,16 +31,16 @@ npm run dashboard
 open output/dashboards/migration-quality-dashboard.html
 ```
 
-**Example Input** (`examples/test-migration.json`):
+**Example Input** (`examples/single-test.json`):
 ```json
 {
-  "outputFolderName": "test-migration",
+  "outputFolderName": "single-test-2025-12-21-2030",
   "pdfPath": "../blog-pdf-generator/output/bulk-pdfs/ai-powered-package-tracking-2025.pdf",
   "migratedUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/ai-powered-package-tracking"
 }
 ```
 
-**Note:** The `outputFolderName` field is optional but recommended. It determines the name of the timestamped output folder (e.g., `output/test-migration-2025-12-21-1545/`). If omitted, the PDF filename will be used.
+**Important:** The `outputFolderName` field determines the exact output folder name (e.g., `output/single-test-2025-12-21-2030/`). **You control the timestamp/date in the JSON file** - the code does not add timestamps automatically. Format recommendation: `{name}-YYYY-MM-DD-HHmm`
 
 ## Architecture: Deterministic vs Agentic
 
@@ -137,7 +137,9 @@ export async function evaluateMigration(input: EvaluationInput) {
 
 ## Output Folder Structure
 
-Each evaluation run creates a **timestamped directory** to keep runs isolated and organized:
+Each evaluation run creates a **named directory** (you control the name via JSON):
+
+**Key Principle:** The `outputFolderName` field in your JSON determines the actual folder name. Other fields like `batchName` are for display/logging only.
 
 ```
 output/
@@ -163,16 +165,18 @@ output/
     └── axe-reports/
 ```
 
-**Timestamp Format:** `YYYY-MM-DD-HHmm` (e.g., `2025-12-21-1545` = Dec 21, 2025 at 3:45 PM)
+**Recommended Timestamp Format:** `YYYY-MM-DD-HHmm` (e.g., `2025-12-21-1545` = Dec 21, 2025 at 3:45 PM)
 
 **Folder Naming:**
-- Single evaluations: `{outputFolderName}-{timestamp}` or `{pdfFilename}-{timestamp}`
-- Batch evaluations: `{outputFolderName}-{timestamp}` or `{batchName}-{timestamp}`
+- Single evaluations: Use `outputFolderName` in JSON (e.g., `"single-test-2025-12-21-2030"`)
+- Batch evaluations: Use `config.outputFolderName` in JSON (e.g., `"batch-migration-2025-12-21-2030"`)
+- If omitted: Falls back to PDF filename or batch name (without timestamp)
 
 **Benefits:**
 - Each run is isolated (no file conflicts)
 - Easy to compare runs over time
 - Clean separation between test cases
+- **You control the naming** - timestamp/date in JSON, not code
 - Archive old runs without losing history
 
 ## Project Structure
@@ -253,12 +257,16 @@ npm run evaluate:batch input/batch-migrations.json
   ],
   "config": {
     "continueOnError": true,
-    "outputFolderName": "q4-migration"
+    "outputFolderName": "batch-migration-2025-12-21-2030"
   }
 }
 ```
 
-**Note:** The `outputFolderName` in config is optional. If omitted, the `batchName` will be converted to a folder-friendly format (lowercase, hyphens).
+**Field Purposes:**
+- **`batchName`** - Display name shown in logs and reports (for humans)
+- **`config.outputFolderName`** - **Actual folder name** that determines output directory
+
+**Important:** Only `outputFolderName` drives the folder creation. The `batchName` is just for nomenclature/display. **Include the timestamp in the JSON** - the code does not add it automatically. If `outputFolderName` is omitted, falls back to sanitized `batchName` (lowercase, hyphens).
 
 **What's Deterministic:**
 - Sequential processing (for loop)
@@ -362,6 +370,8 @@ The dashboard is generated in the **latest evaluation run directory**. The CLI a
 ```
 
 ### Batch Summary (JSON)
+
+Saved to: `output/{outputFolderName}/reports/batch-summary.json`
 
 ```json
 {
@@ -562,7 +572,11 @@ cat > input/my-batch.json <<EOF
       "pdfPath": "input/pdfs/about.pdf",
       "migratedUrl": "https://site.com/about"
     }
-  ]
+  ],
+  "config": {
+    "continueOnError": true,
+    "outputFolderName": "homepage-migration-2025-12-21-1600"
+  }
 }
 EOF
 

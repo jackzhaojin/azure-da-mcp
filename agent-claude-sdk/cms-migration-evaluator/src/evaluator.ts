@@ -8,7 +8,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createTimestampedOutputDirs } from './utils/outputPaths.js';
+import { createOutputDirs } from './utils/outputPaths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,10 +51,11 @@ export async function evaluateMigration(
       };
     }
 
-    // Create timestamped output directories
-    // Use outputFolderName if provided, otherwise extract from PDF filename
+    // Create output directories
+    // Use outputFolderName directly (user should include timestamp in JSON if desired)
+    // If not provided, fall back to PDF filename
     const folderName = input.outputFolderName || path.basename(input.pdfPath, path.extname(input.pdfPath));
-    const outputDirs = await createTimestampedOutputDirs(input.outputDir, folderName);
+    const outputDirs = await createOutputDirs(input.outputDir, folderName);
     const { runDir, reportsDir, screenshotsDir, lighthouseDir, axeDir } = outputDirs;
 
     // Extract PDF filename for report ID
