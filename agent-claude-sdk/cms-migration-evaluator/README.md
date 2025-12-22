@@ -18,17 +18,14 @@ Compares expected content (PDFs, specs, original pages) against actual migrated 
 # Install dependencies
 npm install
 
-# Phase 1: PDF → Webpage comparison
+# Single evaluation: PDF → Webpage comparison
 npm run evaluate examples/test-migration.json
 
-# Phase 2: Generate AI-powered dashboard
-npm run dashboard
-
-# Phase 4: Batch evaluation (1-50 pages)
+# Batch evaluation: Process 1-50 migrations
 npm run evaluate:batch input/test-migration.json
 
-# Phase 4: Generate cumulative batch dashboard
-npm run dashboard:batch
+# Generate interactive HTML dashboard
+npm run dashboard
 
 # Open dashboard in browser
 open output/dashboards/migration-quality-dashboard.html
@@ -42,65 +39,231 @@ open output/dashboards/migration-quality-dashboard.html
 }
 ```
 
-## Architecture
+## Architecture: Deterministic vs Agentic
 
-**Phase 1+3+4.5 ✅**: Enhanced PDF → Migrated Webpage Comparison (MCP Tools Only)
-- Agent SDK orchestrates comprehensive migration evaluation using Playwright MCP tools
-- **Visual Comparison**: PDF content description vs webpage screenshot (visual analysis)
-- **Accessibility**: Manual WCAG 2.2 AA analysis from accessibility snapshots
-- **Performance**: Core Web Vitals (LCP, FCP, CLS) via browser performance APIs
-- **Content Quality**: Text/metadata/structure validation
-- **AI Reasoning**: Intent alignment and subjective quality assessment
-- Enhanced JSON reports with estimated Lighthouse scores
-- **Phase 4.5 Fix**: Evaluator uses Playwright MCP tools directly (no script creation)
+This project uses a **hybrid architecture** where deterministic TypeScript code orchestrates AI agents to perform complex evaluation tasks.
 
-**Phase 2 ✅**: AI-Generated Quality Dashboard
-- Agent SDK generates interactive HTML dashboards
-- Chart.js visualizations (bar charts, donut charts, tables)
-- Self-contained HTML (works offline)
-- Responsive design (mobile, tablet, desktop)
-- WCAG 2.2 AA accessible
-- AI-generated executive summaries
+### The Pattern
 
-**Phase 4 ✅**: Batch Orchestration + Cumulative Dashboard
-- Sequential processing of 1-50 migration entries
-- Batch summary with aggregate statistics
-- Continue-on-error pattern with detailed logging
-- Cumulative dashboard with aggregate + individual views
-- Interactive filtering (score range, dimension, severity, search)
-- Best/worst performing pages, common issues analysis
-- Core Web Vitals pass rate tracking
+```
+┌─────────────────────────────────────────────────────────┐
+│  DETERMINISTIC (TypeScript)                            │
+│  ├── File I/O validation                               │
+│  ├── Batch orchestration (loops, error handling)       │
+│  ├── Prompt construction                               │
+│  ├── Agent SDK invocation                              │
+│  └── Output validation                                 │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────┐
+│  AGENTIC (Claude via Agent SDK)                        │
+│  ├── PDF content analysis                              │
+│  ├── Webpage testing (Playwright MCP)                  │
+│  ├── Quality scoring (AI reasoning)                    │
+│  ├── Finding recommendations                           │
+│  └── HTML dashboard generation                         │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────┐
+│  TOOLS (via MCP)                                        │
+│  ├── Read (PDFs, files)                                │
+│  ├── Write (JSON reports, HTML dashboards)             │
+│  └── Playwright MCP (browser automation)               │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Deterministic vs Agentic Breakdown
+
+| Component | Type | Responsibility | Technology |
+|-----------|------|----------------|------------|
+| **CLI Entry Points** | Deterministic | Parse arguments, load input files | TypeScript |
+| **Batch Orchestrator** | Deterministic | Sequential processing, error handling, aggregate statistics | TypeScript (for loop, try/catch) |
+| **Prompt Builder** | Deterministic | Construct detailed prompts with runtime values | TypeScript template strings |
+| **Agent SDK Invocation** | Deterministic | Configure and invoke `query()`, process streaming messages | TypeScript (`@anthropic-ai/claude-agent-sdk`) |
+| **Output Validation** | Deterministic | Verify files created, check JSON structure | TypeScript (file system checks) |
+| **PDF Analysis** | Agentic | Extract text, identify structure, understand content | Claude (via Read tool) |
+| **Webpage Testing** | Agentic | Navigate, capture snapshots, extract metrics | Claude (via Playwright MCP) |
+| **Quality Scoring** | Agentic | Evaluate SEO, accessibility, visual fidelity, content, intent | Claude (AI reasoning + automated checks) |
+| **Finding Generation** | Agentic | Identify issues, categorize severity, recommend fixes | Claude (AI analysis) |
+| **Dashboard Generation** | Agentic | Analyze reports, create visualizations, generate HTML | Claude (via Write tool) |
+
+### Example: Evaluator Flow
+
+**Deterministic Code** (`evaluator.ts:32-70`):
+```typescript
+export async function evaluateMigration(input: EvaluationInput) {
+  // 1. Validate inputs (deterministic)
+  const pdfExists = await fs.access(input.pdfPath).then(() => true).catch(() => false);
+  if (!pdfExists) {
+    return { success: false, error: `PDF not found: ${input.pdfPath}` };
+  }
+
+  // 2. Prepare output directories (deterministic)
+  const outputDir = input.outputDir || path.join(process.cwd(), 'output', 'reports');
+  await fs.mkdir(outputDir, { recursive: true });
+
+  // 3. Build prompt with runtime values (deterministic)
+  const prompt = buildEvaluationPrompt(input);
+
+  // 4. Invoke agent (agentic)
+  for await (const message of query({ prompt, options: {...} })) {
+    // Handle streaming messages...
+  }
+
+  // 5. Validate output (deterministic)
+  const reportExists = await fs.access(reportPath).then(() => true).catch(() => false);
+  if (!reportExists) {
+    return { success: false, error: 'Report not created' };
+  }
+
+  return { success: true, reportPath };
+}
+```
+
+**Agentic Work** (Inside `query()` via prompt):
+- Claude reads PDF using Read tool
+- Claude navigates to webpage using `mcp__playwright__browser_navigate`
+- Claude captures accessibility snapshot using `mcp__playwright__browser_snapshot`
+- Claude extracts Core Web Vitals using `mcp__playwright__browser_evaluate`
+- Claude compares PDF vs webpage (AI reasoning)
+- Claude scores each dimension (0-100)
+- Claude generates findings with recommendations
+- Claude writes JSON report using Write tool
 
 ## Project Structure
 
 ```
 cms-migration-evaluator/
 ├── src/
-│   ├── evaluator.ts              # Phase 1+3: Enhanced Agent SDK evaluator
-│   ├── cliEvaluator.ts           # Phase 1+3: CLI interface
-│   ├── dashboardGenerator.ts     # Phase 2: Dashboard generator
-│   ├── cliDashboard.ts           # Phase 2: Dashboard CLI
-│   ├── batchEvaluator.ts         # Phase 4: Batch orchestrator
-│   ├── cliBatch.ts               # Phase 4: Batch evaluation CLI
-│   ├── batchDashboardGenerator.ts # Phase 4: Cumulative dashboard generator
-│   └── cliBatchDashboard.ts      # Phase 4: Batch dashboard CLI
+│   ├── evaluator.ts              # Single evaluation (deterministic wrapper + agentic evaluation)
+│   ├── cliEvaluator.ts           # CLI for single evaluation
+│   ├── batchEvaluator.ts         # Batch orchestration (deterministic)
+│   ├── cliBatch.ts               # CLI for batch evaluation
+│   ├── dashboardGenerator.ts     # Dashboard generation (deterministic wrapper + agentic HTML generation)
+│   ├── cliDashboard.ts           # CLI for dashboard
+│   ├── batchDashboardGenerator.ts # Batch dashboard (agentic)
+│   └── cliBatchDashboard.ts      # CLI for batch dashboard
 ├── input/
-│   └── test-migration.json       # Batch input (3 entries)
+│   └── *.json                    # Evaluation inputs (single or batch)
 ├── output/
-│   ├── reports/                  # Phase 1+3+4: JSON evaluation reports + batch summaries
-│   ├── screenshots/              # Phase 3: Baseline + migrated + diff images
-│   ├── axe-reports/              # Phase 3: WCAG 2.2 AA violation reports
-│   ├── lighthouse-reports/       # Phase 3: Performance audit reports
-│   ├── dashboards/               # Phase 2+4: Interactive HTML dashboards
-│   └── playwright-validation/    # Temporary test scripts (if generated)
+│   ├── reports/                  # JSON evaluation reports + batch summaries
+│   ├── screenshots/              # Webpage screenshots from Playwright
+│   ├── dashboards/               # Interactive HTML dashboards
+│   └── .playwright-mcp/          # Accessibility snapshots
 ├── config/
-│   ├── evaluation-criteria.json  # Scoring weights
+│   ├── evaluation-criteria.json  # Scoring weights and thresholds
 │   └── default-config.json       # Default settings
-└── examples/
-    └── batch-migrations.json     # Example batch input
+└── .claude/skills/cms-eval/
+    └── SKILL.md                  # Skill documentation for Claude Code
 ```
 
-## Output Format (Phase 3 Enhanced)
+## Capabilities
+
+### 1. Single Migration Evaluation
+
+**Command:**
+```bash
+npm run evaluate examples/test-migration.json
+```
+
+**What's Deterministic:**
+- Input file parsing
+- PDF path validation
+- Output directory creation
+- Prompt construction
+- Result validation
+
+**What's Agentic:**
+- PDF content extraction and analysis
+- Webpage navigation and testing
+- Quality scoring across 5 dimensions
+- Finding generation with severity levels
+- JSON report writing
+
+**Output:** `output/reports/{name}-report.json`
+
+### 2. Batch Processing
+
+**Command:**
+```bash
+npm run evaluate:batch input/batch-migrations.json
+```
+
+**Batch Input Format:**
+```json
+{
+  "batchName": "Q4 2025 Migration Batch",
+  "entries": [
+    {
+      "id": "page-1",
+      "pdfPath": "input/pdfs/page-1.pdf",
+      "migratedUrl": "https://site.com/page-1"
+    },
+    {
+      "id": "page-2",
+      "pdfPath": "input/pdfs/page-2.pdf",
+      "migratedUrl": "https://site.com/page-2"
+    }
+  ],
+  "config": {
+    "continueOnError": true
+  }
+}
+```
+
+**What's Deterministic:**
+- Sequential processing (for loop)
+- Error handling (try/catch, continueOnError)
+- Progress logging
+- Aggregate statistics calculation
+- Batch summary generation
+
+**What's Agentic:**
+- Each individual evaluation (same as single evaluation)
+
+**Output:**
+- Individual reports: `output/reports/{name}-report.json` (one per entry)
+- Batch summary: `output/reports/batch-summary-{date}.json`
+
+### 3. Interactive Dashboard Generation
+
+**Command:**
+```bash
+npm run dashboard
+```
+
+**What's Deterministic:**
+- Load JSON reports from disk
+- Build dashboard generation prompt
+- Invoke Agent SDK
+- Verify HTML file created
+
+**What's Agentic:**
+- Analyze reports for patterns
+- Generate executive summary (AI narrative)
+- Create Chart.js visualizations
+- Build responsive HTML with inline CSS/JS
+- Implement filtering/sorting logic
+
+**Output:** `output/dashboards/migration-quality-dashboard.html`
+
+**Dashboard Features:**
+- Executive summary with AI-generated insights
+- Overall quality score + grade badge
+- Dimension scores bar chart (SEO, Accessibility, Visual Fidelity, Content Quality, Intent Alignment)
+- Core Web Vitals metrics (LCP, INP, CLS, FCP)
+- Estimated Lighthouse scores
+- Filterable findings table (by severity)
+- Prioritized recommendations
+- Responsive design (mobile, tablet, desktop)
+- WCAG 2.2 AA accessible
+- Self-contained (works offline after initial load)
+
+## Output Format
+
+### Evaluation Report (JSON)
 
 ```json
 {
@@ -114,9 +277,8 @@ cms-migration-evaluator/
     "grade": "acceptable",
     "coreWebVitals": {
       "lcp": 0.424,
-      "inp": 0,
-      "cls": 0,
       "fcp": 0.424,
+      "cls": 0,
       "passing": true
     },
     "estimatedLighthouseScores": {
@@ -130,147 +292,272 @@ cms-migration-evaluator/
     {
       "dimension": "Accessibility",
       "severity": "high",
-      "wcagLevel": "WCAG 2.2 AA",
-      "rule": "color-contrast",
-      "issue": "Elements must meet minimum color contrast ratio thresholds",
-      "recommendation": "Ensure contrast meets WCAG 2 AA minimum (4.5:1)",
-      "affectedElements": ["a[href$=\"docs/\"]"],
-      "impact": "Element has insufficient color contrast of 3.67",
-      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast"
+      "issue": "5 images missing alt text",
+      "recommendation": "Add descriptive alt text to all images",
+      "location": "Main content section"
     }
   ],
-  "artifacts": {
-    "baselineScreenshot": "output/screenshots/baseline-*.png",
-    "migratedScreenshot": "output/screenshots/migrated-*.png",
-    "visualDiff": "output/screenshots/diff-*.png",
-    "lighthouseJson": "output/lighthouse-reports/*-lighthouse.json",
-    "axeReport": "output/axe-reports/*-axe-report.json"
-  },
+  "recommendations": [
+    "Fix 5 images missing alt text (critical)",
+    "Review hero section spacing (medium)"
+  ],
   "metadata": {
     "evaluatedAt": "2025-12-13T20:15:00Z",
-    "evaluator": "cms-migration-evaluator-v1.0-phase3",
-    "phase": 3,
-    "source": "input/pdfs/ai-powered-package-tracking-2025.pdf"
+    "evaluator": "cms-migration-evaluator-v1.0",
+    "source": "input/pdfs/blog-post.pdf",
+    "migratedUrl": "https://site.com/migrated/blog-post"
   }
 }
 ```
 
-## Phase Roadmap
+### Batch Summary (JSON)
 
-- **Phase 1** ✅ COMPLETE - PDF → Webpage comparison
-- **Phase 2** ✅ COMPLETE - AI-generated quality dashboards
-- **Phase 3** ✅ COMPLETE - Enhanced visual regression + accessibility + performance
-- **Phase 4** ✅ COMPLETE - Batch orchestration + cumulative dashboard
-- **Phase 4.5** ✅ COMPLETE - Evaluator fix (Playwright MCP tools only, no script creation)
-- **Phase 5** 📋 Planning - JSON spec → Webpage validation
-- **Phase 6** 📋 Planning - Source webpage → Migrated webpage comparison
-
-## Usage
-
-### Phase 1+3: Evaluate Migration Quality (Enhanced)
-
-```bash
-# Run comprehensive evaluation (includes Phase 3 enhancements)
-npm run evaluate examples/test-migration.json
-
-# View enhanced report
-cat output/reports/ai-powered-package-tracking-2025-report.json
-
-# View Core Web Vitals
-cat output/reports/ai-powered-package-tracking-2025-report.json | jq '.summary.coreWebVitals'
-
-# View accessibility violations
-cat output/axe-reports/ai-powered-package-tracking-2025-axe-report.json | jq '.violations[] | {rule: .id, severity: .impact, nodes: .nodes | length}'
-
-# Compare visual screenshots
-open output/screenshots/baseline-ai-powered-package-tracking-2025.png
-open output/screenshots/migrated-ai-powered-package-tracking-2025.png
+```json
+{
+  "batchName": "Q4 2025 Migration Batch",
+  "totalEntries": 50,
+  "successCount": 48,
+  "failureCount": 2,
+  "aggregateStatistics": {
+    "averageOverallScore": 78.5,
+    "totalFindings": 234,
+    "findingsBySeverity": {
+      "critical": 12,
+      "high": 45,
+      "medium": 98,
+      "low": 79
+    },
+    "coreWebVitalsPassRate": 92,
+    "bestPerformingPage": { "id": "homepage", "score": 95 },
+    "worstPerformingPage": { "id": "legacy-form", "score": 42 },
+    "commonIssues": [
+      { "issue": "Missing alt text on images", "count": 23, "severity": "high" },
+      { "issue": "Poor color contrast", "count": 18, "severity": "medium" }
+    ]
+  }
+}
 ```
 
-**Output**: Enhanced JSON report with:
-- **Overall score** (0-100) + grade
-- **Dimension scores**: SEO, Accessibility, Visual Fidelity, Content Quality, Intent Alignment
-- **Core Web Vitals**: LCP, INP, CLS, FCP with passing status
-- **Estimated Lighthouse scores**: Performance, Accessibility, SEO, Best Practices
-- **Enhanced findings** with:
-  - Severity levels (critical, high, medium, low)
-  - WCAG 2.2 AA rule violations
-  - Affected elements (CSS selectors)
-  - Help URLs for fixing issues
-  - Impact descriptions
-- **Artifacts**:
-  - Baseline screenshot (PDF first page as PNG)
-  - Migrated webpage screenshot
-  - Visual diff image (when differences found)
-  - aXe accessibility report (JSON)
-  - Lighthouse audit (JSON)
+## How Prompts Work
 
-### Phase 2: Generate Dashboard
+Prompts are **detailed instructions embedded in TypeScript** that tell Claude exactly what to do. They're constructed deterministically but executed by AI.
 
-```bash
-# Generate interactive HTML dashboard from all reports
-npm run dashboard
+**Example Prompt Snippet** (`evaluator.ts:73-106`):
+```typescript
+const prompt = `You are an expert CMS migration quality evaluator.
 
-# Or with custom title
-npm run dashboard -- --title "Q4 2025 Migration Report"
+**Task:** Comprehensive migration quality evaluation across 5 dimensions
 
-# Open in browser
-open output/dashboards/migration-quality-dashboard.html
+**Required Tool Workflow:**
+
+### 1. PDF Analysis (Baseline)
+Read PDF at: ${input.pdfPath}
+
+Use the Read tool to extract:
+- Text content and structure
+- Headings, sections, paragraphs
+- Image descriptions (if visible)
+
+### 2. Webpage Capture with Playwright MCP
+
+Navigate to: ${input.migratedUrl}
+
+**Step 1: Navigate to webpage**
+\`\`\`typescript
+mcp__playwright__browser_navigate({
+  url: "${input.migratedUrl}"
+})
+\`\`\`
+
+**Step 2: Wait for page to load**
+\`\`\`typescript
+mcp__playwright__browser_wait_for({
+  time: 3
+})
+\`\`\`
+
+... (200+ lines of detailed instructions)
+
+Save report to: ${reportPath}
+`;
 ```
 
-**Output**: Self-contained HTML dashboard with:
-- Executive summary with AI-generated insights
-- Interactive charts (Chart.js)
-- Filterable findings table
-- Prioritized recommendations
-- Works offline, responsive, accessible (WCAG 2.2 AA)
-
-## Phase 4.5 Note: Simplified MCP-Only Approach
-
-**What Changed**: Evaluator now uses Playwright MCP tools directly instead of creating temporary scripts.
-
-**What We Lost** (vs Phase 3 with scripts):
-- ❌ Full Lighthouse audit (official scores)
-- ❌ Full aXe WCAG scan (automated violation detection)
-- ❌ Pixel-perfect visual diff (ODiff comparison)
-- ❌ PDF→PNG baseline conversion
-
-**What We Gained**:
-- ✅ No script failures (playwright-lighthouse setup errors eliminated)
-- ✅ Cleaner codebase (no temporary scripts in root)
-- ✅ Reliable batch processing (no script-related failures)
-- ✅ Follows architecture principle (MCP tools via Agent SDK)
-
-**Report Quality**: Still provides actionable findings with estimated scores based on manual analysis.
-
-**Documentation**:
-- **Phase 4.5 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4.5-handoff.md` - Implementation details and trade-offs
-- **Phase 4.5 Plan**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4.5-plan.md` - Original plan
-
-## Documentation
-
-- **Full Plan**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/cms-migration-evaluator-plan.md`
-- **Phase 1 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-1-handoff.md`
-- **Phase 2 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-2-handoff.md`
-- **Phase 3 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-3-handoff.md`
-- **Phase 4 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4-handoff.md`
-- **Phase 4.5 Handoff**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/phase-4.5-handoff.md`
-- **Init Prompt Log**: `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/cms-migration-evaluator/init-prompt.md`
+**Key Characteristics:**
+- Runtime values injected via template strings (`${input.pdfPath}`)
+- Step-by-step workflow with exact tool syntax
+- Output format specification (JSON schema)
+- Edge case handling instructions
+- Tool usage examples with TypeScript code blocks
 
 ## Requirements
 
-**Runtime**:
+**Runtime:**
 - Node.js 18+
 - Anthropic API key (set in `.env`)
 
-**Phase 1+3 Dependencies**:
+**Dependencies:**
 - `@anthropic-ai/claude-agent-sdk` - Agent orchestration
-- `pdf-parse`, `pdf2pic` - PDF processing
-- `playwright`, `@axe-core/playwright` - Accessibility testing
-- `playwright-lighthouse`, `lighthouse` - Performance audits
-- `web-vitals` - Core Web Vitals measurement
-- `odiff-bin`, `pixelmatch`, `pngjs` - Visual regression
-- PyMuPDF (`pip3 install PyMuPDF`) - PDF→PNG conversion
+- `pdf-parse` - PDF text extraction
+- Playwright MCP server configured in `~/.config/claude/settings.json`
 
-**Phase 2 Dependencies**:
-- Chart.js 4.4.0 (loaded from CDN in dashboards)
+**MCP Setup:**
+
+Add Playwright MCP server to your Claude settings:
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@executeautomation/playwright-mcp-server"]
+    }
+  }
+}
+```
+
+## Configuration
+
+### Evaluation Criteria (`config/evaluation-criteria.json`)
+
+```json
+{
+  "weights": {
+    "seo": 0.25,
+    "accessibility": 0.25,
+    "visualFidelity": 0.20,
+    "contentQuality": 0.20,
+    "intentAlignment": 0.10
+  },
+  "thresholds": {
+    "excellent": 90,
+    "good": 75,
+    "acceptable": 60,
+    "needsImprovement": 40,
+    "critical": 0
+  },
+  "wcagLevel": "AA",
+  "minContrast": 4.5
+}
+```
+
+### Default Config (`config/default-config.json`)
+
+```json
+{
+  "evaluation": {
+    "includeAIReasoning": true,
+    "captureScreenshots": true,
+    "runAutomatedChecks": true,
+    "verbose": false
+  },
+  "playwright": {
+    "viewport": { "width": 1920, "height": 1080 },
+    "timeout": 30000
+  }
+}
+```
+
+## Trade-offs: MCP-Only Approach
+
+This evaluator uses **only Playwright MCP tools** (no external scripts). This design choice has trade-offs:
+
+**Benefits:**
+- ✅ No script failures (eliminates playwright-lighthouse setup errors)
+- ✅ Cleaner codebase (no temporary scripts in project root)
+- ✅ Reliable batch processing (fewer moving parts)
+- ✅ Follows Agent SDK architecture principles
+
+**Limitations:**
+- ❌ No official Lighthouse scores (estimated scores based on manual analysis)
+- ❌ No automated aXe WCAG scans (manual accessibility analysis from snapshots)
+- ❌ No pixel-perfect visual diff (visual analysis only)
+
+**Result Quality:** Still provides actionable findings with estimated scores suitable for migration quality assessment.
+
+## Usage Examples
+
+### Single Evaluation
+
+```bash
+# Create input file
+cat > examples/my-migration.json <<EOF
+{
+  "pdfPath": "input/pdfs/my-page.pdf",
+  "migratedUrl": "https://site.com/migrated/my-page"
+}
+EOF
+
+# Run evaluation
+npm run evaluate examples/my-migration.json
+
+# View report
+cat output/reports/my-page-report.json | jq '.summary'
+```
+
+### Batch Evaluation
+
+```bash
+# Create batch input
+cat > input/my-batch.json <<EOF
+{
+  "batchName": "Homepage Migration",
+  "entries": [
+    {
+      "id": "homepage",
+      "pdfPath": "input/pdfs/homepage.pdf",
+      "migratedUrl": "https://site.com/homepage"
+    },
+    {
+      "id": "about",
+      "pdfPath": "input/pdfs/about.pdf",
+      "migratedUrl": "https://site.com/about"
+    }
+  ]
+}
+EOF
+
+# Run batch evaluation
+npm run evaluate:batch input/my-batch.json
+
+# Generate dashboard
+npm run dashboard
+
+# Open dashboard
+open output/dashboards/migration-quality-dashboard.html
+```
+
+### View Batch Statistics
+
+```bash
+# View batch summary
+cat output/reports/batch-summary-*.json | jq '.aggregateStatistics'
+
+# Find worst performing pages
+cat output/reports/batch-summary-*.json | jq '.aggregateStatistics.worstPerformingPage'
+
+# List common issues
+cat output/reports/batch-summary-*.json | jq '.aggregateStatistics.commonIssues[:5]'
+```
+
+## Development
+
+```bash
+# Build TypeScript
+npm run build
+
+# Run in development mode (with tsx)
+npm run dev
+
+# Clean output directories
+npm run clean
+```
+
+## Project Philosophy
+
+This project demonstrates a **hybrid architecture pattern** for Agent SDK:
+
+1. **TypeScript handles orchestration** - File I/O, loops, error handling, validation
+2. **Prompts encode expertise** - Detailed instructions as "code written in English"
+3. **Agents execute complex tasks** - PDF analysis, webpage testing, quality scoring, HTML generation
+4. **Tools provide capabilities** - Read/Write for files, Playwright MCP for browser automation
+
+The key insight: **You're using the Agent SDK as a "programmable expert"** where you provide expert-level instructions (prompts) and Claude executes them using available tools, while your TypeScript code provides the deterministic scaffolding around this agentic work.
