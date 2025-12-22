@@ -9,7 +9,7 @@
 import { evaluateMigration, EvaluationInput } from './evaluator.js';
 import fs from 'fs/promises';
 import path from 'path';
-import { createTimestampedOutputDirs } from './utils/outputPaths.js';
+import { createOutputDirs } from './utils/outputPaths.js';
 
 export interface BatchEntry {
   id: string;
@@ -84,10 +84,11 @@ export async function evaluateBatch(batchInput: BatchInput): Promise<BatchSummar
   const startTime = Date.now();
   const continueOnError = batchInput.config?.continueOnError ?? true;
 
-  // Create a single timestamped directory for this entire batch run
-  // Use outputFolderName if provided, otherwise use batchName
+  // Create a single directory for this entire batch run
+  // Use outputFolderName directly (user should include timestamp in JSON if desired)
+  // If not provided, fall back to sanitized batchName
   const folderName = batchInput.config?.outputFolderName || batchInput.batchName.toLowerCase().replace(/\s+/g, '-');
-  const outputDirs = await createTimestampedOutputDirs(batchInput.config?.outputDir, folderName);
+  const outputDirs = await createOutputDirs(batchInput.config?.outputDir, folderName);
   const { runDir, reportsDir } = outputDirs;
 
   console.log(`\n🚀 Starting Batch Evaluation: "${batchInput.batchName}"`);

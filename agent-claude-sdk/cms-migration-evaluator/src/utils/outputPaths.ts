@@ -1,39 +1,24 @@
 /**
- * Utility functions for managing timestamped output directories
+ * Utility functions for managing output directories
  */
 
 import path from 'path';
 import fs from 'fs/promises';
 
 /**
- * Generate a path-friendly ISO timestamp for folder names
- * Format: YYYY-MM-DD-HHmm (e.g., "2025-12-21-1345")
- */
-export function getTimestampedFolderName(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-
-  return `${year}-${month}-${day}-${hours}${minutes}`;
-}
-
-/**
- * Create a timestamped output directory structure
+ * Create output directory structure
  *
  * If baseDir is provided and appears to be a run directory already, uses it as-is.
- * Otherwise, creates a new timestamped directory.
+ * Otherwise, creates a new directory with the given folderName.
  *
  * @param baseDir - Optional base directory. If provided and initialized, used as-is
- * @param inputFileName - Optional input file name to include in folder name (e.g., "test-migration")
+ * @param folderName - Folder name to use (e.g., "test-migration-2025-12-21-1545")
  *
  * Returns: { runDir, reportsDir, screenshotsDir, dashboardsDir, lighthouseDir, axeDir }
  */
-export async function createTimestampedOutputDirs(
+export async function createOutputDirs(
   baseDir?: string,
-  inputFileName?: string
+  folderName?: string
 ): Promise<{
   runDir: string;
   reportsDir: string;
@@ -45,7 +30,7 @@ export async function createTimestampedOutputDirs(
   let runDir: string;
 
   // If baseDir is provided and looks like a run directory (has subdirs), use it as-is
-  // This handles the case where a batch creates a timestamped dir and passes it to individual evaluations
+  // This handles the case where a batch creates a dir and passes it to individual evaluations
   if (baseDir) {
     const reportsSubdir = path.join(baseDir, 'reports');
     try {
@@ -57,14 +42,10 @@ export async function createTimestampedOutputDirs(
       runDir = baseDir;
     }
   } else {
-    // No baseDir provided - create new timestamped directory in default location
+    // No baseDir provided - create directory with folderName or fall back to 'default'
     const outputBase = path.join(process.cwd(), 'output');
-    const timestamp = getTimestampedFolderName();
-
-    // If inputFileName provided, include it in the folder name
-    // Format: {inputFileName}-{timestamp} (e.g., "test-migration-2025-12-21-1545")
-    const folderName = inputFileName ? `${inputFileName}-${timestamp}` : timestamp;
-    runDir = path.join(outputBase, folderName);
+    const dirName = folderName || 'default';
+    runDir = path.join(outputBase, dirName);
   }
 
   // Create all subdirectories
@@ -91,7 +72,7 @@ export async function createTimestampedOutputDirs(
 }
 
 /**
- * Find the most recent timestamped output directory
+ * Find the most recent output directory (alphabetically sorted)
  * Returns the full path to the most recent run, or null if none exist
  */
 export async function findLatestOutputDir(baseDir?: string): Promise<string | null> {
@@ -100,19 +81,19 @@ export async function findLatestOutputDir(baseDir?: string): Promise<string | nu
   try {
     const entries = await fs.readdir(outputBase, { withFileTypes: true });
 
-    // Filter for directories matching timestamp pattern (YYYY-MM-DD-HHmm)
-    const timestampDirs = entries
+    // Filter for directories (excluding hidden/archive folders)
+    const dirs = entries
       .filter(entry => entry.isDirectory())
-      .filter(entry => /^\d{4}-\d{2}-\d{2}-\d{4}$/.test(entry.name))
+      .filter(entry => !entry.name.startsWith('.') && !entry.name.includes('before'))
       .map(entry => entry.name)
       .sort()
       .reverse();
 
-    if (timestampDirs.length === 0) {
+    if (dirs.length === 0) {
       return null;
     }
 
-    return path.join(outputBase, timestampDirs[0]);
+    return path.join(outputBase, dirs[0]);
   } catch (error) {
     return null;
   }
