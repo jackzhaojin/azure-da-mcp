@@ -12,6 +12,7 @@
 import { generateBatchDashboard } from './batchDashboardGenerator.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { findLatestOutputDir } from './utils/outputPaths.js';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -33,32 +34,34 @@ async function main() {
   try {
     // Find most recent batch summary if not specified
     if (!batchSummaryPath) {
-      const reportsDir = path.resolve(process.cwd(), 'output', 'reports');
-      const files = await fs.readdir(reportsDir);
-      const batchSummaries = files
-        .filter(f => f.startsWith('batch-summary-') && f.endsWith('.json'))
-        .sort()
-        .reverse();
-
-      if (batchSummaries.length === 0) {
-        throw new Error('No batch summary files found in output/reports/');
+      const latestRunDir = await findLatestOutputDir();
+      if (!latestRunDir) {
+        throw new Error('No evaluation runs found in output directory. Please run a batch evaluation first.');
       }
 
-      batchSummaryPath = path.join(reportsDir, batchSummaries[0]);
-      console.log(`\n📂 Using most recent batch summary: ${batchSummaries[0]}\n`);
+      const reportsDir = path.join(latestRunDir, 'reports');
+      const batchSummaryPath = path.join(reportsDir, 'batch-summary.json');
+
+      // Check if batch summary exists
+      try {
+        await fs.access(batchSummaryPath);
+        console.log(`\n📂 Using batch summary from latest run: ${path.basename(latestRunDir)}\n`);
+      } catch {
+        throw new Error(`No batch summary found in latest run at ${batchSummaryPath}`);
+      }
     }
 
     // Resolve paths
     const absoluteBatchSummaryPath = path.resolve(batchSummaryPath);
-    const reportsDir = path.dirname(absoluteBatchSummaryPath);
-    const dashboardsDir = path.join(process.cwd(), 'output', 'dashboards');
+    const runDir = path.dirname(path.dirname(absoluteBatchSummaryPath)); // Go up two levels from reports/batch-summary.json
+    const reportsDir = path.join(runDir, 'reports');
+    const dashboardsDir = path.join(runDir, 'dashboards');
 
     // Create dashboards directory if it doesn't exist
     await fs.mkdir(dashboardsDir, { recursive: true });
 
-    // Generate timestamp for dashboard filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-    const outputPath = path.join(dashboardsDir, `migration-batch-${timestamp}.html`);
+    // Dashboard output path
+    const outputPath = path.join(dashboardsDir, 'migration-batch-dashboard.html');
 
     // Generate batch dashboard
     const dashboardPath = await generateBatchDashboard({

@@ -21,6 +21,7 @@ interface InputFile {
   pdfPath: string;
   migratedUrl: string;
   outputDir?: string;
+  outputFolderName?: string; // Optional name for the output folder
 }
 
 async function main() {
@@ -67,6 +68,7 @@ async function main() {
       pdfPath,
       migratedUrl: input.migratedUrl,
       outputDir: input.outputDir,
+      outputFolderName: input.outputFolderName,
     });
 
     // Print messages

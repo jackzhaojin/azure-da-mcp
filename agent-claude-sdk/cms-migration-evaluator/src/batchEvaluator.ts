@@ -9,6 +9,7 @@
 import { evaluateMigration, EvaluationInput } from './evaluator.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { createTimestampedOutputDirs } from './utils/outputPaths.js';
 
 export interface BatchEntry {
   id: string;
@@ -22,6 +23,7 @@ export interface BatchInput {
   config?: {
     continueOnError?: boolean;
     outputDir?: string;
+    outputFolderName?: string; // Optional name for the batch output folder
   };
 }
 
@@ -81,12 +83,18 @@ export interface BatchSummary {
 export async function evaluateBatch(batchInput: BatchInput): Promise<BatchSummary> {
   const startTime = Date.now();
   const continueOnError = batchInput.config?.continueOnError ?? true;
-  const outputDir = batchInput.config?.outputDir || path.join(process.cwd(), 'output', 'reports');
+
+  // Create a single timestamped directory for this entire batch run
+  // Use outputFolderName if provided, otherwise use batchName
+  const folderName = batchInput.config?.outputFolderName || batchInput.batchName.toLowerCase().replace(/\s+/g, '-');
+  const outputDirs = await createTimestampedOutputDirs(batchInput.config?.outputDir, folderName);
+  const { runDir, reportsDir } = outputDirs;
 
   console.log(`\n🚀 Starting Batch Evaluation: "${batchInput.batchName}"`);
   console.log(`📊 Total Entries: ${batchInput.entries.length}`);
   console.log(`⚙️  Continue on Error: ${continueOnError ? 'Yes' : 'No'}`);
-  console.log(`📂 Output Directory: ${outputDir}\n`);
+  console.log(`📂 Run Directory: ${runDir}`);
+  console.log(`📂 Reports Directory: ${reportsDir}\n`);
 
   const results: BatchEntryResult[] = [];
 
@@ -105,11 +113,11 @@ export async function evaluateBatch(batchInput: BatchInput): Promise<BatchSummar
       // Resolve PDF path (handle relative paths)
       const pdfPath = path.resolve(entry.pdfPath);
 
-      // Create evaluation input
+      // Create evaluation input - use the batch's run directory so all reports go to same location
       const evaluationInput: EvaluationInput = {
         pdfPath,
         migratedUrl: entry.migratedUrl,
-        outputDir,
+        outputDir: runDir, // Use the batch's timestamped directory
       };
 
       // Run evaluation
@@ -183,9 +191,8 @@ export async function evaluateBatch(batchInput: BatchInput): Promise<BatchSummar
     },
   };
 
-  // Save batch summary
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-  const batchSummaryPath = path.join(outputDir, `batch-summary-${timestamp}.json`);
+  // Save batch summary to the same timestamped directory
+  const batchSummaryPath = path.join(reportsDir, `batch-summary.json`);
   await fs.writeFile(batchSummaryPath, JSON.stringify(batchSummary, null, 2), 'utf-8');
 
   console.log(`\n✅ Batch Evaluation Complete!`);

@@ -2,6 +2,7 @@
 import { generateDashboard } from './dashboardGenerator.js';
 import * as path from 'path';
 import * as fs from 'fs';
+import { findLatestOutputDir } from './utils/outputPaths.js';
 
 /**
  * CLI Interface for Dashboard Generation
@@ -18,31 +19,44 @@ async function main() {
     const titleIndex = args.indexOf('--title');
     const title = titleIndex !== -1 ? args[titleIndex + 1] : undefined;
 
-    // Default configuration
-    const config = {
-      reportsDir: path.join(process.cwd(), 'output', 'reports'),
-      outputPath: path.join(process.cwd(), 'output', 'dashboards', 'migration-quality-dashboard.html'),
-      title,
-    };
-
     console.log('╔══════════════════════════════════════════════════════════╗');
     console.log('║   CMS Migration Evaluator - Dashboard Generator         ║');
-    console.log('║   Phase 2: AI-Generated Quality Dashboard               ║');
     console.log('╚══════════════════════════════════════════════════════════╝');
 
-    // Verify reports directory exists and has reports
-    if (!fs.existsSync(config.reportsDir)) {
-      console.error(`\n❌ Error: Reports directory not found at ${config.reportsDir}`);
-      console.error('   Please run Phase 1 evaluation first: npm run evaluate examples/test-migration.json');
+    // Find the latest timestamped output directory
+    const latestRunDir = await findLatestOutputDir();
+    if (!latestRunDir) {
+      console.error(`\n❌ Error: No evaluation runs found in output directory`);
+      console.error('   Please run an evaluation first: npm run evaluate examples/test-migration.json');
       process.exit(1);
     }
 
-    const reportFiles = fs.readdirSync(config.reportsDir).filter(f => f.endsWith('.json'));
-    if (reportFiles.length === 0) {
-      console.error(`\n❌ Error: No evaluation reports found in ${config.reportsDir}`);
-      console.error('   Please run Phase 1 evaluation first: npm run evaluate examples/test-migration.json');
+    const reportsDir = path.join(latestRunDir, 'reports');
+    const dashboardsDir = path.join(latestRunDir, 'dashboards');
+
+    // Verify reports directory exists and has reports
+    if (!fs.existsSync(reportsDir)) {
+      console.error(`\n❌ Error: Reports directory not found at ${reportsDir}`);
+      console.error('   Please run evaluation first: npm run evaluate examples/test-migration.json');
       process.exit(1);
     }
+
+    const reportFiles = fs.readdirSync(reportsDir).filter(f => f.endsWith('.json'));
+    if (reportFiles.length === 0) {
+      console.error(`\n❌ Error: No evaluation reports found in ${reportsDir}`);
+      console.error('   Please run evaluation first: npm run evaluate examples/test-migration.json');
+      process.exit(1);
+    }
+
+    // Ensure dashboards directory exists
+    await fs.promises.mkdir(dashboardsDir, { recursive: true });
+
+    // Configure dashboard generation
+    const config = {
+      reportsDir,
+      outputPath: path.join(dashboardsDir, 'migration-quality-dashboard.html'),
+      title,
+    };
 
     console.log(`\n📊 Configuration:`);
     console.log(`   Reports Directory: ${config.reportsDir}`);
