@@ -40,7 +40,7 @@ async function main() {
       }
 
       const reportsDir = path.join(latestRunDir, 'reports');
-      const batchSummaryPath = path.join(reportsDir, 'batch-summary.json');
+      batchSummaryPath = path.join(reportsDir, 'batch-summary.json');
 
       // Check if batch summary exists
       try {
