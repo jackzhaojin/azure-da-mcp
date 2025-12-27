@@ -4,6 +4,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import { createLogger, Timer } from '@/lib/logger';
 import type {
   MetaTags,
   HeadingNode,
@@ -15,15 +16,31 @@ import type {
   StructureComparison,
 } from './types';
 
+const logger = createLogger('deterministic');
+
 /**
  * Fetch HTML content from URL
  */
 async function fetchHTML(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  const timer = new Timer();
+  logger.debug('Fetching HTML', { url });
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+    }
+    const html = await response.text();
+    logger.operationComplete('HTML fetch', timer.elapsed(), {
+      url,
+      htmlLength: html.length,
+      statusCode: response.status,
+    });
+    return html;
+  } catch (error) {
+    logger.error('HTML fetch failed', error instanceof Error ? error : new Error(String(error)), { url });
+    throw error;
   }
-  return response.text();
 }
 
 /**
@@ -198,32 +215,76 @@ export function extractContentBlocks($: cheerio.CheerioAPI): ContentBlocks {
  * Analyze HTML structure and extract all metrics
  */
 export async function analyzeStructure(url: string): Promise<StructureMetrics> {
-  // Fetch HTML
-  const html = await fetchHTML(url);
+  const timer = new Timer();
+  logger.info('Starting structure analysis', { url });
 
-  // Load HTML into Cheerio
-  const $ = cheerio.load(html);
+  try {
+    // Fetch HTML
+    const html = await fetchHTML(url);
 
-  // Extract all metrics
-  const metaTags = extractMetaTags($);
-  const headingHierarchy = extractHeadingHierarchy($);
-  const documentStructure = extractDocumentStructure($);
-  const linkAnalysis = analyzeLinkStructure($, url);
-  const contentBlocks = extractContentBlocks($);
+    // Load HTML into Cheerio
+    const $ = cheerio.load(html);
+    logger.debug('HTML loaded into Cheerio', { htmlLength: html.length });
 
-  // Calculate lengths
-  const rawHtmlLength = html.length;
-  const textContentLength = $('body').text().trim().length;
+    // Extract all metrics
+    const metaTags = extractMetaTags($);
+    logger.debug('Meta tags extracted', { hasTitle: !!metaTags.title, hasDescription: !!metaTags.description });
 
-  return {
-    metaTags,
-    headingHierarchy,
-    documentStructure,
-    linkAnalysis,
-    contentBlocks,
-    rawHtmlLength,
-    textContentLength,
-  };
+    const headingHierarchy = extractHeadingHierarchy($);
+    logger.debug('Heading hierarchy extracted', {
+      headingCount: headingHierarchy.headings.length,
+      h1Count: headingHierarchy.h1Count,
+      hasProperNesting: headingHierarchy.hasProperNesting,
+      issueCount: headingHierarchy.issues.length,
+    });
+
+    const documentStructure = extractDocumentStructure($);
+    logger.debug('Document structure extracted', {
+      hasMain: documentStructure.hasMain,
+      hasHeader: documentStructure.hasHeader,
+      hasFooter: documentStructure.hasFooter,
+    });
+
+    const linkAnalysis = analyzeLinkStructure($, url);
+    logger.debug('Link analysis complete', {
+      totalLinks: linkAnalysis.totalLinks,
+      internalLinks: linkAnalysis.internalLinks,
+      externalLinks: linkAnalysis.externalLinks,
+      brokenAnchors: linkAnalysis.brokenAnchors,
+    });
+
+    const contentBlocks = extractContentBlocks($);
+    logger.debug('Content blocks extracted');
+
+    // Calculate lengths
+    const rawHtmlLength = html.length;
+    const textContentLength = $('body').text().trim().length;
+
+    const result: StructureMetrics = {
+      metaTags,
+      headingHierarchy,
+      documentStructure,
+      linkAnalysis,
+      contentBlocks,
+      rawHtmlLength,
+      textContentLength,
+    };
+
+    logger.operationComplete('Structure analysis', timer.elapsed(), {
+      url,
+      h1Count: headingHierarchy.h1Count,
+      hasMain: documentStructure.hasMain,
+      totalLinks: linkAnalysis.totalLinks,
+    });
+
+    return result;
+  } catch (error) {
+    logger.error('Structure analysis failed', error instanceof Error ? error : new Error(String(error)), {
+      url,
+      duration: timer.elapsed(),
+    });
+    throw error;
+  }
 }
 
 /**
@@ -233,6 +294,8 @@ export function compareStructure(
   expected: StructureMetrics,
   actual: StructureMetrics
 ): StructureComparison {
+  logger.info('Starting structure comparison');
+
   const metaTagsDiff = {
     missing: [] as string[],
     extra: [] as string[],
@@ -345,6 +408,13 @@ export function compareStructure(
 
   // Ensure score doesn't go below 0
   score = Math.max(0, score);
+
+  logger.info('Structure comparison complete', {
+    similarityScore: score,
+    missingMetaTags: metaTagsDiff.missing.length,
+    missingHeadings: headingDiff.missingHeadings.length,
+    missingElements: structureDiff.missingElements.length,
+  });
 
   return {
     metaTagsDiff,

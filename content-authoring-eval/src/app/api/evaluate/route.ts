@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EvaluationRequest, EvaluationReport, Finding } from '@/types/evaluation';
 import { SYSTEM_VERSION } from '@/lib/constants';
 import { analyzeStructure, analyzeStructureWithClaude, StructureMetrics } from '@/lib/agents/structure';
+import { createLogger, Timer } from '@/lib/logger';
+
+const logger = createLogger('api');
 
 /**
  * Calculate deterministic-only score from structure metrics
@@ -46,13 +49,16 @@ function getGradeFromScore(score: number): 'excellent' | 'good' | 'acceptable' |
  * Will orchestrate all 4 agents in Phase 12
  */
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
+  const timer = new Timer();
+  logger.requestStart('POST', '/api/evaluate');
 
   try {
     const body: EvaluationRequest = await request.json();
+    logger.debug('Request body parsed', { url: body.migratedUrl, hasPdf: !!body.pdfPath });
 
     // Validate request
     if (!body.migratedUrl) {
+      logger.warn('Validation failed: migratedUrl is required');
       return NextResponse.json(
         { error: 'migratedUrl is required' },
         { status: 400 }
@@ -60,11 +66,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Structure Agent (Phases 4-5)
-    const agentStartTime = Date.now();
+    logger.info('Invoking Structure Agent', { url: body.migratedUrl });
+    const agentTimer = new Timer();
 
     // Step 1: Get deterministic metrics
     const migratedStructure = await analyzeStructure(body.migratedUrl);
-    const deterministicDuration = Date.now() - agentStartTime;
+    const deterministicDuration = agentTimer.elapsed();
+    logger.operationComplete('Deterministic structure analysis', deterministicDuration, {
+      hasTitle: !!migratedStructure.metaTags.title,
+      h1Count: migratedStructure.headingHierarchy.h1Count,
+      hasMain: migratedStructure.documentStructure.hasMain,
+    });
 
     // Step 2: Try agentic analysis, fallback to deterministic-only if no API key
     let finalScore: number;
@@ -73,12 +85,13 @@ export async function POST(request: NextRequest) {
     let agenticMetadata: { executedAt: string; durationMs: number; model: string } | undefined = undefined;
 
     try {
-      const agenticStartTime = Date.now();
+      logger.info('Starting agentic analysis with Claude Agent SDK');
+      const agenticTimer = new Timer();
       const structureResult = await analyzeStructureWithClaude(
         body.migratedUrl,
         migratedStructure
       );
-      const agenticDuration = Date.now() - agenticStartTime;
+      const agenticDuration = agenticTimer.elapsed();
 
       finalScore = structureResult.finalScore;
       grade = structureResult.grade;
@@ -88,20 +101,38 @@ export async function POST(request: NextRequest) {
         durationMs: agenticDuration,
         model: 'claude-sonnet-4-5-20250929',
       };
+
+      logger.operationComplete('Agentic structure analysis', agenticDuration, {
+        score: finalScore,
+        grade,
+        findingsCount: findings.length,
+      });
     } catch (error) {
       // Fallback to deterministic-only scoring if API key missing
-      console.warn('Agentic analysis failed, using deterministic-only mode:', error instanceof Error ? error.message : 'Unknown error');
+      logger.warn('Agentic analysis failed, using deterministic-only mode', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
 
       // Calculate deterministic score (simplified)
       const deterministicScore = calculateDeterministicScore(migratedStructure);
       finalScore = deterministicScore;
       grade = getGradeFromScore(deterministicScore);
       findings = [];
+
+      logger.info('Fallback to deterministic scoring', { score: finalScore, grade });
     }
 
     // Calculate overall score (only structure for now)
     const overallScore = finalScore;
     const passedDimensions = finalScore >= 70 ? 1 : 0;
+
+    logger.info('Evaluation complete', {
+      overallScore,
+      grade,
+      passedDimensions,
+      findingsCount: findings.length,
+      totalDuration: timer.elapsed(),
+    });
 
     // Build evaluation report
     const report: EvaluationReport = {
@@ -169,14 +200,18 @@ export async function POST(request: NextRequest) {
       metadata: {
         createdAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
-        durationMs: Date.now() - startTime,
+        durationMs: timer.elapsed(),
         version: SYSTEM_VERSION,
       },
     };
 
+    logger.requestComplete('POST', '/api/evaluate', 200, timer.elapsed());
     return NextResponse.json(report);
   } catch (error) {
-    console.error('Error in /api/evaluate:', error);
+    logger.error('Evaluation failed', error instanceof Error ? error : new Error(String(error)), {
+      url: request.url,
+      duration: timer.elapsed(),
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
@@ -190,6 +225,7 @@ export async function POST(request: NextRequest) {
  * Health check endpoint
  */
 export async function GET() {
+  logger.debug('Health check requested');
   return NextResponse.json({
     status: 'ok',
     version: SYSTEM_VERSION,
