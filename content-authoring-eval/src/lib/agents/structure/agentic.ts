@@ -8,12 +8,15 @@
  */
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { createLogger, Timer } from '@/lib/logger';
 import {
   type StructureMetrics,
   type AgenticAnalysisResult,
   type StructureAnalysisResult,
 } from './types';
 import structurePrompt from '@/lib/prompts/structure.json';
+
+const logger = createLogger('agentic');
 
 /**
  * Format structure metrics as text for Claude analysis
@@ -85,6 +88,8 @@ Links Without Text: ${metrics.linkAnalysis.linksWithoutText}
  * Parse Claude response and validate JSON structure
  */
 function parseClaudeResponse(responseText: string): AgenticAnalysisResult {
+  logger.debug('Parsing Claude response', { responseLength: responseText.length });
+
   try {
     // Claude sometimes wraps JSON in markdown code blocks
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
@@ -103,7 +108,7 @@ function parseClaudeResponse(responseText: string): AgenticAnalysisResult {
       throw new Error('Response missing summary string');
     }
 
-    return {
+    const result = {
       findings: parsed.findings.map((f: unknown) => {
         const finding = f as Record<string, unknown>;
         return {
@@ -117,9 +122,18 @@ function parseClaudeResponse(responseText: string): AgenticAnalysisResult {
       score: Math.max(0, Math.min(100, parsed.score)),
       summary: parsed.summary,
     };
+
+    logger.info('Claude response parsed successfully', {
+      findingsCount: result.findings.length,
+      score: result.score,
+    });
+
+    return result;
   } catch (error) {
-    console.error('Failed to parse Claude response:', error);
-    console.error('Raw response:', responseText);
+    logger.error('Failed to parse Claude response', error instanceof Error ? error : new Error(String(error)), {
+      responseLength: responseText.length,
+      responsePreview: responseText.substring(0, 200),
+    });
     throw new Error(`Invalid Claude response: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -185,13 +199,18 @@ export async function analyzeStructureWithClaude(
   url: string,
   deterministicMetrics: StructureMetrics
 ): Promise<StructureAnalysisResult> {
+  const timer = new Timer();
+  logger.info('Starting agentic structure analysis', { url });
+
   // Validate OAuth token is configured
   if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    logger.error('Claude OAuth token missing');
     throw new Error('Missing Claude authentication. Please set CLAUDE_CODE_OAUTH_TOKEN in .env.local');
   }
 
   // Format prompt with structure data
   const userPrompt = formatStructureForPrompt(deterministicMetrics);
+  logger.debug('Prompt formatted', { promptLength: userPrompt.length });
 
   // Build complete prompt with system and user messages
   const fullPrompt = `${structurePrompt.system}
@@ -201,7 +220,7 @@ ${userPrompt}`;
   // Collect streaming messages
   const messages: string[] = [];
 
-  console.log('🔧 Invoking Claude Agent SDK for structure analysis...');
+  logger.info('Invoking Claude Agent SDK with streaming');
 
   try {
     // Use Agent SDK query() for streaming analysis
@@ -218,18 +237,19 @@ ${userPrompt}`;
         for (const block of message.message.content) {
           if (block.type === 'text' && block.text) {
             messages.push(block.text);
-            console.log(`💭 Claude: ${block.text.substring(0, 150)}...`);
+            logger.debug('Received text block from Claude', { length: block.text.length });
           }
         }
       }
     }
 
-    console.log(`✅ Agent SDK completed. Collected ${messages.length} messages.`);
+    logger.info('Claude Agent SDK stream completed', { messagesCollected: messages.length });
 
     // Combine all messages into single response text
     const responseText = messages.join('\n');
 
     if (!responseText) {
+      logger.error('No response received from Claude Agent SDK');
       throw new Error('No response received from Claude Agent SDK');
     }
 
@@ -240,6 +260,13 @@ ${userPrompt}`;
     const finalScore = calculateFinalScore(deterministicMetrics, agenticResult.score);
     const grade = calculateGrade(finalScore);
 
+    logger.operationComplete('Agentic structure analysis', timer.elapsed(), {
+      url,
+      finalScore,
+      grade,
+      findingsCount: agenticResult.findings.length,
+    });
+
     return {
       url,
       deterministic: deterministicMetrics,
@@ -249,7 +276,10 @@ ${userPrompt}`;
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Claude Agent SDK error:', error);
+    logger.error('Agentic analysis failed', error instanceof Error ? error : new Error(String(error)), {
+      url,
+      duration: timer.elapsed(),
+    });
     throw error;
   }
 }
