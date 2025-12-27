@@ -63,7 +63,7 @@ export default function DashboardPage() {
                         evaluation.summary.grade === 'needs-improvement' ? 'bg-orange-100 text-orange-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {evaluation.summary.grade.toUpperCase()}
+                        {(evaluation.summary.grade || 'critical').toUpperCase()}
                       </div>
                     </div>
                   </CardHeader>
@@ -82,7 +82,7 @@ export default function DashboardPage() {
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Total Findings</p>
-                          <p className="text-2xl font-bold">{evaluation.findings.length}</p>
+                          <p className="text-2xl font-bold">{evaluation.findings?.length || 0}</p>
                         </div>
                       </div>
                       <Link href={`/results/${evaluation.id}`}>
