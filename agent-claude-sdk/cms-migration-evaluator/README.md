@@ -1,5 +1,20 @@
 # CMS Migration Evaluator
 
+> **⚠️ DEPRECATED (2025-12-27)**
+>
+> This Claude Agent SDK implementation is deprecated. A new Next.js-based implementation is being developed at `azure-da-mcp/content-authoring-eval/`.
+>
+> **Why deprecated:**
+> - Complex context management with Agent SDK
+> - Script generation issues requiring Phase 4.5 fix
+> - Difficult to extend with parallel agents
+>
+> **New approach:** Next.js + ShadCN with 4 parallel evaluation agents (Structure, Accessibility, Content Fidelity, Visual Correctness), each with deterministic + agentic components.
+>
+> **Planning docs:** See `eds-ai-editor-ai-instructions/ai-docs/content-authoring-eval/`
+
+---
+
 AI-powered quality evaluation for CMS migrations using Claude Agent SDK.
 
 ## What This Does
