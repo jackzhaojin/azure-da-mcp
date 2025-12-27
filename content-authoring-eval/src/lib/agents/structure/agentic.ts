@@ -1,11 +1,13 @@
 /**
  * Structure Agent - Agentic Analysis
  *
- * Uses Claude API to interpret deterministic structure metrics and provide
+ * Uses Claude Agent SDK to interpret deterministic structure metrics and provide
  * semantic analysis, SEO assessment, and actionable recommendations.
+ *
+ * CRITICAL: Uses @anthropic-ai/claude-agent-sdk (NOT @anthropic-ai/sdk)
  */
 
-import { createClaudeClient, getClaudeModel } from '@/lib/claude';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import {
   type StructureMetrics,
   type AgenticAnalysisResult,
@@ -177,50 +179,77 @@ function calculateGrade(score: number): 'excellent' | 'good' | 'acceptable' | 'n
 }
 
 /**
- * Perform agentic structure analysis using Claude API
+ * Perform agentic structure analysis using Claude Agent SDK
  */
 export async function analyzeStructureWithClaude(
   url: string,
   deterministicMetrics: StructureMetrics
 ): Promise<StructureAnalysisResult> {
-  const client = createClaudeClient();
-  const model = getClaudeModel();
+  // Validate OAuth token is configured
+  if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    throw new Error('Missing Claude authentication. Please set CLAUDE_CODE_OAUTH_TOKEN in .env.local');
+  }
 
   // Format prompt with structure data
   const userPrompt = formatStructureForPrompt(deterministicMetrics);
 
-  // Call Claude API
-  const response = await client.messages.create({
-    model,
-    max_tokens: 2048,
-    system: structurePrompt.system,
-    messages: [
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ],
-  });
+  // Build complete prompt with system and user messages
+  const fullPrompt = `${structurePrompt.system}
 
-  // Extract text content from response
-  const responseText = response.content
-    .filter((block) => block.type === 'text')
-    .map((block) => ('text' in block ? block.text : ''))
-    .join('\n');
+${userPrompt}`;
 
-  // Parse and validate response
-  const agenticResult = parseClaudeResponse(responseText);
+  // Collect streaming messages
+  const messages: string[] = [];
 
-  // Calculate final score
-  const finalScore = calculateFinalScore(deterministicMetrics, agenticResult.score);
-  const grade = calculateGrade(finalScore);
+  console.log('🔧 Invoking Claude Agent SDK for structure analysis...');
 
-  return {
-    url,
-    deterministic: deterministicMetrics,
-    agentic: agenticResult,
-    finalScore,
-    grade,
-    timestamp: new Date().toISOString(),
-  };
+  try {
+    // Use Agent SDK query() for streaming analysis
+    for await (const message of query({
+      prompt: fullPrompt,
+      options: {
+        model: 'claude-sonnet-4-5-20250929',
+        maxTurns: 5,
+        settingSources: ['user', 'project'],
+      }
+    })) {
+      // Collect assistant text responses
+      if (message.type === 'assistant' && message.message?.content) {
+        for (const block of message.message.content) {
+          if (block.type === 'text' && block.text) {
+            messages.push(block.text);
+            console.log(`💭 Claude: ${block.text.substring(0, 150)}...`);
+          }
+        }
+      }
+    }
+
+    console.log(`✅ Agent SDK completed. Collected ${messages.length} messages.`);
+
+    // Combine all messages into single response text
+    const responseText = messages.join('\n');
+
+    if (!responseText) {
+      throw new Error('No response received from Claude Agent SDK');
+    }
+
+    // Parse and validate response
+    const agenticResult = parseClaudeResponse(responseText);
+
+    // Calculate final score
+    const finalScore = calculateFinalScore(deterministicMetrics, agenticResult.score);
+    const grade = calculateGrade(finalScore);
+
+    return {
+      url,
+      deterministic: deterministicMetrics,
+      agentic: agenticResult,
+      finalScore,
+      grade,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('❌ Claude Agent SDK error:', error);
+    throw error;
+  }
 }
