@@ -152,5 +152,11 @@ export interface ContentAnalysisResult {
       durationMs: number;
       model: string;
     };
+    toolUsage?: {
+      totalInvocations: number;
+      toolCounts: Record<string, number>;
+      verified: boolean;
+      warnings: string[];
+    };
   };
 }

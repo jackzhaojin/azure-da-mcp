@@ -86,6 +86,16 @@ export interface VisualFinding {
 }
 
 /**
+ * Tool usage metadata (Phase 20)
+ */
+export interface ToolUsageMetadata {
+  totalInvocations: number;
+  toolCounts: Record<string, number>;
+  verified: boolean;
+  warnings: string[];
+}
+
+/**
  * Agentic visual analysis result (Phase 11)
  */
 export interface AgenticAnalysisResult {
@@ -99,6 +109,10 @@ export interface AgenticAnalysisResult {
   criticalIssues: string[];
   /** Minor visual improvements */
   minorImprovements: string[];
+  /** Tool usage metadata (Phase 20) */
+  metadata?: {
+    toolUsage?: ToolUsageMetadata;
+  };
 }
 
 /**

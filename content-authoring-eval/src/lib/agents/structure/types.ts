@@ -114,6 +114,16 @@ export interface AgenticAnalysisResult {
 }
 
 /**
+ * Tool usage metadata (Phase 20)
+ */
+export interface ToolUsageMetadata {
+  totalInvocations: number;
+  toolCounts: Record<string, number>;
+  verified: boolean;
+  warnings: string[];
+}
+
+/**
  * Combined deterministic + agentic result
  */
 export interface StructureAnalysisResult {
@@ -123,4 +133,7 @@ export interface StructureAnalysisResult {
   finalScore: number; // 0-100
   grade: 'excellent' | 'good' | 'acceptable' | 'needs-improvement' | 'critical';
   timestamp: string;
+  metadata?: {
+    toolUsage?: ToolUsageMetadata;
+  };
 }

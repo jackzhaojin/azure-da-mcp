@@ -10,6 +10,7 @@ import fs from 'fs';
 import { createLogger, Timer } from '@/lib/logger';
 import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './types';
 import visualPrompt from '@/lib/prompts/visual.json';
+import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
 
 const logger = createLogger('agentic');
 
@@ -158,9 +159,12 @@ export async function analyzeVisualWithClaude(
       base64Length: screenshotBase64.length,
     });
 
+    // Create tool logging plugin to track tool usage
+    const toolLogger = createToolLoggingPlugin();
+
     // Invoke Claude Agent SDK with streaming
     // Note: Agent SDK doesn't support multimodal yet, so we describe the screenshot in text
-    logger.info('Invoking Claude Agent SDK with streaming', {
+    logger.info('Invoking Claude Agent SDK with streaming + tool logging', {
       model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
     });
 
@@ -180,6 +184,7 @@ export async function analyzeVisualWithClaude(
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
         cwd: process.cwd(),
+        plugins: [toolLogger], // PHASE 20: Add tool logging plugin
       },
     })) {
       // Collect assistant text responses
@@ -196,6 +201,19 @@ export async function analyzeVisualWithClaude(
     logger.info('Claude Agent SDK stream completed', {
       messagesCollected: messages.length,
     });
+
+    // PHASE 20: Verify and log tool usage
+    const toolStats = toolLogger.getStats();
+    const verification = verifyToolUsage(toolStats);
+
+    logger.info('Tool usage verification', {
+      passed: verification.passed,
+      summary: verification.summary,
+      warnings: verification.warnings,
+    });
+
+    // Log detailed tool usage stats
+    logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
 
     // Combine all messages into single response text
     const responseText = messages.join('\n');
@@ -217,9 +235,22 @@ export async function analyzeVisualWithClaude(
       url: metrics.url,
       score: result.score,
       findingsCount: result.findings.length,
+      toolInvocations: toolStats.totalInvocations,
+      toolsUsed: Object.keys(toolStats.toolCounts).join(', '),
     });
 
-    return result;
+    // Add tool usage metadata to result
+    return {
+      ...result,
+      metadata: {
+        toolUsage: {
+          totalInvocations: toolStats.totalInvocations,
+          toolCounts: toolStats.toolCounts,
+          verified: verification.passed,
+          warnings: verification.warnings,
+        },
+      },
+    };
   } catch (error) {
     logger.error('Agentic visual analysis failed', error as Error, {
       url: metrics.url,
