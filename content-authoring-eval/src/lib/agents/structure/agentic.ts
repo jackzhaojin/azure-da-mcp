@@ -204,10 +204,10 @@ export async function analyzeStructureWithClaude(
   const timer = new Timer();
   logger.info('Starting agentic structure analysis', { url });
 
-  // Validate OAuth token is configured
-  if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-    logger.error('Claude OAuth token missing');
-    throw new Error('Missing Claude authentication. Please set CLAUDE_CODE_OAUTH_TOKEN in .env.local');
+  // PHASE 25: Validate API key is configured (not OAuth token)
+  if (!process.env.ANTHROPIC_API_KEY) {
+    logger.error('Claude API key missing');
+    throw new Error('Missing Claude authentication. Please set ANTHROPIC_API_KEY in .env.local');
   }
 
   // Format prompt with structure data
@@ -228,13 +228,25 @@ ${userPrompt}`;
   logger.info('Invoking Claude Agent SDK with streaming + tool logging');
 
   try {
-    // Use Agent SDK query() for streaming analysis with tool access
+    // PHASE 25: Use Agent SDK query() with programmatic MCP configuration
     for await (const message of query({
       prompt: fullPrompt,
       options: {
         model: 'claude-sonnet-4-5-20250929',
         maxTurns: 20, // Increased for multiple tool invocations
-        settingSources: ['user', 'project'],
+        // PHASE 25: Remove settingSources - use programmatic MCP config instead
+        // settingSources: ['user', 'project'],
+        // PHASE 25: Configure MCP servers programmatically (bundled in container)
+        mcpServers: {
+          "playwright": {
+            command: "npx",
+            args: ["@playwright/mcp"]
+          },
+          "filesystem": {
+            command: "npx",
+            args: ["@modelcontextprotocol/server-filesystem", process.cwd()]
+          }
+        },
         allowedTools: ['Read', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
