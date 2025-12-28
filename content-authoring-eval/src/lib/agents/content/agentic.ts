@@ -207,10 +207,11 @@ ${userPrompt}`;
         // PHASE 25: Remove settingSources - use programmatic MCP config instead
         // settingSources: ['user', 'project'],
         // PHASE 25: Configure MCP servers programmatically (bundled in container)
+        // Use direct paths to globally installed MCP servers to avoid npx HOME directory issues
         mcpServers: {
           "filesystem": {
-            command: "npx",
-            args: ["@modelcontextprotocol/server-filesystem", process.cwd()]
+            command: "/usr/local/bin/mcp-server-filesystem",
+            args: [process.cwd()]
           }
         },
         allowedTools: ['Read', 'Write', 'Bash', 'WebFetch'],

@@ -204,10 +204,10 @@ export async function analyzeStructureWithClaude(
   const timer = new Timer();
   logger.info('Starting agentic structure analysis', { url });
 
-  // PHASE 25: Validate API key is configured (not OAuth token)
-  if (!process.env.ANTHROPIC_API_KEY) {
-    logger.error('Claude API key missing');
-    throw new Error('Missing Claude authentication. Please set ANTHROPIC_API_KEY in .env.local');
+  // PHASE 25: Validate OAuth token is configured (KEEP using OAuth token)
+  if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    logger.error('Claude OAuth token missing');
+    throw new Error('Missing Claude authentication. Please set CLAUDE_CODE_OAUTH_TOKEN in .env.local');
   }
 
   // Format prompt with structure data
@@ -237,14 +237,15 @@ ${userPrompt}`;
         // PHASE 25: Remove settingSources - use programmatic MCP config instead
         // settingSources: ['user', 'project'],
         // PHASE 25: Configure MCP servers programmatically (bundled in container)
+        // Use direct paths to globally installed MCP servers to avoid npx HOME directory issues
         mcpServers: {
           "playwright": {
-            command: "npx",
-            args: ["@playwright/mcp"]
+            command: "/usr/local/bin/mcp-server-playwright",
+            args: []
           },
           "filesystem": {
-            command: "npx",
-            args: ["@modelcontextprotocol/server-filesystem", process.cwd()]
+            command: "/usr/local/bin/mcp-server-filesystem",
+            args: [process.cwd()]
           }
         },
         allowedTools: ['Read', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
