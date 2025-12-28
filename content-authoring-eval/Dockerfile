@@ -1,5 +1,6 @@
-# Content Authoring Eval - Production Dockerfile
+# Content Authoring Eval - Production Dockerfile (Optimized)
 # Multi-stage build for Next.js 14 with Playwright Chromium support
+# Optimized for GitHub Actions disk space constraints
 
 # ============================================
 # Stage 1: Dependencies
@@ -7,14 +8,12 @@
 FROM node:20-slim AS deps
 WORKDIR /app
 
-# Install OpenSSL for Prisma compatibility (if needed in future)
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies with frozen lockfile
-RUN npm ci
+# Clean npm cache immediately to save space
+RUN npm ci && npm cache clean --force
 
 # ============================================
 # Stage 2: Builder
@@ -30,24 +29,56 @@ COPY . .
 
 # Build Next.js application (standalone mode)
 # This generates optimized production build in .next/standalone
-RUN npm run build
+RUN npm run build && \
+    # Clean up unnecessary files immediately after build
+    rm -rf node_modules && \
+    rm -rf .next/cache && \
+    rm -rf src
 
 # ============================================
-# Stage 3: Playwright Dependencies
+# Stage 3: Playwright Dependencies (Minimal)
 # ============================================
 FROM node:20-slim AS playwright-deps
 WORKDIR /app
 
-# Install Playwright Chromium with system dependencies
-# Note: We need to install playwright package first, then browsers
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Install Chromium browser and system dependencies
-RUN npx playwright install chromium --with-deps
+# Install ONLY Playwright and its dependencies (not full node_modules)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    # Minimal dependencies for playwright install
+    curl \
+    ca-certificates && \
+    # Install playwright-core only
+    npm install --no-save playwright-core@1.57.0 && \
+    # Install Chromium browser with system dependencies
+    npx playwright install chromium --with-deps && \
+    # Clean up aggressively
+    npm cache clean --force && \
+    apt-get remove -y curl && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /tmp/*
 
 # ============================================
-# Stage 4: Production Runtime
+# Stage 4: Production Dependencies (Separate)
+# ============================================
+FROM node:20-slim AS prod-deps
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install ONLY production dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force && \
+    # Remove unnecessary binaries and files
+    find node_modules -type f -name '*.ts' -delete && \
+    find node_modules -type f -name '*.md' -delete && \
+    find node_modules -type d -name 'test' -exec rm -rf {} + 2>/dev/null || true && \
+    find node_modules -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true
+
+# ============================================
+# Stage 5: Production Runtime
 # ============================================
 FROM node:20-slim AS runner
 WORKDIR /app
@@ -61,7 +92,9 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Install runtime dependencies for Playwright Chromium
-RUN apt-get update && apt-get install -y \
+# Use --no-install-recommends to minimize size
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     # Chromium dependencies
     libnss3 \
     libnspr4 \
@@ -85,18 +118,23 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     libappindicator3-1 \
     libu2f-udev \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+    xdg-utils && \
+    # Aggressive cleanup
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /tmp/* && \
+    rm -rf /var/tmp/*
 
-# Copy standalone Next.js build output
+# Copy standalone Next.js build output (minimal)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy Playwright browsers from playwright-deps stage
 COPY --from=playwright-deps --chown=nextjs:nodejs /root/.cache/ms-playwright /home/nextjs/.cache/ms-playwright
 
-# Copy node_modules with Playwright
-COPY --from=playwright-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Copy production node_modules from separate stage
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Set permissions for Playwright cache
 RUN chown -R nextjs:nodejs /home/nextjs/.cache
