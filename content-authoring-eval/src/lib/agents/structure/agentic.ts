@@ -21,7 +21,7 @@ const logger = createLogger('agentic');
 /**
  * Format structure metrics as text for Claude analysis
  */
-function formatStructureForPrompt(metrics: StructureMetrics): string {
+function formatStructureForPrompt(url: string, metrics: StructureMetrics): string {
   const metaTags = `
 Title: ${metrics.metaTags.title || '(missing)'}
 Description: ${metrics.metaTags.description || '(missing)'}
@@ -78,6 +78,7 @@ Links Without Text: ${metrics.linkAnalysis.linksWithoutText}
 `.trim();
 
   return structurePrompt.user_template
+    .replace('{{url}}', url)
     .replace('{{meta_tags}}', metaTags)
     .replace('{{heading_hierarchy}}', headingHierarchy)
     .replace('{{document_structure}}', documentStructure)
@@ -209,7 +210,7 @@ export async function analyzeStructureWithClaude(
   }
 
   // Format prompt with structure data
-  const userPrompt = formatStructureForPrompt(deterministicMetrics);
+  const userPrompt = formatStructureForPrompt(url, deterministicMetrics);
   logger.debug('Prompt formatted', { promptLength: userPrompt.length });
 
   // Build complete prompt with system and user messages
@@ -223,13 +224,17 @@ ${userPrompt}`;
   logger.info('Invoking Claude Agent SDK with streaming');
 
   try {
-    // Use Agent SDK query() for streaming analysis
+    // Use Agent SDK query() for streaming analysis with tool access
     for await (const message of query({
       prompt: fullPrompt,
       options: {
         model: 'claude-sonnet-4-5-20250929',
-        maxTurns: 5,
+        maxTurns: 20, // Increased for multiple tool invocations
         settingSources: ['user', 'project'],
+        allowedTools: ['Read', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
+        permissionMode: 'bypassPermissions' as const,
+        allowDangerouslySkipPermissions: true,
+        cwd: process.cwd(),
       }
     })) {
       // Collect assistant text responses
