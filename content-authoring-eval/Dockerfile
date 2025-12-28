@@ -91,7 +91,6 @@ RUN apt-get update && apt-get install -y \
 # Copy standalone Next.js build output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Copy Playwright browsers from playwright-deps stage
 COPY --from=playwright-deps --chown=nextjs:nodejs /root/.cache/ms-playwright /home/nextjs/.cache/ms-playwright
