@@ -6,17 +6,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useEvaluations } from '@/hooks/useEvaluations';
+import { useEvaluationStream } from '@/hooks/useEvaluationStream';
 import { EvaluationRequest, EvaluationReport } from '@/types/evaluation';
 import { API_ENDPOINTS } from '@/lib/constants';
 
 export function EvaluationForm() {
   const router = useRouter();
   const { addEvaluation } = useEvaluations();
+  const {
+    isStreaming,
+    progress,
+    agentProgress,
+    finalReport,
+    error: streamError,
+    startEvaluation: startStreamEvaluation,
+  } = useEvaluationStream();
 
   const [migratedUrl, setMigratedUrl] = useState('');
   const [pdfPath, setPdfPath] = useState('');
   const [expectedUrl, setExpectedUrl] = useState('');
+  const [useStreaming, setUseStreaming] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -54,40 +66,54 @@ export function EvaluationForm() {
       return;
     }
 
-    setIsSubmitting(true);
+    const request: EvaluationRequest = {
+      migratedUrl: migratedUrl.trim(),
+      ...(pdfPath.trim() && { pdfPath: pdfPath.trim() }),
+      ...(expectedUrl.trim() && { expectedUrl: expectedUrl.trim() }),
+    };
 
-    try {
-      const request: EvaluationRequest = {
-        migratedUrl: migratedUrl.trim(),
-        ...(pdfPath.trim() && { pdfPath: pdfPath.trim() }),
-        ...(expectedUrl.trim() && { expectedUrl: expectedUrl.trim() }),
-      };
+    if (useStreaming) {
+      // Use SSE streaming mode
+      await startStreamEvaluation(request);
+    } else {
+      // Use standard non-streaming mode
+      setIsSubmitting(true);
 
-      const response = await fetch(API_ENDPOINTS.evaluate, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
+      try {
+        const response = await fetch(API_ENDPOINTS.evaluate, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
+        });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+
+        const report: EvaluationReport = await response.json();
+
+        // Save to localStorage
+        addEvaluation(report);
+
+        // Navigate to results page
+        router.push(`/results/${report.id}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to submit evaluation');
+      } finally {
+        setIsSubmitting(false);
       }
-
-      const report: EvaluationReport = await response.json();
-
-      // Save to localStorage
-      addEvaluation(report);
-
-      // Navigate to results page
-      router.push(`/results/${report.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit evaluation');
-    } finally {
-      setIsSubmitting(false);
     }
   };
+
+  // Navigate to results when streaming completes
+  if (finalReport) {
+    addEvaluation(finalReport);
+    router.push(`/results/${finalReport.id}`);
+  }
+
+  const isLoading = isSubmitting || isStreaming;
 
   return (
     <Card>
@@ -99,6 +125,98 @@ export function EvaluationForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Streaming Mode Toggle */}
+          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md">
+            <div>
+              <Label className="font-medium">Real-time Progress</Label>
+              <p className="text-xs text-muted-foreground">
+                Show live updates as each agent completes
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant={useStreaming ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setUseStreaming(!useStreaming)}
+              disabled={isLoading}
+            >
+              {useStreaming ? 'Enabled' : 'Disabled'}
+            </Button>
+          </div>
+
+          {/* Progress Display (visible during streaming) */}
+          {isStreaming && (
+            <Card className="p-4 bg-blue-50 border-blue-200">
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium">Evaluation Progress</span>
+                  <span>{progress}%</span>
+                </div>
+                <Progress value={progress} className="w-full" />
+
+                {/* Agent Status Badges */}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Badge
+                    variant="outline"
+                    className={
+                      agentProgress.structure === 'completed'
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : agentProgress.structure === 'running'
+                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        : agentProgress.structure === 'failed'
+                        ? 'bg-red-100 text-red-800 border-red-200'
+                        : 'bg-gray-100 text-gray-800 border-gray-200'
+                    }
+                  >
+                    Structure: {agentProgress.structure}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={
+                      agentProgress.accessibility === 'completed'
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : agentProgress.accessibility === 'running'
+                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        : agentProgress.accessibility === 'failed'
+                        ? 'bg-red-100 text-red-800 border-red-200'
+                        : 'bg-gray-100 text-gray-800 border-gray-200'
+                    }
+                  >
+                    Accessibility: {agentProgress.accessibility}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={
+                      agentProgress.content === 'completed'
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : agentProgress.content === 'running'
+                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        : agentProgress.content === 'failed'
+                        ? 'bg-red-100 text-red-800 border-red-200'
+                        : 'bg-gray-100 text-gray-800 border-gray-200'
+                    }
+                  >
+                    Content: {agentProgress.content}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={
+                      agentProgress.visual === 'completed'
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : agentProgress.visual === 'running'
+                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        : agentProgress.visual === 'failed'
+                        ? 'bg-red-100 text-red-800 border-red-200'
+                        : 'bg-gray-100 text-gray-800 border-gray-200'
+                    }
+                  >
+                    Visual: {agentProgress.visual}
+                  </Badge>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Migrated URL - Required */}
           <div className="space-y-2">
             <Label htmlFor="migratedUrl" className="required">
@@ -163,9 +281,9 @@ export function EvaluationForm() {
           </div>
 
           {/* Error Display */}
-          {error && (
+          {(error || streamError) && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{error}</p>
+              <p className="text-sm text-red-600">{error || streamError}</p>
             </div>
           )}
 
@@ -175,12 +293,12 @@ export function EvaluationForm() {
               type="button"
               variant="outline"
               onClick={() => router.push('/')}
-              disabled={isSubmitting}
+              disabled={isLoading}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Start Evaluation'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (useStreaming ? 'Evaluating...' : 'Submitting...') : 'Start Evaluation'}
             </Button>
           </div>
         </form>
