@@ -72,7 +72,7 @@ Expected output: `healthy` (after ~40 seconds)
 The repository includes a GitHub Actions workflow (`.github/workflows/deploy-content-authoring-eval.yml`) that:
 
 1. Builds multi-arch Docker image (amd64 + arm64)
-2. Pushes to Docker Hub (docker.io)
+2. Pushes to GitHub Container Registry (ghcr.io)
 3. SSH into Oracle VM
 4. Pulls latest image
 5. Restarts container with docker-compose
@@ -88,14 +88,12 @@ Configure these in **Settings → Secrets and variables → Actions**:
 
 | Secret Name | Description | Example |
 |-------------|-------------|---------|
-| `DOCKERHUB_USERNAME` | Docker Hub username | `jackjin` |
-| `DOCKERHUB_TOKEN` | Docker Hub access token | `dckr_pat_...` |
 | `ORACLE_HOST` | Oracle VM public IP or hostname | `123.45.67.89` |
 | `ORACLE_USER` | SSH username | `ubuntu` or `opc` |
 | `ORACLE_SSH_KEY` | Private SSH key (entire content) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude OAuth token | `sk-ant-oat01-...` |
 
-**Note**: Docker Hub access tokens can be created at https://hub.docker.com/settings/security
+**Note**: `GITHUB_TOKEN` is automatically available in GitHub Actions and used for GHCR authentication
 
 ### Oracle VM Setup (One-Time)
 
@@ -144,14 +142,14 @@ ssh -i ~/.ssh/oracle-vm.pem ubuntu@<ORACLE_HOST>
 # 2. Navigate to app directory
 cd ~/content-authoring-eval
 
-# 3. Login to Docker Hub
-echo "<DOCKERHUB_TOKEN>" | docker login docker.io -u <DOCKERHUB_USERNAME> --password-stdin
+# 3. Login to GitHub Container Registry (using personal access token with packages:read scope)
+echo "<GITHUB_PAT>" | docker login ghcr.io -u <GITHUB_USERNAME> --password-stdin
 
 # 4. Pull latest image
-docker pull docker.io/<DOCKERHUB_USERNAME>/content-authoring-eval:latest
+docker pull ghcr.io/<GITHUB_USERNAME>/<REPO_NAME>/content-authoring-eval:latest
 
-# 5. Ensure docker-compose.yml uses Docker Hub image
-# Verify: image: ${DOCKERHUB_USERNAME:-jackjin}/content-authoring-eval:latest
+# 5. Ensure docker-compose.yml uses GHCR image
+# Verify: image: ghcr.io/${GITHUB_REPOSITORY:-jackzhaojin/azure-da-mcp}/content-authoring-eval:latest
 
 # 6. Restart container
 docker-compose down
@@ -187,7 +185,7 @@ ssh -i ~/.ssh/oracle-vm.pem ubuntu@<ORACLE_HOST>
 cd ~/content-authoring-eval
 
 # Pull specific image tag (e.g., main-abc1234)
-docker pull docker.io/<DOCKERHUB_USERNAME>/content-authoring-eval:main-abc1234
+docker pull ghcr.io/<GITHUB_USERNAME>/<REPO_NAME>/content-authoring-eval:main-abc1234
 
 # Update docker-compose.yml image tag
 # Restart container
@@ -295,12 +293,13 @@ Subsequent builds: ~2-3 minutes (cached layers)
 
 ### Image Registry
 
-Images are stored in Docker Hub (docker.io):
+Images are stored in GitHub Container Registry (ghcr.io):
 
 - Free for public repositories
 - Automatic builds triggered on push to main
 - Automatic cleanup: Old images pruned after 24 hours on Oracle VM
-- Image naming: `<DOCKERHUB_USERNAME>/content-authoring-eval:latest`
+- Image naming: `ghcr.io/<GITHUB_USERNAME>/<REPO_NAME>/content-authoring-eval:latest`
+- Authentication uses `GITHUB_TOKEN` (no extra secrets required)
 
 ## Monitoring
 
@@ -342,7 +341,7 @@ docker inspect content-authoring-eval
 1. **Non-root user**: Container runs as `nextjs` user (UID 1001)
 2. **Environment secrets**: Never commit `.env.local` to git
 3. **SSH keys**: Use GitHub Secrets for `ORACLE_SSH_KEY`
-4. **Docker Hub authentication**: Use `DOCKERHUB_TOKEN` access token (not password)
+4. **GHCR authentication**: Uses `GITHUB_TOKEN` (automatically available, encrypted)
 5. **Firewall**: Only expose port 3000, use HTTPS in production
 
 ## Next Steps
