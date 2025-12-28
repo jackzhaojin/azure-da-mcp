@@ -125,6 +125,11 @@ RUN apt-get update && \
     npm install -g lighthouse@12.2.1 && \
     # Install pa11y CLI globally (optional, for Accessibility agent)
     npm install -g pa11y@8.0.0 && \
+    # PHASE 25: Install Claude Code CLI globally (REQUIRED for Agent SDK in container)
+    npm install -g @anthropic-ai/claude-code && \
+    # PHASE 25: Install MCP servers as npm packages (bundled for container)
+    npm install -g @modelcontextprotocol/server-filesystem && \
+    npm install -g @playwright/mcp && \
     # Clean up npm cache
     npm cache clean --force && \
     # Aggressive cleanup

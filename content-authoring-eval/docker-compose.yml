@@ -16,6 +16,8 @@ services:
       - NODE_ENV=production
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
+      # Fix Playwright browser path for non-root user (nextjs)
+      - PLAYWRIGHT_BROWSERS_PATH=/home/nextjs/.cache/ms-playwright
     env_file:
       - .env.local
     volumes:

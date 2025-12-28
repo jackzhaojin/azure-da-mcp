@@ -15,6 +15,15 @@ import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '
 const logger = createLogger('agentic');
 
 /**
+ * PHASE 22: Image size limits for Claude Vision API
+ *
+ * Claude recommends images ≤1568px on longest edge, max 5MB
+ * Larger images increase token usage (~1,600 tokens per image)
+ */
+const VISION_API_MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const VISION_API_RECOMMENDED_MAX_DIMENSION = 1568; // pixels
+
+/**
  * Format visual metrics for Claude analysis
  */
 export function formatVisualForPrompt(metrics: VisualMetrics): string {
@@ -99,7 +108,10 @@ export function parseClaudeResponse(response: string): AgenticAnalysisResult {
 }
 
 /**
- * Calculate final weighted score (70% agentic + 30% deterministic)
+ * Calculate final weighted score (70% Vision API insights + 30% pixel diff)
+ *
+ * PHASE 22: Vision API provides semantic visual analysis (layout shifts, color changes,
+ * missing elements) while pixel diff provides quantitative metrics.
  */
 export function calculateFinalScore(
   agenticScore: number,
@@ -110,7 +122,7 @@ export function calculateFinalScore(
     agenticScore,
     deterministicScore,
     weighted,
-    formula: '70% agentic + 30% deterministic',
+    formula: '70% Vision API insights + 30% pixel diff',
   });
   return weighted;
 }
@@ -150,36 +162,102 @@ export async function analyzeVisualWithClaude(
       promptLength: userPrompt.length,
     });
 
-    // Read screenshot as base64 for vision analysis
+    // PHASE 22: Read screenshot as base64 for Vision API integration
     const screenshotBuffer = fs.readFileSync(metrics.screenshot.absolutePath);
     const screenshotBase64 = screenshotBuffer.toString('base64');
+
+    // PHASE 22: Validate image size for Vision API
+    if (metrics.screenshot.size > VISION_API_MAX_SIZE_BYTES) {
+      logger.warn('Screenshot exceeds Vision API recommended size', {
+        size: metrics.screenshot.size,
+        maxSize: VISION_API_MAX_SIZE_BYTES,
+        recommendation: 'Consider resizing screenshot to reduce token usage',
+      });
+    }
+
+    if (metrics.screenshot.dimensions.width > VISION_API_RECOMMENDED_MAX_DIMENSION ||
+        metrics.screenshot.dimensions.height > VISION_API_RECOMMENDED_MAX_DIMENSION) {
+      logger.warn('Screenshot dimensions exceed Vision API recommendations', {
+        dimensions: metrics.screenshot.dimensions,
+        recommendedMax: VISION_API_RECOMMENDED_MAX_DIMENSION,
+        recommendation: 'Consider resizing to reduce token usage (~1,600 tokens per image)',
+      });
+    }
+
     logger.debug('Screenshot loaded for vision analysis', {
       path: metrics.screenshot.path,
       size: metrics.screenshot.size,
       base64Length: screenshotBase64.length,
+      dimensions: metrics.screenshot.dimensions,
+      estimatedTokens: Math.round(screenshotBase64.length / 1000) + 1600, // Rough estimate
     });
+
+    // PHASE 22: Determine image media type from file extension (properly typed for Agent SDK)
+    const mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' =
+      metrics.screenshot.path.endsWith('.png') ? 'image/png' :
+      metrics.screenshot.path.endsWith('.gif') ? 'image/gif' :
+      metrics.screenshot.path.endsWith('.webp') ? 'image/webp' :
+      'image/jpeg';
 
     // Create tool logging plugin to track tool usage
     const toolLogger = createToolLoggingPlugin();
 
-    // Invoke Claude Agent SDK with streaming
-    // Note: Agent SDK doesn't support multimodal yet, so we describe the screenshot in text
-    logger.info('Invoking Claude Agent SDK with streaming + tool logging', {
+    // PHASE 22: Invoke Claude Agent SDK with multimodal vision support
+    logger.info('Invoking Claude Agent SDK with Vision API (multimodal)', {
       model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
+      visionEnabled: true,
+      screenshotSize: metrics.screenshot.size,
+      mediaType,
     });
 
-    // Build complete prompt with system and user messages
-    const fullPrompt = `${visualPrompt.system}\n\n${userPrompt}\n\n**NOTE**: Screenshot is available at path: ${metrics.screenshot.path}\nDimensions: ${metrics.screenshot.dimensions.width}x${metrics.screenshot.dimensions.height}\nFile size: ${metrics.screenshot.size} bytes`;
+    // PHASE 22: Create multimodal message generator with proper typing
+    const generateMultimodalMessage = async function* () {
+      yield {
+        type: 'user' as const,
+        session_id: '',
+        parent_tool_use_id: null,
+        message: {
+          role: 'user' as const,
+          content: [
+            {
+              type: 'text' as const,
+              text: `${visualPrompt.system}\n\n${userPrompt}`,
+            },
+            {
+              type: 'image' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: mediaType,
+                data: screenshotBase64,
+              },
+            },
+          ],
+        },
+      };
+    };
 
     // Collect streaming messages
     const messages: string[] = [];
 
+    // PHASE 25: Use Agent SDK query() with programmatic MCP configuration
     for await (const message of query({
-      prompt: fullPrompt,
+      prompt: generateMultimodalMessage(),
       options: {
         model: (process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929') as 'claude-sonnet-4-5-20250929' | 'claude-haiku-4-5-20250929',
         maxTurns: 20, // Increased for multiple tool invocations
-        settingSources: ['user', 'project'],
+        // PHASE 25: Remove settingSources - use programmatic MCP config instead
+        // settingSources: ['user', 'project'],
+        // PHASE 25: Configure MCP servers programmatically (bundled in container)
+        mcpServers: {
+          "playwright": {
+            command: "npx",
+            args: ["@playwright/mcp"]
+          },
+          "filesystem": {
+            command: "npx",
+            args: ["@modelcontextprotocol/server-filesystem", process.cwd()]
+          }
+        },
         allowedTools: ['Read', 'Write', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
@@ -192,7 +270,7 @@ export async function analyzeVisualWithClaude(
         for (const block of message.message.content) {
           if (block.type === 'text' && block.text) {
             messages.push(block.text);
-            logger.debug('Received text block from Claude', { length: block.text.length });
+            logger.debug('Received text block from Claude Vision', { length: block.text.length });
           }
         }
       }

@@ -198,12 +198,21 @@ ${userPrompt}`;
     // Collect streaming messages
     const messages: string[] = [];
 
+    // PHASE 25: Use Agent SDK query() with programmatic MCP configuration
     for await (const message of query({
       prompt: fullPrompt,
       options: {
         model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
         maxTurns: 20, // Increased for multiple tool invocations
-        settingSources: ['user', 'project'],
+        // PHASE 25: Remove settingSources - use programmatic MCP config instead
+        // settingSources: ['user', 'project'],
+        // PHASE 25: Configure MCP servers programmatically (bundled in container)
+        mcpServers: {
+          "filesystem": {
+            command: "npx",
+            args: ["@modelcontextprotocol/server-filesystem", process.cwd()]
+          }
+        },
         allowedTools: ['Read', 'Write', 'Bash', 'WebFetch'],
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
