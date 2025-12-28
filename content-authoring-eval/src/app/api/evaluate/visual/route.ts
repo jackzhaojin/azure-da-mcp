@@ -5,11 +5,11 @@
  * POST /api/evaluate/visual - Analyze visual correctness of a webpage
  *
  * Phase 10: Deterministic visual analysis (screenshot capture, image comparison)
- * Phase 11: Agentic visual analysis (Claude multimodal analysis) - TBD
+ * Phase 11: Agentic visual analysis (Claude multimodal analysis with vision)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeVisual } from '@/lib/agents/visual';
+import { analyzeVisual, analyzeVisualWithClaude, calculateFinalScore, calculateGrade } from '@/lib/agents/visual';
 import type { VisualAnalysisResult } from '@/lib/agents/visual';
 import { createLogger, Timer } from '@/lib/logger';
 
@@ -20,13 +20,15 @@ const logger = createLogger('api');
  * Health check endpoint
  */
 export async function GET() {
+  const hasOAuthToken = !!process.env.CLAUDE_CODE_OAUTH_TOKEN;
+
   return NextResponse.json({
     status: 'ok',
-    version: '1.0.0',
+    version: '2.0.0',
     agent: 'visual',
     capabilities: {
       deterministic: true,
-      agentic: false, // Phase 11
+      agentic: hasOAuthToken,
     },
   });
 }
@@ -40,6 +42,7 @@ export async function GET() {
  *   "migratedUrl": "https://example.com",
  *   "baselineImagePath": "/path/to/baseline.png" // optional
  *   "viewport": { "width": 1280, "height": 720 } // optional
+ *   "mode": "full" | "deterministic" // optional (default: "full" if OAuth token present)
  * }
  */
 export async function POST(request: NextRequest) {
@@ -75,13 +78,24 @@ export async function POST(request: NextRequest) {
 
     const viewport = body.viewport || { width: 1280, height: 720 };
 
+    // Determine mode: full (deterministic + agentic) or deterministic-only
+    const hasOAuthToken = !!process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    const requestedMode = body.mode || 'full';
+    const mode = hasOAuthToken && requestedMode === 'full' ? 'full' : 'deterministic';
+
+    logger.info('Visual analysis mode determined', {
+      mode,
+      hasOAuthToken,
+      requestedMode,
+    });
+
+    // Perform deterministic visual analysis
     logger.info('Starting deterministic visual analysis', {
       url: body.migratedUrl,
       hasBaseline: !!body.baselineImagePath,
       viewport,
     });
 
-    // Perform deterministic visual analysis
     const deterministicTimer = new Timer();
     const deterministic = await analyzeVisual(
       body.migratedUrl,
@@ -93,18 +107,60 @@ export async function POST(request: NextRequest) {
       screenshotPath: deterministic.screenshot.path,
     });
 
-    // For Phase 10, we only have deterministic analysis
-    // Phase 11 will add agentic analysis with Claude multimodal
+    // Perform agentic analysis if in full mode
+    let agentic;
+    let finalScore = deterministic.score;
+    let grade = calculateGrade(deterministic.score);
+
+    if (mode === 'full') {
+      try {
+        logger.info('Starting agentic visual analysis');
+        const agenticTimer = new Timer();
+
+        agentic = await analyzeVisualWithClaude(deterministic);
+
+        logger.operationComplete('Agentic visual analysis', agenticTimer.elapsed(), {
+          score: agentic.score,
+          findingsCount: agentic.findings.length,
+        });
+
+        // Calculate weighted final score (70% agentic + 30% deterministic)
+        finalScore = calculateFinalScore(agentic.score, deterministic.score);
+        grade = calculateGrade(finalScore);
+
+        logger.info('Final score calculated', {
+          agenticScore: agentic.score,
+          deterministicScore: deterministic.score,
+          finalScore,
+          grade,
+        });
+      } catch (agenticError) {
+        // Graceful fallback: if agentic fails, use deterministic-only
+        logger.warn('Agentic analysis failed, falling back to deterministic-only', {
+          error: (agenticError as Error).message,
+        });
+        // agentic remains undefined, finalScore and grade already set to deterministic values
+      }
+    }
+
     const result: VisualAnalysisResult = {
       url: body.migratedUrl,
       baselineUrl: body.baselineImagePath,
       deterministic,
-      finalScore: deterministic.score,
-      grade: calculateGrade(deterministic.score),
+      agentic,
+      finalScore,
+      grade,
       timestamp: new Date().toISOString(),
-      mode: 'deterministic',
+      mode: agentic ? 'full' : 'deterministic',
       metadata: {
         deterministic: deterministic.metadata,
+        ...(agentic && {
+          agentic: {
+            executedAt: new Date().toISOString(),
+            durationMs: 0, // Timer already logged
+            model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
+          },
+        }),
       },
     };
 
@@ -125,15 +181,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Calculate grade from score
- */
-function calculateGrade(score: number): string {
-  if (score >= 90) return 'excellent';
-  if (score >= 75) return 'good';
-  if (score >= 60) return 'acceptable';
-  if (score >= 40) return 'needs-improvement';
-  return 'critical';
 }
