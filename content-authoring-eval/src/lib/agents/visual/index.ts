@@ -5,6 +5,7 @@
  */
 
 export { analyzeVisual, captureScreenshot, compareImages, calculateVisualScore } from './deterministic';
+export { analyzeVisualWithClaude, calculateFinalScore, calculateGrade } from './agentic';
 export type {
   ScreenshotResult,
   ImageComparisonResult,
