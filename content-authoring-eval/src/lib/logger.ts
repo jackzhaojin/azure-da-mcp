@@ -6,7 +6,7 @@
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogContext = 'api' | 'agent' | 'deterministic' | 'agentic' | 'client' | 'system';
+export type LogContext = 'api' | 'agent' | 'deterministic' | 'agentic' | 'content' | 'accessibility' | 'visual' | 'client' | 'system';
 
 interface LogEntry {
   timestamp: string;
