@@ -174,8 +174,12 @@ export async function analyzeVisualWithClaude(
       prompt: fullPrompt,
       options: {
         model: (process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929') as 'claude-sonnet-4-5-20250929' | 'claude-haiku-4-5-20250929',
-        maxTurns: 5,
+        maxTurns: 20, // Increased for multiple tool invocations
         settingSources: ['user', 'project'],
+        allowedTools: ['Read', 'Write', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
+        permissionMode: 'bypassPermissions' as const,
+        allowDangerouslySkipPermissions: true,
+        cwd: process.cwd(),
       },
     })) {
       // Collect assistant text responses

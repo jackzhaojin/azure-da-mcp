@@ -91,7 +91,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Install runtime dependencies for Playwright Chromium
+# Install runtime dependencies for Playwright Chromium, Lighthouse CLI, and imagemagick
 # Use --no-install-recommends to minimize size
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -118,7 +118,15 @@ RUN apt-get update && \
     fonts-liberation \
     libappindicator3-1 \
     libu2f-udev \
-    xdg-utils && \
+    xdg-utils \
+    # imagemagick for image diff (Phase 18 Visual Agent)
+    imagemagick && \
+    # Install Lighthouse CLI globally (for Structure and Accessibility agents)
+    npm install -g lighthouse@12.2.1 && \
+    # Install pa11y CLI globally (optional, for Accessibility agent)
+    npm install -g pa11y@8.0.0 && \
+    # Clean up npm cache
+    npm cache clean --force && \
     # Aggressive cleanup
     apt-get autoremove -y && \
     apt-get clean && \

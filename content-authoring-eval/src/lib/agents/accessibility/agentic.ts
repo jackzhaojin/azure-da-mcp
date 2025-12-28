@@ -22,7 +22,7 @@ const logger = createLogger('agentic');
 /**
  * Format accessibility metrics as text for Claude analysis
  */
-function formatAccessibilityForPrompt(metrics: AccessibilityMetrics): string {
+function formatAccessibilityForPrompt(url: string, metrics: AccessibilityMetrics): string {
   const summary = `
 URL: ${metrics.url}
 Scan Date: ${metrics.timestamp}
@@ -73,6 +73,7 @@ ${violation.nodes.slice(0, 3).map((node, idx) => {
   }).join('\n---\n');
 
   return accessibilityPrompt.user_template
+    .replace('{{url}}', url)
     .replace('{{summary}}', summary)
     .replace('{{violations_by_impact}}', violationsByImpact)
     .replace('{{detailed_violations}}', detailedViolations || '(No violations found)');
@@ -185,7 +186,7 @@ export async function analyzeAccessibilityWithClaude(
   }
 
   // Format prompt with accessibility data
-  const userPrompt = formatAccessibilityForPrompt(deterministicMetrics);
+  const userPrompt = formatAccessibilityForPrompt(url, deterministicMetrics);
   logger.debug('Prompt formatted', { promptLength: userPrompt.length });
 
   // Build complete prompt with system and user messages
@@ -199,13 +200,17 @@ ${userPrompt}`;
   logger.info('Invoking Claude Agent SDK with streaming');
 
   try {
-    // Use Agent SDK query() for streaming analysis
+    // Use Agent SDK query() for streaming analysis with tool access
     for await (const message of query({
       prompt: fullPrompt,
       options: {
         model: 'claude-sonnet-4-5-20250929',
-        maxTurns: 5,
+        maxTurns: 20, // Increased for multiple tool invocations
         settingSources: ['user', 'project'],
+        allowedTools: ['Read', 'Write', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot', 'mcp__playwright__browser_click'],
+        permissionMode: 'bypassPermissions' as const,
+        allowDangerouslySkipPermissions: true,
+        cwd: process.cwd(),
       }
     })) {
       // Collect assistant text responses

@@ -198,8 +198,12 @@ ${userPrompt}`;
       prompt: fullPrompt,
       options: {
         model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
-        maxTurns: 5,
+        maxTurns: 20, // Increased for multiple tool invocations
         settingSources: ['user', 'project'],
+        allowedTools: ['Read', 'Write', 'Bash', 'WebFetch'],
+        permissionMode: 'bypassPermissions' as const,
+        allowDangerouslySkipPermissions: true,
+        cwd: process.cwd(),
       }
     })) {
       // Collect assistant text responses
