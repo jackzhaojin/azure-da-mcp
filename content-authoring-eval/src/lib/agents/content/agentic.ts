@@ -224,7 +224,7 @@ ${userPrompt}`;
 
     logger.info('Agent SDK completed', { messageCount: messages.length });
 
-    // PHASE 20: Verify and log tool usage
+    // PHASE 20-21: Verify and enforce tool usage
     const toolStats = toolLogger.getStats();
     const verification = verifyToolUsage(toolStats);
 
@@ -236,6 +236,15 @@ ${userPrompt}`;
 
     // Log detailed tool usage stats
     logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
+
+    // PHASE 21: Enforce tool usage - log critical warnings if no tools used
+    if (!verification.passed) {
+      logger.warn('⚠️  PHASE 21 WARNING: Agent completed without using tools - may be "fake agentic"', {
+        totalInvocations: toolStats.totalInvocations,
+        expectedTools: 'Read/Write (file I/O) OR Bash (diff/wdiff)',
+        fallbackMode: 'Continuing with sample-text-only analysis',
+      });
+    }
 
     // Combine all messages into single response text
     const responseText = messages.join('\n');
