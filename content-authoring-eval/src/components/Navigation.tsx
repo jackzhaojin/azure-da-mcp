@@ -31,6 +31,14 @@ export function Navigation() {
                 New Evaluation
               </Button>
             </Link>
+            <Link href="/evaluate/batch">
+              <Button
+                variant={pathname === "/evaluate/batch" ? "default" : "ghost"}
+                size="sm"
+              >
+                Batch Mode
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
