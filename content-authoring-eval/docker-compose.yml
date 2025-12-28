@@ -2,11 +2,14 @@ version: '3.8'
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: content-authoring-eval:latest
+    # Use Docker Hub image for production deployment
+    # For local development with build: docker-compose --profile local up
+    image: ${DOCKERHUB_USERNAME:-jackjin}/content-authoring-eval:latest
     container_name: content-authoring-eval
+    # Uncomment below for local builds (development only)
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
