@@ -11,18 +11,26 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
     "@anthropic-ai/sdk": "^0.52.0",
+    "@axe-core/playwright": "^4.11.0",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
     "autoprefixer": "^10.4.23",
+    "axe-core": "^4.11.0",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
     "next": "^14.2.0",
+    "pixelmatch": "^6.0.0",
+    "playwright": "^1.57.0",
+    "pngjs": "^7.0.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "unpdf": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^20",
