@@ -16,6 +16,7 @@ import {
   type AccessibilityFinding,
 } from './types';
 import accessibilityPrompt from '@/lib/prompts/accessibility.json';
+import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
 
 const logger = createLogger('agentic');
 
@@ -194,10 +195,13 @@ export async function analyzeAccessibilityWithClaude(
 
 ${userPrompt}`;
 
+  // Create tool logging plugin to track tool usage
+  const toolLogger = createToolLoggingPlugin();
+
   // Collect streaming messages
   const messages: string[] = [];
 
-  logger.info('Invoking Claude Agent SDK with streaming');
+  logger.info('Invoking Claude Agent SDK with streaming + tool logging');
 
   try {
     // Use Agent SDK query() for streaming analysis with tool access
@@ -211,6 +215,7 @@ ${userPrompt}`;
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
         cwd: process.cwd(),
+        plugins: [toolLogger], // PHASE 20: Add tool logging plugin
       }
     })) {
       // Collect assistant text responses
@@ -225,6 +230,19 @@ ${userPrompt}`;
     }
 
     logger.info('Claude Agent SDK stream completed', { messagesCollected: messages.length });
+
+    // PHASE 20: Verify and log tool usage
+    const toolStats = toolLogger.getStats();
+    const verification = verifyToolUsage(toolStats);
+
+    logger.info('Tool usage verification', {
+      passed: verification.passed,
+      summary: verification.summary,
+      warnings: verification.warnings,
+    });
+
+    // Log detailed tool usage stats
+    logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
 
     // Combine all messages into single response text
     const responseText = messages.join('\n');
@@ -248,6 +266,8 @@ ${userPrompt}`;
       findingsCount: agenticResult.findings.length,
       quickWins: agenticResult.quickWins.length,
       majorIssues: agenticResult.majorIssues.length,
+      toolInvocations: toolStats.totalInvocations,
+      toolsUsed: Object.keys(toolStats.toolCounts).join(', '),
     });
 
     return {
@@ -257,6 +277,14 @@ ${userPrompt}`;
       finalScore,
       grade,
       timestamp: new Date().toISOString(),
+      metadata: {
+        toolUsage: {
+          totalInvocations: toolStats.totalInvocations,
+          toolCounts: toolStats.toolCounts,
+          verified: verification.passed,
+          warnings: verification.warnings,
+        },
+      },
     };
   } catch (error) {
     logger.error('Agentic analysis failed', error instanceof Error ? error : new Error(String(error)), {

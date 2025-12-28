@@ -9,6 +9,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { createLogger, Timer } from '@/lib/logger';
 import type { ContentMetrics, AgenticAnalysisResult, ContentAnalysisResult, ContentFinding } from './types';
 import contentPrompt from '@/lib/prompts/content.json';
+import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
 
 const logger = createLogger('agentic');
 
@@ -189,7 +190,10 @@ export async function analyzeContentWithClaude(
 
 ${userPrompt}`;
 
-    logger.info('Invoking Claude Agent SDK for content analysis');
+    // Create tool logging plugin to track tool usage
+    const toolLogger = createToolLoggingPlugin();
+
+    logger.info('Invoking Claude Agent SDK for content analysis + tool logging');
 
     // Collect streaming messages
     const messages: string[] = [];
@@ -204,6 +208,7 @@ ${userPrompt}`;
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
         cwd: process.cwd(),
+        plugins: [toolLogger], // PHASE 20: Add tool logging plugin
       }
     })) {
       // Collect assistant text responses
@@ -218,6 +223,19 @@ ${userPrompt}`;
     }
 
     logger.info('Agent SDK completed', { messageCount: messages.length });
+
+    // PHASE 20: Verify and log tool usage
+    const toolStats = toolLogger.getStats();
+    const verification = verifyToolUsage(toolStats);
+
+    logger.info('Tool usage verification', {
+      passed: verification.passed,
+      summary: verification.summary,
+      warnings: verification.warnings,
+    });
+
+    // Log detailed tool usage stats
+    logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
 
     // Combine all messages into single response text
     const responseText = messages.join('\n');
@@ -259,6 +277,12 @@ ${userPrompt}`;
           durationMs: timer.elapsed(),
           model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
         },
+        toolUsage: {
+          totalInvocations: toolStats.totalInvocations,
+          toolCounts: toolStats.toolCounts,
+          verified: verification.passed,
+          warnings: verification.warnings,
+        },
       },
     };
 
@@ -266,6 +290,8 @@ ${userPrompt}`;
       finalScore,
       grade,
       findingsCount: agenticResult.findings.length,
+      toolInvocations: toolStats.totalInvocations,
+      toolsUsed: Object.keys(toolStats.toolCounts).join(', '),
     });
 
     return result;
