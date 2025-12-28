@@ -78,7 +78,7 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Pull latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            docker pull ghcr.io/${{ github.repository }}/content-authoring-eval:latest
 
             # Stop and remove old container
             docker-compose down || true
