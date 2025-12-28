@@ -202,7 +202,7 @@ export async function analyzeVisualWithClaude(
       messagesCollected: messages.length,
     });
 
-    // PHASE 20: Verify and log tool usage
+    // PHASE 20-21: Verify and enforce tool usage
     const toolStats = toolLogger.getStats();
     const verification = verifyToolUsage(toolStats);
 
@@ -214,6 +214,15 @@ export async function analyzeVisualWithClaude(
 
     // Log detailed tool usage stats
     logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
+
+    // PHASE 21: Enforce tool usage - log critical warnings if no tools used
+    if (!verification.passed) {
+      logger.warn('⚠️  PHASE 21 WARNING: Agent completed without using tools - may be "fake agentic"', {
+        totalInvocations: toolStats.totalInvocations,
+        expectedTools: 'Playwright (browser_navigate, browser_take_screenshot) OR Read (screenshot file)',
+        fallbackMode: 'Continuing with deterministic-metrics-only analysis',
+      });
+    }
 
     // Combine all messages into single response text
     const responseText = messages.join('\n');
