@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BatchEvaluationEvent, BatchPageStatus, BatchDimensionStatus } from '@/types/evaluation';
+import { BatchEvaluationEvent, BatchPageStatus, BatchDimensionStatus, Finding } from '@/types/evaluation';
 
 /**
  * Per-page state for real-time table updates
@@ -27,6 +27,12 @@ export interface PageEvaluationState {
     visual?: number;
     overall?: number;
   };
+  findings: {
+    structure: Finding[];
+    accessibility: Finding[];
+    content: Finding[];
+    visual: Finding[];
+  };
   error?: string;
 }
 
@@ -45,7 +51,9 @@ interface UseBatchEvaluationStreamState {
  */
 export interface UseBatchEvaluationStreamReturn extends UseBatchEvaluationStreamState {
   startEvaluation: (batchId: string, pages: { id: string; title: string }[]) => void;
+  cancelEvaluation: () => void;
   reset: () => void;
+  getFailedPages: () => { id: string; title: string; error?: string }[];
 }
 
 /**
@@ -119,6 +127,12 @@ export function useBatchEvaluationStream(): UseBatchEvaluationStreamReturn {
             visual: 'pending',
           },
           scores: {},
+          findings: {
+            structure: [],
+            accessibility: [],
+            content: [],
+            visual: [],
+          },
         });
       }
 
@@ -175,6 +189,11 @@ export function useBatchEvaluationStream(): UseBatchEvaluationStreamReturn {
                   pageState.dimensions[data.dimension] = 'completed';
                   pageState.scores[data.dimension] = data.score;
 
+                  // Store findings if provided
+                  if (data.findings) {
+                    pageState.findings[data.dimension] = data.findings;
+                  }
+
                   // Calculate overall score if all dimensions complete
                   const allComplete = Object.values(pageState.dimensions).every(
                     (status) => status === 'completed' || status === 'error'
@@ -223,6 +242,41 @@ export function useBatchEvaluationStream(): UseBatchEvaluationStreamReturn {
   );
 
   /**
+   * Cancel ongoing evaluation
+   */
+  const cancelEvaluation = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      isConnected: false,
+      error: 'Evaluation cancelled by user',
+    }));
+  }, []);
+
+  /**
+   * Get list of failed pages
+   */
+  const getFailedPages = useCallback(() => {
+    const failedPages: { id: string; title: string; error?: string }[] = [];
+
+    Array.from(state.pageStates.entries()).forEach(([pageId, pageState]) => {
+      if (pageState.status === 'error') {
+        failedPages.push({
+          id: pageId,
+          title: pageState.title,
+          error: pageState.error,
+        });
+      }
+    });
+
+    return failedPages;
+  }, [state.pageStates]);
+
+  /**
    * Reset hook state
    */
   const reset = useCallback(() => {
@@ -253,6 +307,8 @@ export function useBatchEvaluationStream(): UseBatchEvaluationStreamReturn {
   return {
     ...state,
     startEvaluation,
+    cancelEvaluation,
+    getFailedPages,
     reset,
   };
 }
