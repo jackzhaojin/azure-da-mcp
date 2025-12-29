@@ -2,27 +2,15 @@ version: '3.8'
 
 services:
   app:
-    # Use GitHub Container Registry image for production deployment
-    # For local development with build: docker-compose --profile local up
-    image: ghcr.io/${GITHUB_REPOSITORY:-jackzhaojin/azure-da-mcp}/content-authoring-eval:latest
-    container_name: content-authoring-eval
-    # Uncomment below for local builds (development only)
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    image: content-authoring-eval:latest
+    container_name: content-eval
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
-      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
-      # Fix Playwright browser path for non-root user (nextjs)
-      - PLAYWRIGHT_BROWSERS_PATH=/home/nextjs/.cache/ms-playwright
     env_file:
-      - .env.local
-    volumes:
-      # Optional: Mount screenshots directory for development
-      - ./public/screenshots:/app/public/screenshots
+      - .env.docker
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/evaluate', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]

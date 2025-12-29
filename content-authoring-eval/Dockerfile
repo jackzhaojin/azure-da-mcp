@@ -36,31 +36,7 @@ RUN npm run build && \
     rm -rf src
 
 # ============================================
-# Stage 3: Playwright Dependencies (Minimal)
-# ============================================
-FROM node:20-slim AS playwright-deps
-WORKDIR /app
-
-# Install ONLY Playwright and its dependencies (not full node_modules)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    # Minimal dependencies for playwright install
-    curl \
-    ca-certificates && \
-    # Install playwright-core only
-    npm install --no-save playwright-core@1.57.0 && \
-    # Install Chromium browser with system dependencies
-    npx playwright install chromium --with-deps && \
-    # Clean up aggressively
-    npm cache clean --force && \
-    apt-get remove -y curl && \
-    apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /tmp/*
-
-# ============================================
-# Stage 4: Production Dependencies (Separate)
+# Stage 3: Production Dependencies (Separate)
 # ============================================
 FROM node:20-slim AS prod-deps
 WORKDIR /app
@@ -78,7 +54,7 @@ RUN npm ci --only=production && \
     find node_modules -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true
 
 # ============================================
-# Stage 5: Production Runtime
+# Stage 4: Production Runtime
 # ============================================
 FROM node:20-slim AS runner
 WORKDIR /app
@@ -148,14 +124,21 @@ RUN mkdir -p /home/appuser/.claude && \
 COPY --from=builder --chown=appuser:appuser /app/.next/standalone ./
 COPY --from=builder --chown=appuser:appuser /app/.next/static ./.next/static
 
-# Copy Playwright browsers from playwright-deps stage
-COPY --from=playwright-deps --chown=appuser:appuser /root/.cache/ms-playwright /home/appuser/.cache/ms-playwright
-
 # Copy production node_modules from separate stage
 COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
 
-# Set permissions for Playwright cache
-RUN chown -R appuser:appuser /home/appuser/.cache
+# Pre-install Playwright chromium browsers (ARM64 compatible)
+# Install chromium-1205 (for @playwright/mcp) and symlink to chromium-1200 (for production playwright)
+# Both versions are similar enough that this should work for both deterministic and agentic agents
+WORKDIR /app
+RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium && \
+    mkdir -p /home/appuser/.cache/ms-playwright && \
+    cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ && \
+    cd /home/appuser/.cache/ms-playwright && \
+    ln -s chromium-1205 chromium-1200 && \
+    ln -s chromium_headless_shell-1205 chromium_headless_shell-1200 && \
+    chown -R appuser:appuser /home/appuser/.cache && \
+    rm -rf /root/.cache/ms-playwright
 
 # Create directory for screenshots
 RUN mkdir -p /app/public/screenshots && chown -R appuser:appuser /app/public
@@ -174,6 +157,8 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV HOME=/home/appuser
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \

@@ -30,5 +30,8 @@ EOF
 
 echo "✅ Generated .claude.json with account: $CLAUDE_EMAIL"
 
+# Playwright browsers pre-installed during Docker build (chromium)
+# No runtime installation needed
+
 # Execute the main command (Next.js server)
 exec "$@"
