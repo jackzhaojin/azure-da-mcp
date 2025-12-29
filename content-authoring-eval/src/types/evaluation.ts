@@ -110,3 +110,138 @@ export interface EvaluationStatus {
   currentReport?: Partial<EvaluationReport>;
   error?: string;
 }
+
+/**
+ * PHASE 26: Bulk Mode JSON Schema
+ * Input/output types for batch evaluations
+ */
+
+/**
+ * Single page in a batch evaluation
+ */
+export interface BatchPage {
+  id: string; // Unique identifier (e.g., "page-001")
+  title: string; // Human-readable page title
+  pdfUrl: string; // URL to PDF reference
+  webUrl: string; // URL of migrated webpage
+}
+
+/**
+ * Input JSON schema for batch evaluation import
+ */
+export interface BatchEvaluationInput {
+  batchId: string; // Unique batch identifier (e.g., "migration-2025-01-15")
+  pages: BatchPage[]; // Array of pages to evaluate (max 50)
+}
+
+/**
+ * Single page result in batch output
+ */
+export interface BatchPageResult {
+  pageId: string; // Matches BatchPage.id
+  title: string; // Page title for reference
+  overallScore: number; // 0-100
+  overallGrade: 'Excellent' | 'Good' | 'Acceptable' | 'Needs Improvement' | 'Critical';
+  dimensions: {
+    structure: DimensionResult;
+    accessibility: DimensionResult;
+    content: DimensionResult;
+    visual: DimensionResult;
+  };
+  evaluatedAt: string; // ISO timestamp
+}
+
+/**
+ * Dimension result within a batch page result
+ */
+export interface DimensionResult {
+  score: number; // 0-100
+  grade: 'Excellent' | 'Good' | 'Acceptable' | 'Needs Improvement' | 'Critical';
+  findings: Finding[]; // All findings for this dimension
+}
+
+/**
+ * Output JSON schema for batch evaluation export
+ */
+export interface BatchEvaluationOutput {
+  batchId: string; // Matches input batchId
+  startedAt: string; // ISO timestamp
+  completedAt: string; // ISO timestamp
+  totalPages: number; // Count of pages evaluated
+  results: BatchPageResult[]; // One result per page
+}
+
+/**
+ * Status for a single page in a batch (for SSE streaming)
+ */
+export type BatchPageStatus = 'queued' | 'running' | 'done' | 'error';
+
+/**
+ * Status for a single dimension within a page (for SSE streaming)
+ */
+export type BatchDimensionStatus = 'pending' | 'running' | 'completed' | 'error';
+
+/**
+ * SSE event types for batch evaluation streaming
+ */
+export type BatchEventType =
+  | 'page:queued'
+  | 'page:started'
+  | 'dimension:started'
+  | 'dimension:completed'
+  | 'page:completed'
+  | 'page:error'
+  | 'batch:completed';
+
+/**
+ * SSE event payload for batch evaluation updates
+ */
+export interface BatchEvaluationEvent {
+  type: BatchEventType;
+  batchId: string;
+  pageId: string;
+  dimension?: Dimension; // Only for dimension:* events
+  status?: BatchDimensionStatus; // Status after event
+  score?: number; // Score for dimension:completed
+  findings?: Finding[]; // Findings for dimension:completed
+  error?: string; // Error message for *:error events
+  timestamp: string; // ISO timestamp
+}
+
+/**
+ * In-memory batch evaluation state (server-side)
+ */
+export interface BatchEvaluationState {
+  batchId: string;
+  input: BatchEvaluationInput;
+  startedAt: string;
+  pageStates: Map<string, PageEvaluationState>; // pageId -> state
+}
+
+/**
+ * Per-page evaluation state (server-side)
+ */
+export interface PageEvaluationState {
+  pageId: string;
+  title: string;
+  status: BatchPageStatus;
+  dimensions: {
+    structure: BatchDimensionStatus;
+    accessibility: BatchDimensionStatus;
+    content: BatchDimensionStatus;
+    visual: BatchDimensionStatus;
+  };
+  scores: {
+    structure?: number;
+    accessibility?: number;
+    content?: number;
+    visual?: number;
+  };
+  findings: {
+    structure: Finding[];
+    accessibility: Finding[];
+    content: Finding[];
+    visual: Finding[];
+  };
+  error?: string;
+}
