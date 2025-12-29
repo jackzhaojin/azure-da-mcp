@@ -204,11 +204,28 @@ export async function analyzeStructureWithClaude(
   const timer = new Timer();
   logger.info('Starting agentic structure analysis', { url });
 
-  // PHASE 25: Validate OAuth token is configured (KEEP using OAuth token)
+  // PHASE 25.1: DEBUG - Validate OAuth token is configured
   if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
     logger.error('Claude OAuth token missing');
     throw new Error('Missing Claude authentication. Please set CLAUDE_CODE_OAUTH_TOKEN in .env.local');
   }
+
+  // PHASE 25.1: DEBUG - Log OAuth token presence (first 10 chars only)
+  const tokenPreview = process.env.CLAUDE_CODE_OAUTH_TOKEN.substring(0, 10);
+  logger.info('🔑 PHASE 25.1 DEBUG: OAuth token present', { tokenPreview });
+
+  // PHASE 25.1: DEBUG - Log environment details
+  logger.info('🐳 PHASE 25.1 DEBUG: Environment details', {
+    nodeVersion: process.version,
+    cwd: process.cwd(),
+    platform: process.platform,
+    arch: process.arch,
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      HOME: process.env.HOME,
+      PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH,
+    },
+  });
 
   // Format prompt with structure data
   const userPrompt = formatStructureForPrompt(url, deterministicMetrics);
@@ -228,12 +245,58 @@ ${userPrompt}`;
   logger.info('Invoking Claude Agent SDK with streaming + tool logging');
 
   try {
+    // PHASE 25.1: DEBUG - Check if MCP server binaries exist
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs');
+    const playwrightBinary = '/usr/local/bin/mcp-server-playwright';
+    const filesystemBinary = '/usr/local/bin/mcp-server-filesystem';
+
+    logger.info('🔍 PHASE 25.1 DEBUG: Checking MCP server binaries', {
+      playwright: {
+        path: playwrightBinary,
+        exists: fs.existsSync(playwrightBinary),
+      },
+      filesystem: {
+        path: filesystemBinary,
+        exists: fs.existsSync(filesystemBinary),
+      },
+    });
+
+    // PHASE 25.1: DEBUG - Log Agent SDK configuration
+    const agentConfig = {
+      model: 'claude-sonnet-4-5-20250929',
+      maxTurns: 20,
+      mcpServers: {
+        "playwright": {
+          command: "/usr/local/bin/mcp-server-playwright",
+          args: []
+        },
+        "filesystem": {
+          command: "/usr/local/bin/mcp-server-filesystem",
+          args: [process.cwd()]
+        }
+      },
+      allowedTools: ['Read', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
+      permissionMode: 'bypassPermissions',
+      allowDangerouslySkipPermissions: true,
+      cwd: process.cwd(),
+    };
+
+    logger.info('⚙️  PHASE 25.1 DEBUG: Agent SDK configuration', agentConfig);
+
     // PHASE 25: Use Agent SDK query() with programmatic MCP configuration
+    logger.info('🚀 PHASE 25.1 DEBUG: Starting Agent SDK query() stream...');
+
     for await (const message of query({
       prompt: fullPrompt,
       options: {
         model: 'claude-sonnet-4-5-20250929',
         maxTurns: 20, // Increased for multiple tool invocations
+        // PHASE 25.2: Pass OAuth token to spawned claude-code CLI process
+        env: {
+          ...process.env,
+          CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+        },
         // PHASE 25: Remove settingSources - use programmatic MCP config instead
         // settingSources: ['user', 'project'],
         // PHASE 25: Configure MCP servers programmatically (bundled in container)
@@ -255,8 +318,13 @@ ${userPrompt}`;
         plugins: [toolLogger], // PHASE 20: Add tool logging plugin
       }
     })) {
+      // PHASE 25.1: DEBUG - Log all message types
+      logger.info('📨 PHASE 25.1 DEBUG: Received message from Agent SDK', {
+        type: message.type,
+      });
+
       // Collect assistant text responses
-      if (message.type === 'assistant' && message.message?.content) {
+      if (message.type === 'assistant' && 'message' in message && message.message?.content) {
         for (const block of message.message.content) {
           if (block.type === 'text' && block.text) {
             messages.push(block.text);
@@ -264,9 +332,25 @@ ${userPrompt}`;
           }
         }
       }
+
+      // PHASE 25.1: DEBUG - Log stream events (may contain errors)
+      if (message.type === 'stream_event' && 'event' in message) {
+        logger.info('🌊 PHASE 25.1 DEBUG: Stream event received', {
+          event: JSON.stringify(message.event),
+        });
+      }
+
+      // PHASE 25.1: DEBUG - Log result messages
+      if (message.type === 'result') {
+        logger.info('🏁 PHASE 25.1 DEBUG: Result message received', {
+          subtype: message.subtype,
+          isError: message.is_error,
+          numTurns: message.num_turns,
+        });
+      }
     }
 
-    logger.info('Claude Agent SDK stream completed', { messagesCollected: messages.length });
+    logger.info('✅ PHASE 25.1 DEBUG: Claude Agent SDK stream completed', { messagesCollected: messages.length });
 
     // PHASE 20-21: Verify and enforce tool usage
     const toolStats = toolLogger.getStats();
@@ -331,10 +415,24 @@ ${userPrompt}`;
       },
     };
   } catch (error) {
-    logger.error('Agentic analysis failed', error instanceof Error ? error : new Error(String(error)), {
+    // PHASE 25.1: DEBUG - Enhanced error logging
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorDetails = error as any;
+    logger.error('❌ PHASE 25.1 DEBUG: Agentic analysis failed', error instanceof Error ? error : new Error(String(error)), {
       url,
       duration: timer.elapsed(),
+      errorName: error instanceof Error ? error.name : 'Unknown',
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      processExitCode: errorDetails?.code,
+      processSignal: errorDetails?.signal,
+      processStdout: errorDetails?.stdout,
+      processStderr: errorDetails?.stderr,
     });
+
+    // PHASE 25.1: DEBUG - Log full error object for investigation
+    console.error('🔥 PHASE 25.1 DEBUG: Full error object:', JSON.stringify(error, null, 2));
+
     throw error;
   }
 }
