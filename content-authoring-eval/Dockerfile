@@ -138,11 +138,9 @@ RUN apt-get update && \
     rm -rf /tmp/* && \
     rm -rf /var/tmp/*
 
-# PHASE 25.3: Create .claude.json with OAuth account info for CLI authentication
-# This tells the `claude` CLI WHO is authenticated (account, email, org)
-# The OAuth token itself comes from CLAUDE_CODE_OAUTH_TOKEN env var
+# PHASE 25.3: Prepare .claude directory (config will be generated at runtime from env vars)
+# This prevents baking OAuth credentials into the Docker image
 RUN mkdir -p /home/appuser/.claude && \
-    echo '{"oauthAccount":{"accountUuid":"434c49a7-3afc-4399-9a7c-c4fea4785c7b","emailAddress":"jackzhaojin@gmail.com","organizationUuid":"170f4c50-03d8-42fc-82b3-dd0a83e476ae"},"mcpServers":{}}' > /home/appuser/.claude.json && \
     chown -R appuser:appuser /home/appuser/.claude && \
     chown -R appuser:appuser /app
 
@@ -162,6 +160,10 @@ RUN chown -R appuser:appuser /home/appuser/.cache
 # Create directory for screenshots
 RUN mkdir -p /app/public/screenshots && chown -R appuser:appuser /app/public
 
+# Copy entrypoint script (generates .claude.json from env vars at runtime)
+COPY --chown=appuser:appuser docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # PHASE 25.3: Run as non-root user (REQUIRED for --dangerously-skip-permissions to work)
 USER appuser
 
@@ -176,6 +178,9 @@ ENV HOME=/home/appuser
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/api/evaluate', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Use entrypoint script to generate .claude.json before starting server
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Start Next.js server
 CMD ["node", "server.js"]

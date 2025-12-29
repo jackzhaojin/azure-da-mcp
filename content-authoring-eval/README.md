@@ -193,7 +193,7 @@ Expected: `200 OK` with JSON response
 
 ## Environment Variables
 
-Required in `.env.local`:
+### For Local Development (`.env.local`)
 
 ```bash
 # Claude API Authentication (OAuth token)
@@ -205,6 +205,24 @@ CLAUDE_MODEL=claude-sonnet-4-5-20250929
 # Node Environment (production in Docker)
 NODE_ENV=production
 ```
+
+### For Docker Deployment (`.env.docker`)
+
+**IMPORTANT**: The Docker image does NOT bake credentials. All auth info is passed at runtime.
+
+```bash
+# Copy the template
+cp .env.docker.example .env.docker
+
+# Edit .env.docker with your values:
+CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
+CLAUDE_ACCOUNT_UUID=your-account-uuid
+CLAUDE_EMAIL=your-email@example.com
+CLAUDE_ORG_UUID=your-org-uuid
+CLAUDE_MODEL=claude-sonnet-4-5-20250929
+```
+
+**Security Note**: The `.env.docker` file contains your credentials and is git-ignored. Never commit it!
 
 ## Deployment
 

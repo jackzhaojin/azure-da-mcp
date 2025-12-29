@@ -1,12 +1,14 @@
 name: Deploy Content Authoring Eval to Oracle VM
 
+# DISABLED: Automatic deployment disabled - takes too long and doesn't work yet
+# Can still be triggered manually via workflow_dispatch
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'content-authoring-eval/**'
-      - '.github/workflows/deploy-content-authoring-eval.yml'
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'content-authoring-eval/**'
+  #     - '.github/workflows/deploy-content-authoring-eval.yml'
   workflow_dispatch:
 
 env:
