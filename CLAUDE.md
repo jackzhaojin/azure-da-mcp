@@ -1,208 +1,254 @@
-# Azure DA MCP Server
+# Azure DA.live MCP - Monorepo
 
-AI-powered content editing for da.live pages via natural language commands.
+AI-powered content authoring, migration, and evaluation tools. This is a monorepo containing multiple independent projects related to da.live content management and AI-assisted workflows.
 
-## What This Project Does
+## Monorepo Structure
 
-```
-User: "Make the hero section more concise"
-  ↓
-Server fetches HTML from da.live
-  ↓
-Claude edits the HTML
-  ↓
-Server saves back to da.live
-  ↓
-User gets: explanation + reasoning + timing metrics
-```
+This repository contains 5 independent projects:
 
-## Quick Start
+### 1. `functions/` - Azure Functions MCP Server
+**Purpose**: Production MCP server for AI-assisted da.live content editing
+**Tech**: Azure Functions v4, Node 20, Anthropic SDK, MCP SDK
+**Status**: Production-ready
+**Docs**: [functions/CLAUDE.md](./functions/CLAUDE.md)
 
-**⚠️ IMPORTANT**: Do NOT start the server (`npm start`) until explicitly instructed to do so.
+**When to work here**:
+- MCP server development (JSON-RPC 2.0)
+- da.live API integration
+- Claude API with MCP tools
+- Azure Functions deployment
 
+### 2. `content-authoring-eval/` - CMS Migration Evaluator
+**Purpose**: AI-powered quality evaluation for webpage migrations
+**Tech**: Next.js 14, Claude Agent SDK, Playwright MCP, Docker
+**Status**: Production (Oracle Cloud VM)
+**Docs**: [content-authoring-eval/CLAUDE.md](./content-authoring-eval/CLAUDE.md)
+
+**When to work here**:
+- Evaluation agent development (4 agents: Structure, Accessibility, Content, Visual)
+- Deterministic analysis tools (Cheerio, axe-core, unpdf, Playwright)
+- Agentic intelligence (Claude 4.5 with tool access)
+- Batch evaluation features
+
+### 3. `agent-claude-sdk/` - Agent SDK Experiments
+**Purpose**: Learning and prototyping with Claude Agent SDK
+**Tech**: TypeScript, Node.js, Claude Agent SDK
+**Status**: Active experimentation
+**Docs**: [agent-claude-sdk/CLAUDE.md](./agent-claude-sdk/CLAUDE.md)
+
+**When to work here**:
+- Agent SDK pattern exploration
+- CLI chat agents
+- PDF generation agents
+- Third-party demo testing
+
+### 4. `make-dot-com/` - Make.com Agent Prompts
+**Purpose**: Versioned prompts for Make.com migration workflows
+**Tech**: Markdown prompt files, Make.com platform
+**Status**: Active versioning
+**Docs**: [make-dot-com/CLAUDE.md](./make-dot-com/CLAUDE.md)
+
+**When to work here**:
+- Prompt engineering for content migration agents
+- Make.com workflow configuration
+- Progressive prompt versioning (MVP → MVP+Memory → MVP+BlockLibrary → Full)
+
+**Important**: Prompts are NOT deployed via Git. They are copy-pasted into Make.com UI.
+
+### 5. `bruno/` - API Testing Collections
+**Purpose**: HTTP request collections for API testing
+**Tech**: Bruno HTTP client
+**Status**: Active use
+**Docs**: [bruno/CLAUDE.md](./bruno/CLAUDE.md)
+
+**When to work here**:
+- Testing da.live Admin API
+- Testing Azure Functions MCP endpoints
+- API debugging and exploration
+
+## Working in This Monorepo
+
+### Important Instructions
+
+1. **Each project is independent**: Separate dependencies, configs, and workflows
+2. **Check which directory you're in**: Always `cd` to the right subproject first
+3. **Use correct Node version**: `functions/` and `content-authoring-eval/` require Node 20
+4. **Read subproject CLAUDE.md**: Each has specific context and instructions
+
+### Common Workflows
+
+**Azure Functions development**:
 ```bash
 cd functions
-npm install
-
-# Add your tokens to local.settings.json
-# ANTHROPIC_API_KEY and Bearer token via Authorization header
-
 nvm use 20
-
-# WAIT - only run 'npm start' when explicitly told to
-
-# Test with real APIs (when ready)
-node tests/e2e/manual-test.js
+npm start
 ```
 
-## Project Structure
-
-```
-/
-├── functions/              # Azure Functions implementation
-│   ├── src/
-│   │   ├── functions/      # HTTP endpoints
-│   │   │   ├── EditContentFunction.js          # Business logic
-│   │   │   ├── ClaudeLlmClientFunction.js      # Infrastructure
-│   │   │   ├── GeminiLlmClientFunction.js      # Infrastructure (stubbed)
-│   │   │   └── AzureAIFoundryLlmClientFunction.js # Infrastructure (stubbed)
-│   │   └── modules/        # Core logic
-│   │       ├── llm-clients/      # Provider implementations
-│   │       │   ├── ClaudeClient.js
-│   │       │   ├── GeminiClient.js (stubbed)
-│   │       │   └── AzureAIFoundryClient.js (stubbed)
-│   │       └── LlmClient.js      # Orchestrator
-│   ├── tests/
-│   │   ├── adhoc/          # Quick module tests
-│   │   └── e2e/            # Real API tests
-│   └── CLAUDE.md           # 📖 Detailed developer guide
-├── specs/                  # Feature specs and planning docs
-└── ai-docs/                # Implementation insights
-```
-
-## Key Learnings
-
-### 1. HTML-First Architecture
-**Discovery**: da.live API returns HTML strings, not JSON blocks
-**Decision**: Work directly with HTML
-**Impact**: Simpler architecture that matches reality
-
-### 2. Multipart Form Required
-**Discovery**: da.live POST requires `multipart/form-data` with `data` file field
-**Implementation**: Uses `form-data` package
-**Critical**: Raw HTML POST doesn't save content
-**URL Structure**: POST directly to path (e.g., `/source/owner/site/page.html`), NOT `/api/source/...`
-
-### 3. Real Tests Only
-**Decision**: Deleted all mocks/stubs, kept E2E tests with real APIs
-**Reasoning**: Only real API tests caught actual issues
-**Result**: Simpler, faster, more reliable testing
-
-### 4. Trust the LLM
-**Decision**: No validation phase needed
-**Reasoning**: Claude consistently returns valid HTML
-**Impact**: Removed ResponseValidator module, system works better
-
-### 5. Multi-Provider Architecture
-**Decision**: Support Claude, Gemini, Azure OpenAI
-**Reasoning**: Different use cases need different cost/quality tradeoffs
-**Impact**: Infrastructure endpoints decoupled from business logic
-
-## Documentation Map
-
-- **`/functions/CLAUDE.md`** - Complete developer guide (setup, API docs, architecture, troubleshooting)
-- **`/specs/001-let-s-build/spec-UPDATED.md`** - What we actually built vs what we planned
-- **`/ai-docs/REALITY-CHECK.md`** - Lessons learned, plan vs reality comparison
-- **`/ai-docs/CHANGES.md`** - Changelog and migration guide
-
-## What We Built
-
-### API Endpoints
-
-**Business Logic:**
-- **POST /api/EditContent** - AI-assisted content editing (multi-provider support)
-
-**Infrastructure (Direct LLM Access):**
-- **POST /api/ClaudeLlmClient** - Claude API with MCP
-- **POST /api/GeminiLlmClient** - Gemini API with MCP (stubbed)
-- **POST /api/AzureAIFoundryLlmClient** - Azure OpenAI API with MCP (stubbed)
-
-**Support:**
-- **GET /api/GetContent/{*path}** - Fetch page content from da.live
-- **GET /api/HealthCheck** - Service status
-
-### Core Workflow (4 phases)
-1. **Fetch**: GET HTML from da.live Admin API
-2. **Edit**: Claude generates edited HTML
-3. **Save**: POST via multipart form to da.live
-4. **Respond**: Return explanation + reasoning + timing
-
-### Technologies
-- Azure Functions v4 (Node 20)
-- Multi-LLM: Claude Sonnet 4.5, Gemini 2.5 Pro, Azure OpenAI GPT-4o Mini
-- da.live Admin API
-- ES Modules (`type: "module"`)
-
-## What We Removed
-
-- ❌ Block-based architecture (da.live uses HTML)
-- ❌ ResponseValidator module (complexity without value)
-- ❌ Unit tests (mocking doesn't test reality)
-- ❌ Integration tests (fake APIs don't validate)
-- ❌ Contract tests (APIs change, mocks lie)
-- ❌ Validation phase (Claude returns valid HTML)
-
-## Testing Philosophy
-
-**Real tests only**: No mocks, no stubs. If it doesn't test actual behavior with real APIs, we deleted it.
-
+**Content authoring eval development**:
 ```bash
-# The only tests that matter
-tests/e2e/manual-test.js    # Manual E2E test with real APIs
-tests/e2e/real-api.test.js  # Automated E2E test with real APIs
+cd content-authoring-eval
+npm run dev
 ```
 
-## Performance
-
-**Typical Request** (tested with real APIs):
-- Total: ~14-15 seconds
-- da.live fetch: 100-150ms (1%)
-- LLM call: 13-14 seconds (95%)
-- da.live update: 500-800ms (4%)
-
-**Insight**: LLM call dominates everything. Optimize prompts for speed.
-
-## Architecture Decisions
-
-### Version 1 (Planned - Too Complex)
-```
-Client → API → Validator → Block Parser → LLM → Response Validator → Block Builder → da.live
-              ↓                                    ↓
-        Unit Tests                          Contract Tests
+**Agent SDK prototyping**:
+```bash
+cd agent-claude-sdk/chat-cli
+npm run dev
 ```
 
-### Version 2 (Actual - Simple & Works)
+**Make.com prompt updates**:
+```bash
+cd make-dot-com/v1-content-migration
+# Edit prompt markdown files
+# Copy to Make.com UI manually
 ```
-Client → API → da.live (GET HTML) → Claude → da.live (POST multipart) → Client
-                                                        ↓
-                                              E2E Test (real APIs)
+
+**API testing**:
+```bash
+cd bruno
+# Open collections in Bruno app
 ```
+
+### Navigation Tips
+
+When the user asks about:
+- **"MCP server"** or **"Azure Functions"** → `functions/`
+- **"evaluation"** or **"migration quality"** → `content-authoring-eval/`
+- **"Agent SDK"** or **"experiments"** → `agent-claude-sdk/`
+- **"Make.com"** or **"prompts"** → `make-dot-com/`
+- **"API testing"** or **"Bruno"** → `bruno/`
+
+### Files That Should NOT Be Committed
+
+- `functions/.env` - Contains secrets (ANTHROPIC_API_KEY, DALIVE_BEARER_TOKEN)
+- `content-authoring-eval/.env.local` - Contains CLAUDE_CODE_OAUTH_TOKEN
+- `content-authoring-eval/.env.docker` - Contains production secrets
+- `agent-claude-sdk/*/.env` - OAuth tokens and API keys
+- `node_modules/` - Package dependencies (gitignored)
+- `.DS_Store` - macOS metadata (gitignored)
+
+## Architecture Patterns
+
+### MCP Integration Patterns
+
+**functions/** uses MCP SDK Server:
+- JSON-RPC 2.0 over HTTP
+- Session management with Bearer tokens
+- Tool implementations in McpTools.js
+- stdio-to-HTTP bridge for Claude Desktop
+
+**content-authoring-eval/** uses Agent SDK with MCP tools:
+- Playwright MCP for browser automation
+- Bash, Read, Write tools for file operations
+- `bypassPermissions` mode for autonomous tool use
+
+### Testing Philosophy
+
+**Real tests only**: No mocks, no stubs across all projects.
+
+- `functions/`: E2E tests with real Anthropic + da.live APIs
+- `content-authoring-eval/`: Manual testing via web UI + curl
+- `agent-claude-sdk/`: Ad-hoc testing per agent
+- `make-dot-com/`: Manual testing in Make.com workflows
+
+### Authentication Patterns
+
+All projects support:
+1. **OAuth Token** (Claude Pro/Max)
+   - Setup: `npm install -g @anthropic-ai/claude-cli && claude setup-token`
+   - Stored in: `~/.config/@anthropic-ai/claude/oauth_token`
+2. **API Key** (Developers)
+   - Get from: https://console.anthropic.com/
+   - Add to project `.env` files
 
 ## Common Issues
 
-### Node Version Error
+### Node Version Errors
+**Symptom**: `Error: Incompatible Node.js version`
+**Fix**: Use Node 20 for functions/ and content-authoring-eval/
+```bash
+nvm use 20
 ```
-Error: Incompatible Node.js version
+
+### Missing Dependencies
+**Symptom**: `Cannot find module ...`
+**Fix**: Install dependencies in the correct subproject
+```bash
+cd <subproject>
+npm install
 ```
-**Fix**: `nvm use 20 && npm start`
 
-### Content Not Saving
-**Cause**: Not using multipart form data
-**Status**: Already fixed in DaliveClient.js
+### Wrong Directory
+**Symptom**: Commands don't work, files not found
+**Fix**: Always `cd` to the subproject directory first
 
-### Function Timeout
-**Cause**: LLM calls take 10-15 seconds
-**Fix**: Already set to 30s in host.json
+### Environment Variables Missing
+**Symptom**: API errors, authentication failures
+**Fix**: Copy `.env.example` to `.env` and add secrets
+```bash
+cp .env.example .env
+# Edit .env with your keys
+```
 
-## Success Metrics
+## Development Tips
 
-✅ E2E tests pass with real APIs
-✅ Content actually saves to da.live
-✅ Response includes explanation + reasoning
-✅ Multipart form POST works
-✅ Codebase is simpler (7 modules vs 12 planned)
-✅ Tests are faster (no mocking overhead)
-✅ Easy to understand and debug
+1. **Use subproject documentation**: Each has detailed CLAUDE.md or README.md
+2. **Check git status**: `git status` shows which subproject has changes
+3. **Independent testing**: Test each subproject separately
+4. **Shared resources**: `specs/` and `ai-docs/` contain cross-project docs
 
-## Next Steps
+## Documentation Map
 
-1. Add more E2E test scenarios
-2. Optimize LLM prompts for speed
-3. Add request queuing for concurrent requests
-4. Monitor production errors
+### Root Level (Monorepo Overview)
+- `README.md` - User-facing monorepo overview (references child README.md files)
+- `CLAUDE.md` - This file (AI context, references child CLAUDE.md files)
 
-## Get Started
+### functions/ (Azure Functions MCP Server)
+- `functions/CLAUDE.md` - Complete developer guide for MCP server
 
-For detailed setup instructions, API documentation, and troubleshooting:
+### content-authoring-eval/ (Evaluation App)
+- `content-authoring-eval/README.md` - User guide for eval app
+- `content-authoring-eval/CLAUDE.md` - AI context for eval agents
+- `content-authoring-eval/DEPLOYMENT.md` - Docker deployment guide
 
-👉 **See `/functions/CLAUDE.md`** - Complete developer guide
+### agent-claude-sdk/ (Experiments)
+- `agent-claude-sdk/README.md` - Overview of all agents
+- `agent-claude-sdk/CLAUDE.md` - AI context for SDK experiments
+- `agent-claude-sdk/*/README.md` - Per-agent documentation
+
+### make-dot-com/ (Prompts)
+- `make-dot-com/README.md` - Root overview of prompt versioning
+- `make-dot-com/CLAUDE.md` - AI context for prompt engineering
+- `make-dot-com/v1-content-migration/README.md` - Prompt usage guide
+- `make-dot-com/v1-content-migration/AGENT-LOG.md` - Development history
+
+### bruno/ (API Testing)
+- `bruno/README.md` - Bruno collections guide
+- `bruno/CLAUDE.md` - AI context for API testing
+
+## Memory Management
+
+**For Claude Code**: This monorepo contains multiple independent projects. When working on a task:
+
+1. Identify which subproject the task belongs to
+2. Read that subproject's CLAUDE.md for specific context
+3. Work within that subproject directory
+4. Don't load unnecessary context from other subprojects
+5. Use TodoWrite to track tasks within a subproject
+
+**Context prioritization**:
+- High: Subproject-specific CLAUDE.md
+- Medium: Subproject README.md, source files
+- Low: Other subprojects' documentation
+- Minimal: Specs and ai-docs (reference only)
+
+## Related Documentation
+
+- `specs/` - Feature specifications and planning docs (historical)
+- `ai-docs/` - Implementation learnings and reality checks (historical)
+
+---
+
+**Last Updated**: 2025-12-29
+**Primary Maintainer**: jackjin
+**Repository**: Personal monorepo for AI content authoring tools
