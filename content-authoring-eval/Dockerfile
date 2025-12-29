@@ -87,9 +87,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# PHASE 25.3: Create non-root user (REQUIRED for Claude CLI --dangerously-skip-permissions)
+RUN useradd -m -s /bin/bash appuser
 
 # Install runtime dependencies for Playwright Chromium, Lighthouse CLI, and imagemagick
 # Use --no-install-recommends to minimize size
@@ -139,24 +138,32 @@ RUN apt-get update && \
     rm -rf /tmp/* && \
     rm -rf /var/tmp/*
 
+# PHASE 25.3: Create .claude.json with OAuth account info for CLI authentication
+# This tells the `claude` CLI WHO is authenticated (account, email, org)
+# The OAuth token itself comes from CLAUDE_CODE_OAUTH_TOKEN env var
+RUN mkdir -p /home/appuser/.claude && \
+    echo '{"oauthAccount":{"accountUuid":"434c49a7-3afc-4399-9a7c-c4fea4785c7b","emailAddress":"jackzhaojin@gmail.com","organizationUuid":"170f4c50-03d8-42fc-82b3-dd0a83e476ae"},"mcpServers":{}}' > /home/appuser/.claude.json && \
+    chown -R appuser:appuser /home/appuser/.claude && \
+    chown -R appuser:appuser /app
+
 # Copy standalone Next.js build output (minimal)
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=appuser:appuser /app/.next/standalone ./
+COPY --from=builder --chown=appuser:appuser /app/.next/static ./.next/static
 
 # Copy Playwright browsers from playwright-deps stage
-COPY --from=playwright-deps --chown=nextjs:nodejs /root/.cache/ms-playwright /home/nextjs/.cache/ms-playwright
+COPY --from=playwright-deps --chown=appuser:appuser /root/.cache/ms-playwright /home/appuser/.cache/ms-playwright
 
 # Copy production node_modules from separate stage
-COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
 
 # Set permissions for Playwright cache
-RUN chown -R nextjs:nodejs /home/nextjs/.cache
+RUN chown -R appuser:appuser /home/appuser/.cache
 
 # Create directory for screenshots
-RUN mkdir -p /app/public/screenshots && chown -R nextjs:nodejs /app/public
+RUN mkdir -p /app/public/screenshots && chown -R appuser:appuser /app/public
 
-# Switch to non-root user
-USER nextjs
+# PHASE 25.3: Run as non-root user (REQUIRED for --dangerously-skip-permissions to work)
+USER appuser
 
 # Expose port 3000
 EXPOSE 3000
@@ -164,6 +171,7 @@ EXPOSE 3000
 # Set environment variables
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV HOME=/home/appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
