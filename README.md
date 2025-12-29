@@ -1,707 +1,228 @@
-# Azure da.live MCP Server Backend
+# Azure DA.live MCP - Monorepo
 
-Backend MCP (Model Context Protocol) server for AI-assisted da.live content editing using Azure Functions and Anthropic Claude.
+Monorepo for AI-powered content authoring, migration, and editing tools built on da.live, Claude, and Model Context Protocol (MCP).
 
-## Overview
+## Subprojects
 
-This project provides an HTTP API backend that orchestrates AI-powered content editing for da.live pages. It integrates da.live Admin API for content management with Anthropic Claude for intelligent content editing.
+### 1. `functions/` - Azure Functions MCP Server
+**Status**: Production-ready
+**Purpose**: HTTP MCP server for AI-assisted content editing on da.live
 
-**Release**: 1.2 (Claude Desktop Integration)
-**Status**: ✅ **WORKING** - MCP tools available in Claude Desktop
-**Branch**: `main`
+AI-powered content editing backend built with Azure Functions and Claude. Provides MCP tools (`get_dalive_content`, `save_dalive_content`) for autonomous content editing workflows.
 
-## n8n Workflow Automation (Optional)
-
-This project includes a Docker Compose setup for [n8n](https://n8n.io), a workflow automation tool that can be used to build automation workflows that interact with the MCP server endpoints.
-
-**Note**: n8n is separate from the Azure Functions implementation and is optional for testing and workflow automation.
-
-### Quick Start
-
-```bash
-# Start n8n
-docker-compose up -d
-
-# Access n8n UI
-open http://localhost:5678
-
-# Stop n8n
-docker-compose down
-```
-
-### Configuration
-
-Edit `docker-compose.yml` to customize:
-- **Timezone**: Set `GENERIC_TIMEZONE` and `TZ` to your timezone
-- **Port**: Change `5678:5678` to use a different port
-
-### Use Cases
-
-- Build HTTP request workflows to test MCP endpoints
-- Automate content editing workflows with EditContent API
-- Create scheduled jobs for batch content updates
-- Test API integrations without writing code
-
-For more details, see [n8n documentation](https://docs.n8n.io).
-
-### Docker Networking (IMPORTANT)
-
-When n8n runs in Docker, it **cannot access `localhost:7071`** directly because `localhost` inside the container refers to the container itself, not your host machine.
-
-**Solution**: Use `host.docker.internal:7071` in n8n MCP Client configuration:
-
-```
-Endpoint: http://host.docker.internal:7071/api/mcp-streamable
-```
-
-This special DNS name allows Docker containers on Mac and Windows to access the host machine's network.
-
-## Features
-
-- ✅ **Multi-LLM Provider Support** - Claude (premium), Gemini (free), Azure OpenAI (cost-effective)
-- ✅ **Dual MCP Server Endpoints**:
-  - `POST /api/mcp` - For Claude Desktop integration (via stdio bridge)
-  - `POST /api/mcp-streamable` - For n8n, MCP Inspector (HTTP Streamable)
-- ✅ **Claude Desktop Support** - stdio-to-HTTP bridge for seamless integration
-- ✅ **n8n Integration** - Docker-based workflow automation
-- ✅ **2 MCP Tools** - `get_dalive_content` and `save_dalive_content`
-- ✅ **AI-Powered Editing** using configurable LLM providers
-- ✅ **Session Management** - 24-hour session timeout for long conversations
-- ✅ **E2E Testing** - All tests use real APIs (no mocks)
-- ✅ **Backward Compatible** - HTTP APIs still available
-
-## API Endpoints
-
-### 1. GET /api/GetContent/{path}
-Fetch page content from da.live.
-
-**Request:**
-```bash
-curl http://localhost:7071/api/GetContent/products/enterprise \
-  -H "Authorization: Bearer <your-dalive-token>"
-```
-
-**Response:** `200 OK`
-```json
-{
-  "path": "/products/enterprise",
-  "blocks": [...],
-  "metadata": {...},
-  "timestamp": "2025-10-04T10:30:45.123Z"
-}
-```
-
-### 2. POST /api/EditContent
-AI-assisted content editing with full orchestration. Supports provider and model selection.
-
-**Request:**
-```bash
-curl -X POST http://localhost:7071/api/EditContent \
-  -H "Authorization: Bearer <your-dalive-token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "command": "Make more concise",
-    "path": "/products/enterprise",
-    "provider": "claude",
-    "model": "claude-sonnet-4-5-20250929"
-  }'
-```
-
-Optional parameters:
-- `provider`: 'claude' | 'gemini' | 'azure-ai-foundry' (defaults to LLM_PROVIDER env var)
-- `model`: Override default model for the provider
-
-**Response:** `200 OK`
-```json
-{
-  "requestId": "abc-123-def-456",
-  "editedBlocks": [...],
-  "unchangedBlocks": [...],
-  "explanation": "Reduced hero from 47 to 15 words...",
-  "reasoning": "Preserved key value proposition...",
-  "timing": {
-    "total": 3200,
-    "dalive_fetch": 400,
-    "llm_call": 2400,
-    "validation": 200,
-    "dalive_update": 200
-  }
-}
-```
-
-### 3. GET /api/HealthCheck
-Runtime health verification.
-
-**Request:**
-```bash
-curl http://localhost:7071/api/HealthCheck
-```
-
-**Response:** `200 OK`
-```json
-{
-  "status": "healthy",
-  "version": "1.0.0",
-  "timestamp": "2025-10-04T10:30:45.123Z",
-  "dependencies": {
-    "dalive": "unknown",
-    "anthropic": "unknown"
-  }
-}
-```
-
-### Infrastructure Endpoints (Direct LLM Access)
-
-- **POST /api/ClaudeLlmClient** - Direct Claude API with MCP tools ✅
-- **POST /api/GeminiLlmClient** - Direct Gemini API with MCP tools ✅
-- **POST /api/AzureAIFoundryLlmClient** - Direct Azure OpenAI API with MCP tools ✅
-
-These endpoints provide infrastructure-level access to LLM providers for building custom workflows beyond content editing. All three providers fully implemented and tested.
-
-### 4. POST /api/mcp-streamable (NEW - Release 1.4)
-MCP server endpoint for n8n and HTTP-based MCP clients.
-
-**Protocol**: JSON-RPC 2.0 (Manual implementation, no MCP SDK)
-
-**Supported Methods**:
-- `initialize` - Start MCP session, returns X-MCP-Session-Id header
-- `initialized` or `notifications/initialized` - Confirm session ready (no response)
-- `tools/list` - List available MCP tools
-- `tools/call` - Execute a tool (get_dalive_content, save_dalive_content)
-
-**Key Features**:
-- Stateless tool calls with Bearer token fallback
-- Relaxed session validation for compatibility
-- Works with n8n Docker containers via `host.docker.internal:7071`
-
-**Docker Container Access:**
-```bash
-# From n8n or other Docker containers
-curl -X POST http://host.docker.internal:7071/api/mcp-streamable \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your-token>" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "tools/list",
-    "params": {},
-    "id": "1"
-  }'
-```
-
-## Project Structure
-
-```
-azure-da-mcp/
-└── functions/                     # Azure Functions App
-    ├── src/
-    │   ├── functions/             # HTTP-triggered Azure Functions
-    │   │   ├── EditContentFunction.js           # MCP-enabled editing (business logic)
-    │   │   ├── ClaudeLlmClientFunction.js       # Claude API endpoint (infrastructure)
-    │   │   ├── GeminiLlmClientFunction.js       # Gemini API endpoint (infrastructure)
-    │   │   ├── AzureAIFoundryLlmClientFunction.js # Azure OpenAI endpoint (infrastructure)
-    │   │   ├── McpSessionFunction.js            # MCP server (Claude Desktop)
-    │   │   ├── McpStreamableFunction.js         # MCP server (n8n, Inspector)
-    │   │   ├── GetContentFunction.js            # Legacy content fetch
-    │   │   └── HealthCheckFunction.js           # Health check
-    │   ├── modules/               # Shared reusable modules
-    │   │   ├── llm-clients/              # LLM provider implementations
-    │   │   │   ├── ClaudeClient.js             # Claude with MCP
-    │   │   │   ├── GeminiClient.js             # Gemini with MCP (stubbed)
-    │   │   │   └── AzureAIFoundryClient.js     # Azure OpenAI with MCP (stubbed)
-    │   │   ├── McpTools.js              # MCP tool implementations
-    │   │   ├── DaliveClient.js          # da.live API client
-    │   │   ├── LlmClient.js             # LLM orchestrator (routes to providers)
-    │   │   ├── PromptBuilder.js         # Prompt construction
-    │   │   └── Logger.js                # Logging utility
-    │   └── prompts/               # Versioned prompt templates
-    │       └── edit-content/
-    │           └── v1.0.0.json          # Current prompt version
-    ├── tests/
-    │   ├── adhoc/                 # Quick standalone tests (no harness)
-    │   │   └── test-prompt-array.js     # Prompt format verification
-    │   └── e2e/                   # End-to-end tests with real APIs
-    │       ├── backward-compat.test.js  # Regression tests
-    │       └── mcp-hero-timestamp.test.js  # MCP integration
-    ├── package.json
-    ├── host.json                  # Azure Functions config
-    ├── local.settings.json        # Environment variables
-    └── jest.config.js             # Test configuration
-```
-
-## Prerequisites
-
-- **Docker Desktop** (for local Azure Functions runtime)
-- **Node.js 22+** (LTS)
-- **Azure Functions Core Tools v4**
-  ```bash
-  npm install -g azure-functions-core-tools@4 --unsafe-perm true
-  ```
-- **API Keys:**
-  - da.live Bearer token (from browser network tab)
-  - Anthropic API key (from https://www.anthropic.com/)
-
-## Quick Start
-
-### 1. Install Dependencies
-
+**Quick Start**:
 ```bash
 cd functions
 npm install
-```
-
-### 2. Configure Environment
-
-Update `local.settings.json`:
-
-```json
-{
-  "IsEncrypted": false,
-  "Values": {
-    "FUNCTIONS_WORKER_RUNTIME": "node",
-    "DALIVE_API_URL": "https://admin.da.live/api",
-    "LLM_PROVIDER": "claude",
-    "ANTHROPIC_API_KEY": "sk-ant-api03-...",
-    "GEMINI_API_KEY": "your-gemini-key",
-    "AZURE_AI_FOUNDRY_API_KEY": "your-azure-key",
-    "CLAUDE_MODEL": "claude-sonnet-4-5-20250929",
-    "GEMINI_MODEL": "gemini-2.5-pro",
-    "AZURE_MODEL": "gpt-4o-mini",
-    "LOG_LEVEL": "debug"
-  }
-}
-```
-
-### 3. Start Server
-
-**Make sure you're using Node 20:**
-
-```bash
 nvm use 20
-```
-
-**Start the server:**
-
-```bash
 npm start
-# Or: func start
 ```
 
-Server will start on `http://localhost:7071`
+**Documentation**: [functions/CLAUDE.md](./functions/CLAUDE.md)
 
-### 4. Verify Health
+**Key Features**:
+- MCP server endpoints (`/api/mcp`, `/api/mcp-streamable`)
+- Claude Desktop integration via stdio bridge
+- Multi-LLM support (Claude, Gemini, Azure OpenAI)
+- Real API testing (no mocks)
 
+---
+
+### 2. `content-authoring-eval/` - CMS Migration Evaluator
+**Status**: Production (Docker deployed to Oracle Cloud)
+**Purpose**: AI-powered quality evaluation for CMS migrations
+
+Next.js web app with 4 specialized AI agents (Structure, Accessibility, Content Fidelity, Visual) to evaluate webpage migrations. Combines deterministic analysis (Cheerio, axe-core, unpdf, Playwright) with agentic intelligence (Claude 4.5 SDK).
+
+**Quick Start**:
 ```bash
-curl http://localhost:7071/api/HealthCheck
+cd content-authoring-eval
+npm install
+npm run dev   # http://localhost:3000
 ```
 
-## Testing
+**Documentation**: [content-authoring-eval/README.md](./content-authoring-eval/README.md)
 
-### Testing Philosophy
+**Key Features**:
+- 4 evaluation agents with tool access (Playwright MCP, Bash, Read/Write)
+- Batch evaluation with progress tracking
+- Docker deployment with GitHub Actions CI/CD
+- Deterministic + agentic hybrid analysis
 
-**Real tests only**: No mocks, no stubs. If it doesn't test actual behavior with real APIs, delete it.
+---
 
-### Test Types
+### 3. `agent-claude-sdk/` - Agent SDK Experiments
+**Status**: Active development
+**Purpose**: Learning and prototyping with Claude Agent SDK
 
-1. **Ad-hoc Tests** (`tests/adhoc/`) - Quick standalone tests for specific modules
-   - No test harness (Jest) required
-   - Fast execution
-   - Focused on single module verification
+Collection of TypeScript-based agents for testing patterns and exploring the Claude Agent SDK. Includes custom-built agents and third-party demos.
 
-2. **E2E Tests** (`tests/e2e/`) - Full workflow tests with real APIs
-   - Uses Jest test framework
-   - Tests actual behavior with real da.live and Anthropic APIs
-   - Validates complete request/response cycles
-
-### Run Tests
-
+**Quick Start**:
 ```bash
-# Ad-hoc tests (fast, no dependencies)
-node tests/adhoc/test-prompt-array.js
-
-# E2E tests (comprehensive, real APIs)
-npm test                                # Run all E2E tests
-node tests/e2e/backward-compat.test.js  # Regression tests
-node tests/e2e/mcp-hero-timestamp.test.js  # MCP integration (~30s)
+cd agent-claude-sdk/chat-cli
+npm install
+cp .env.example .env
+npm run dev
 ```
 
-### Why This Approach?
+**Documentation**: [agent-claude-sdk/README.md](./agent-claude-sdk/README.md)
 
-- ❌ **No mocking** - Mocks don't catch real API issues
-- ❌ **No stubs** - Stubs test fake behavior, not reality
-- ✅ **Real APIs** - Catches actual integration problems
-- ✅ **Ad-hoc tests** - Fast verification without overhead
-- ✅ **Simple** - Easy to understand and maintain
+**Contains**:
+- `chat-cli/` - Simple CLI chat interface with OAuth support
+- `blog-pdf-generator/` - PDF generation from blog posts
+- `cms-migration-evaluator/` - Earlier eval prototype
+- `demos/` - Third-party agent examples
 
-## Development
+---
 
-### Hot Reload
+### 4. `make-dot-com/` - Make.com Agent Prompts
+**Status**: Active versioning
+**Purpose**: Versioned agent prompts for Make.com workflows
 
-Azure Functions Core Tools supports hot reload:
-1. Keep `func start` running
-2. Edit JavaScript files
-3. Changes auto-reload
+Progressive prompt files for EDS content migration agents deployed on Make.com. Not deployed via Git/Azure - prompts are copy-pasted into Make.com's agent configuration UI.
 
-### Linting
-
+**Quick Start**:
 ```bash
-npm run lint          # Check code quality
-npm run lint:fix      # Auto-fix issues
+cd make-dot-com/v1-content-migration
+# Use agent-init-prompt-mvp.md for initial testing
 ```
 
-### Development Workflow
+**Documentation**: [make-dot-com/README.md](./make-dot-com/README.md)
 
-1. **Write ad-hoc test** - Quick verification test in `tests/adhoc/`
-2. **Implement feature** - Build the functionality
-3. **Run ad-hoc test** - Verify module works in isolation
-4. **Add E2E test** - Test with real APIs (if needed)
-5. **Verify** - Run full test suite
+**Prompt Files**:
+- `agent-init-prompt-mvp.md` - Basic migration workflow
+- `agent-init-prompt-mvp-memory.md` - MVP + learning from past runs
+- `agent-init-prompt-mvp-blocklibrary.md` - MVP + standardized blocks
+- `agent-init-prompt-full.md` - Production with all features
 
-## Logging
+---
 
-### Overview
+### 5. `bruno/` - API Testing Collections
+**Status**: Active use
+**Purpose**: Bruno HTTP client collections for API testing
 
-The project uses a multi-level logging system compatible with both local development and Azure Application Insights.
+HTTP request collections for testing da.live Admin API and Azure Functions endpoints. Alternative to Postman/Insomnia.
 
-### Log Levels
-
-Controlled via `LOG_LEVEL` environment variable in `local.settings.json`:
-
-- **`DEBUG` (0)** - Most verbose, includes full LLM request/response content
-- **`INFO` (1)** - Default, logs all MCP calls, LLM calls, and major operations
-- **`WARN` (2)** - Potential issues and warnings
-- **`ERROR` (3)** - Errors and exceptions with stack traces
-
-### Local Development
-
-**Where logs appear**:
-- **stdout/stderr** - All logs appear in the **terminal/console where you run `npm start`**
-- **No log files** - Azure Functions local development does NOT write to log files
-- Logs stream in real-time to your terminal
-
-**Configure log level** in `local.settings.json`:
-```json
-{
-  "Values": {
-    "LOG_LEVEL": "debug"
-  }
-}
-```
-
-**What gets logged**:
-- Every MCP request (session creation, tool calls, timing)
-- Every LLM API call with duration and token usage
-- Full LLM request/response content (DEBUG level only)
-- Request IDs for correlation
-- Error stack traces
-
-**Example output**:
-```
-[2025-10-05T14:30:45.123Z] [INFO] MCP request received {
-  method: 'tools/call',
-  sessionId: 'abc-123',
-  toolName: 'get_dalive_content',
-  requestId: 'req-456'
-}
-
-[2025-10-05T14:30:45.234Z] [INFO] LLM API call starting {
-  model: 'claude-sonnet-4-20250514',
-  iteration: 1,
-  messagesCount: 1,
-  hasTools: true,
-  toolsCount: 2
-}
-
-[2025-10-05T14:30:45.235Z] [DEBUG] LLM API request content {
-  requestParams: '{"model":"claude-sonnet-4-20250514",...}'
-}
-
-[2025-10-05T14:30:58.456Z] [INFO] LLM API call completed {
-  iteration: 1,
-  duration: '13221ms',
-  inputTokens: 1234,
-  outputTokens: 567,
-  stopReason: 'end_turn'
-}
-
-[2025-10-05T14:30:58.457Z] [DEBUG] LLM API response content {
-  response: '[{"type":"text","text":"..."}]'
-}
-```
-
-**Testing logging locally**:
+**Quick Start**:
 ```bash
-# 1. Set log level to debug
-# Edit local.settings.json -> "LOG_LEVEL": "debug"
-
-# 2. Start server
-cd functions
-npm start
-
-# 3. Make a test request (in another terminal)
-curl -X POST http://localhost:7071/api/EditContent \
-  -H "Authorization: Bearer <your-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"command":"Make more concise","path":"/products/enterprise"}'
-
-# 4. Watch terminal for logs
-# You should see INFO logs for MCP calls
-# You should see DEBUG logs with full LLM content
+cd bruno/local-functions
+# Open in Bruno desktop app
 ```
 
-### Azure Production
+**Documentation**: [bruno/README.md](./bruno/README.md)
 
-**Where logs appear**: Azure Application Insights
+**Collections**:
+- `da-live-content/` - da.live Admin API endpoints
+- `local-functions/` - Azure Functions MCP endpoints
 
-**Access logs**:
-1. Go to Azure Portal
-2. Navigate to your Function App
-3. Select "Application Insights" or "Logs"
-4. Query with Kusto (KQL)
+---
 
-**Example queries**:
-
-```kql
-// All logs for a specific request ID
-traces
-| where customDimensions.requestId == "abc-123-def-456"
-| order by timestamp desc
-
-// All MCP tool calls
-traces
-| where message contains "MCP tool call"
-| order by timestamp desc
-
-// All LLM API calls with timing
-traces
-| where message contains "LLM API call completed"
-| extend duration = customDimensions.duration
-| project timestamp, duration, customDimensions
-| order by timestamp desc
-
-// Errors only
-traces
-| where severityLevel >= 3
-| order by timestamp desc
-```
-
-**Log level configuration**:
-- Set `LOG_LEVEL` application setting in Azure Portal
-- Default: `INFO` (recommended for production)
-- Change to `DEBUG` only for troubleshooting (increases log volume)
-
-**Structured metadata**:
-All logs include structured metadata for easy querying:
-- `requestId` - Unique ID for each request
-- `sessionId` - MCP session ID
-- `toolName` - MCP tool being called
-- `duration` - Operation timing
-- `inputTokens`, `outputTokens` - LLM usage
-- `error`, `stack` - Error details
-
-### Key Logging Points
-
-**EditContentFunction.js**:
-- Request received with command and path
-- LLM prompt building
-- MCP configuration initialization
-- LLM call start and completion
-- Final response timing
-
-**McpSessionFunction.js**:
-- Every MCP request (method, session ID)
-- Session creation and initialization
-- Tool call start with arguments
-- Tool call completion with timing
-- Tool call failures with error details
-
-**LlmClient.js**:
-- LLM API call start (model, iteration, message count)
-- Full request parameters (DEBUG level)
-- LLM API call completion (duration, tokens, stop reason)
-- Full response content (DEBUG level)
-- Tool use requests from LLM
-- Final response parsing
-
-**Implementation**:
-- Logger module: `/functions/src/modules/Logger.js`
-- Uses `context.log` API for Azure Functions
-- Falls back to `console.*` for local development
-- Level-based filtering to reduce noise
-
-## Architecture
-
-### Core Modules
-
-- **LLM Clients**: Provider-specific implementations with MCP support
-  - **ClaudeClient**: Claude Sonnet 4.5 (premium, best for writing)
-  - **GeminiClient**: Gemini 2.5 Pro (free tier, stubbed)
-  - **AzureAIFoundryClient**: GPT-4o Mini (cost-effective, stubbed)
-- **LlmClient**: Orchestrator that routes to provider based on configuration
-- **McpTools**: MCP tool implementations (get_dalive_content, save_dalive_content)
-- **DaliveClient**: HTTP client for da.live Admin API with multipart form upload
-- **PromptBuilder**: Constructs prompts from versioned templates (supports array format)
-- **Logger**: Request correlation and structured logging
-
-### MCP-Enabled Flow (EditContent)
+## Repository Structure
 
 ```
-1. Extract auth token from request
-2. Initialize MCP session with Bearer token
-3. Build LLM prompt from versioned template
-4. Start LLM conversation with MCP tools
-5. LLM autonomously calls get_dalive_content
-6. LLM generates edited HTML
-7. LLM autonomously calls save_dalive_content
-8. Return explanation + reasoning + timing metrics
+azure-da-mcp/
+├── functions/                 # Azure Functions MCP Server (Node 20)
+├── content-authoring-eval/    # Next.js evaluation app (Node 20, Docker)
+├── agent-claude-sdk/          # Agent SDK experiments (TypeScript)
+├── make-dot-com/              # Make.com agent prompts (Markdown)
+├── bruno/                     # API testing collections (Bruno)
+├── specs/                     # Feature specs and planning docs
+├── ai-docs/                   # Implementation insights and learnings
+└── README.md                  # This file
 ```
 
-### Error Handling
+## Common Dependencies
 
-Structured errors with appropriate HTTP status codes:
-- `400 Bad Request`: Invalid request format
-- `401 Unauthorized`: Invalid/expired token
-- `404 Not Found`: Page path not found
-- `422 Unprocessable Entity`: Validation failed
-- `502 Bad Gateway`: LLM API unavailable
-- `503 Service Unavailable`: da.live unavailable
+- **Node.js**: 20.x LTS (functions, content-authoring-eval)
+- **Claude Agent SDK**: `@anthropic-ai/claude-agent-sdk` (content-authoring-eval, agent-claude-sdk)
+- **Anthropic SDK**: `@anthropic-ai/sdk` (functions)
+- **MCP SDK**: `@modelcontextprotocol/sdk` (functions)
+- **Docker**: For production deployment (content-authoring-eval)
 
-## Performance Targets
+## Authentication
 
-From spec.md requirements:
-
-- End-to-end latency: **P95 < 5 seconds**
-- LLM API call: **P95 < 4 seconds**
-- da.live operations: **P95 < 500ms**
-- Test coverage: **80%+**
-- Zero critical errors in **10 consecutive runs**
-
-## Claude Desktop Integration
-
-### Setup
-
-1. **Ensure Azure Functions MCP Server is Running**
+All projects support Claude API authentication via:
+1. **OAuth Token** (Claude Pro/Max subscribers)
    ```bash
-   cd functions
-   npm start
-   # Server runs on http://localhost:7071
+   npm install -g @anthropic-ai/claude-cli
+   claude setup-token
    ```
+2. **API Key** (Developers)
+   - Get from [console.anthropic.com](https://console.anthropic.com/)
+   - Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-api03-...`
 
-2. **Configure Claude Desktop**
+## Development Workflows
 
-   Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-   ```json
-   {
-     "mcpServers": {
-       "azure-da-mcp": {
-         "command": "node",
-         "args": ["/absolute/path/to/azure-da-mcp/functions/mcp-stdio-bridge.js"],
-         "env": {
-           "MCP_SERVER_URL": "http://localhost:7071/api/mcp",
-           "DALIVE_BEARER_TOKEN": "your-dalive-bearer-token-here"
-         }
-       }
-     }
-   }
-   ```
-
-3. **Restart Claude Desktop**
-
-   The MCP tools will appear in Claude Desktop's tool palette.
-
-### Available MCP Tools
-
-- **`get_dalive_content`** - Fetch HTML content from da.live
-  - Input: `path` (e.g., `/products/enterprise`)
-  - Returns: HTML content, last modified timestamp, content length
-
-- **`save_dalive_content`** - Save edited HTML to da.live
-  - Input: `path`, `htmlContent`
-  - Returns: Success confirmation with updated timestamp
-
-### stdio-to-HTTP Bridge
-
-Claude Desktop requires stdio transport, but the MCP server runs over HTTP. The `mcp-stdio-bridge.js` bridges this gap:
-
-```
-Claude Desktop (stdio)
-  ↓
-mcp-stdio-bridge.js
-  ↓
-HTTP MCP Server (localhost:7071/api/mcp)
-  ↓
-da.live Admin API
+### Azure Functions Development
+```bash
+cd functions
+nvm use 20
+npm start
+# Server: http://localhost:7071
 ```
 
-**How it works:**
-1. Reads JSON-RPC messages from stdin
-2. Forwards to HTTP MCP server with Bearer token
-3. Manages session ID across requests
-4. Writes responses to stdout
-
-**Session Management:**
-- Sessions created on `initialize` call
-- 24-hour timeout for long conversations
-- Bearer token stored in session for all tool calls
-
-## Configuration
-
-### Azure Functions (host.json)
-
-```json
-{
-  "functionTimeout": "00:00:30",
-  "http": {
-    "cors": {
-      "allowedOrigins": ["*"]
-    }
-  }
-}
+### Content Authoring Eval Development
+```bash
+cd content-authoring-eval
+npm run dev
+# Server: http://localhost:3000
 ```
 
-### ESLint Rules
+### Agent SDK Prototyping
+```bash
+cd agent-claude-sdk/chat-cli
+npm run dev
+```
 
-- ES2022 features
-- ESLint recommended rules
-- Standard JavaScript best practices
+### Make.com Prompt Updates
+```bash
+cd make-dot-com/v1-content-migration
+# Edit prompt files, copy to Make.com UI
+```
 
-## Documentation
+### API Testing
+```bash
+cd bruno
+# Open collections in Bruno desktop app
+```
 
-Detailed documentation available in `/specs/001-let-s-build/`:
+## Testing Philosophy
 
-- **spec.md**: Feature specification
-- **plan.md**: Implementation plan
-- **data-model.md**: Entity relationships
-- **research.md**: Technical decisions
-- **quickstart.md**: Developer guide
-- **contracts/**: API specifications
-- **tasks.md**: Implementation tasks
+**Real tests only**: No mocks, no stubs. If it doesn't test actual behavior with real APIs, we don't do it.
 
-## Known Issues
+- `functions/`: E2E tests with real Anthropic + da.live APIs
+- `content-authoring-eval/`: Manual testing via web UI + curl
+- `agent-claude-sdk/`: Ad-hoc testing per agent
+- `make-dot-com/`: Manual testing in Make.com workflows
 
-⚠️ **Jest cleanup hanging**
-E2E tests execute successfully but Jest cleanup sometimes hangs. All assertions pass. This is a known Jest issue with ES modules and async operations. Use Ctrl+C to exit after tests complete.
+## Documentation Standards
 
-## Next Steps
+Each subproject follows a consistent documentation pattern:
 
-Remaining tasks (7/29):
+### README.md (User-facing)
+- Quick start guide
+- Installation instructions
+- Usage examples
+- Feature overview
+- Links to detailed docs
 
-1. ⏳ Contract tests for da.live API
-2. ⏳ Contract tests for Anthropic API
-3. ⏳ End-to-end smoke test
-4. ⏳ Full test suite with coverage validation
-5. ⏳ Verify quickstart.md works end-to-end
-6. ⏳ Final validation
-7. ⏳ Merge to main branch
+### CLAUDE.md (AI context)
+- Project-specific instructions for Claude Code
+- Architecture decisions
+- Common issues and solutions
+- Development workflows
+- Memory-optimized for AI consumption
+
+## Related Resources
+
+- [Claude Agent SDK Documentation](https://docs.anthropic.com/en/docs/agents)
+- [Anthropic API Documentation](https://docs.anthropic.com/)
+- [Model Context Protocol Spec](https://modelcontextprotocol.io/)
+- [da.live Admin API](https://admin.da.live/)
 
 ## Contributing
 
-This project follows:
-- **Real tests only**: No mocks, no stubs - test with real APIs
-- **Ad-hoc tests**: Quick module verification in `tests/adhoc/`
-- **E2E tests**: Full workflow tests with real APIs in `tests/e2e/`
-- **Constitution principles**: Simplicity, no premature abstractions
-- **ES modules**: `type: "module"` throughout
-- **Azure Functions v4**: Node.js programming model
+This is a personal monorepo for AI content authoring experimentation. Each subproject is independent with its own dependencies and configuration.
 
 ## License
 
@@ -709,6 +230,5 @@ MIT
 
 ---
 
-**Generated with** [Claude Code](https://claude.com/claude-code)
-**Feature Branch**: `001-let-s-build`
-**Implementation Date**: October 2025
+**Last Updated**: 2025-12-29
+**Primary Tools**: Claude Code, Agent SDK, Azure Functions, Next.js, MCP
