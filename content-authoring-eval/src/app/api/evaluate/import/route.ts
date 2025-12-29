@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { safeValidateBatchInput } from '@/lib/validation/batch-schema';
+import { batchStorage } from '@/lib/batch-storage';
 
 const logger = createLogger('api');
 
@@ -50,13 +51,19 @@ export async function POST(request: NextRequest) {
       pageCount: batchData.pages.length,
     });
 
-    // In Phase 26, we just validate and return
-    // In Phase 27-28, this would store the batch for processing
+    // Phase 27: Store batch in memory for processing
+    batchStorage.storeBatch(batchData.batchId, batchData);
+
+    logger.info('Batch stored successfully', {
+      batchId: batchData.batchId,
+      pageCount: batchData.pages.length,
+    });
+
     return NextResponse.json({
       success: true,
       batchId: batchData.batchId,
       pageCount: batchData.pages.length,
-      message: 'Batch validated successfully. Ready for evaluation.',
+      message: 'Batch validated and stored successfully. Ready for evaluation.',
     });
   } catch (error) {
     logger.error('Import failed', error instanceof Error ? error : new Error(String(error)));

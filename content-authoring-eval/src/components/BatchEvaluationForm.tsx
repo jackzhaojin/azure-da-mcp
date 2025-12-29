@@ -1,281 +1,194 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { useEvaluations } from '@/hooks/useEvaluations';
-import { EvaluationRequest, EvaluationReport } from '@/types/evaluation';
-import { API_ENDPOINTS } from '@/lib/constants';
-
-interface BatchRow {
-  id: string;
-  migratedUrl: string;
-  pdfPath: string;
-  expectedUrl: string;
-}
+import { BatchEvaluationInput } from '@/types/evaluation';
+import { JsonBatchImport } from '@/components/JsonBatchImport';
+import { BatchExportButton } from '@/components/BatchExportButton';
+import { FileJson, ListChecks, ChevronDown, ChevronRight } from 'lucide-react';
 
 export function BatchEvaluationForm() {
-  const router = useRouter();
-  const { addEvaluation } = useEvaluations();
-
-  const [rows, setRows] = useState<BatchRow[]>([
-    { id: '1', migratedUrl: '', pdfPath: '', expectedUrl: '' },
-    { id: '2', migratedUrl: '', pdfPath: '', expectedUrl: '' },
-    { id: '3', migratedUrl: '', pdfPath: '', expectedUrl: '' },
-  ]);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [batchData, setBatchData] = useState<BatchEvaluationInput | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const addRow = () => {
-    if (rows.length >= 50) {
-      setError('Maximum 50 evaluations allowed per batch');
-      return;
-    }
-    setRows([
-      ...rows,
-      { id: Date.now().toString(), migratedUrl: '', pdfPath: '', expectedUrl: '' },
-    ]);
-  };
-
-  const removeRow = (id: string) => {
-    if (rows.length <= 1) {
-      setError('At least one row is required');
-      return;
-    }
-    setRows(rows.filter((row) => row.id !== id));
-  };
-
-  const updateRow = (id: string, field: keyof BatchRow, value: string) => {
-    setRows(rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
-  };
-
-  const validateUrl = (url: string): boolean => {
-    if (!url.trim()) return false;
-    try {
-      const parsed = new URL(url);
-      return ['http:', 'https:'].includes(parsed.protocol);
-    } catch {
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleImportSuccess = (importedBatch: BatchEvaluationInput) => {
+    setBatchData(importedBatch);
     setError(null);
-    setSuccess(null);
-    setProgress(0);
+    setSuccess(`Successfully imported ${importedBatch.pages.length} pages for evaluation`);
+    setIsExpanded(true);
+  };
 
-    // Validate at least one row has URL
-    const validRows = rows.filter((row) => row.migratedUrl.trim());
-    if (validRows.length === 0) {
-      setError('At least one migrated URL is required');
+  const handleImportError = (errorMessage: string) => {
+    setError(errorMessage);
+    setSuccess(null);
+  };
+
+  const handleClearBatch = () => {
+    setBatchData(null);
+    setSuccess(null);
+    setError(null);
+    setIsExpanded(false);
+  };
+
+  const handleStartEvaluation = () => {
+    if (!batchData) {
+      setError('Please import a batch file first');
       return;
     }
 
-    // Validate all provided URLs
-    for (const row of validRows) {
-      if (!validateUrl(row.migratedUrl)) {
-        setError(`Invalid migrated URL: ${row.migratedUrl}`);
-        return;
-      }
-      if (row.expectedUrl && !validateUrl(row.expectedUrl)) {
-        setError(`Invalid expected URL: ${row.expectedUrl}`);
-        return;
-      }
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Build request
-      const evaluations: EvaluationRequest[] = validRows.map((row) => ({
-        migratedUrl: row.migratedUrl.trim(),
-        ...(row.pdfPath.trim() && { pdfPath: row.pdfPath.trim() }),
-        ...(row.expectedUrl.trim() && { expectedUrl: row.expectedUrl.trim() }),
-      }));
-
-      // Submit batch evaluation
-      const response = await fetch(`${API_ENDPOINTS.evaluate}/batch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ evaluations }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `API error: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      // Save all reports to localStorage
-      result.reports.forEach((report: EvaluationReport) => {
-        addEvaluation(report);
-      });
-
-      setProgress(100);
-      setSuccess(
-        `Batch complete! ${result.completedEvaluations}/${result.totalEvaluations} evaluations successful. Average score: ${result.summary.averageScore}`
-      );
-
-      // Navigate to dashboard after short delay
-      setTimeout(() => {
-        router.push('/');
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit batch evaluation');
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Phase 27: For now, just show a message
+    // Phase 28 will implement the actual batch evaluation with SSE streaming
+    setSuccess('Batch evaluation will be implemented in Phase 28 (SSE Streaming)');
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Batch Evaluation</CardTitle>
-        <CardDescription>
-          Evaluate multiple pages at once. Enter up to 50 URL/PDF pairs for sequential processing.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Progress Bar (visible during submission) */}
-          {isSubmitting && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Processing batch...</span>
-                <span>{progress}%</span>
-              </div>
-              <Progress value={progress} className="w-full" />
-            </div>
-          )}
+    <div className="space-y-6">
+      {/* Import Component */}
+      <JsonBatchImport onImportSuccess={handleImportSuccess} onError={handleImportError} />
 
-          {/* Success Alert */}
-          {success && (
-            <Alert className="bg-green-50 border-green-200">
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
-            </Alert>
-          )}
+      {/* Success Alert */}
+      {success && (
+        <Alert className="bg-green-50 border-green-200">
+          <AlertDescription className="text-green-800">{success}</AlertDescription>
+        </Alert>
+      )}
 
-          {/* Error Alert */}
-          {error && (
-            <Alert className="bg-red-50 border-red-200">
-              <AlertDescription className="text-red-800">{error}</AlertDescription>
-            </Alert>
-          )}
+      {/* Error Alert */}
+      {error && (
+        <Alert className="bg-red-50 border-red-200">
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
 
-          {/* Batch Rows */}
-          <div className="space-y-4">
+      {/* Batch Info Card (shown after import) */}
+      {batchData && (
+        <Card>
+          <CardHeader>
             <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold">Evaluation Entries</Label>
-              <Badge variant="outline">
-                {rows.filter((r) => r.migratedUrl.trim()).length} of {rows.length} filled
-              </Badge>
+              <div className="flex items-center gap-3">
+                <FileJson className="h-5 w-5 text-blue-600" />
+                <div>
+                  <CardTitle>Batch Loaded: {batchData.batchId}</CardTitle>
+                  <CardDescription>{batchData.pages.length} pages ready for evaluation</CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-sm">
+                  {batchData.pages.length} pages
+                </Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                      Hide Pages
+                    </>
+                  ) : (
+                    <>
+                      <ChevronRight className="h-4 w-4 mr-1" />
+                      Show Pages
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
+          </CardHeader>
 
-            <div className="space-y-3">
-              {rows.map((row, index) => (
-                <Card key={row.id} className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-800 text-sm font-medium flex items-center justify-center">
-                      {index + 1}
-                    </div>
+          {isExpanded && (
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <ListChecks className="h-4 w-4" />
+                  Page List
+                </div>
 
-                    <div className="flex-1 space-y-3">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">
-                          Migrated URL {index === 0 && '*'}
-                        </Label>
-                        <Input
-                          type="url"
-                          placeholder="https://example.com/migrated-page"
-                          value={row.migratedUrl}
-                          onChange={(e) => updateRow(row.id, 'migratedUrl', e.target.value)}
-                          disabled={isSubmitting}
-                          required={index === 0}
-                        />
-                      </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700 w-16">#</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">Page ID</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">Title</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">PDF URL</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">Web URL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {batchData.pages.map((page, index) => (
+                        <tr key={page.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-gray-500">{index + 1}</td>
+                          <td className="px-4 py-2 font-mono text-xs">{page.id}</td>
+                          <td className="px-4 py-2">{page.title}</td>
+                          <td className="px-4 py-2 font-mono text-xs">
+                            <a
+                              href={page.pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline truncate block max-w-xs"
+                            >
+                              {page.pdfUrl}
+                            </a>
+                          </td>
+                          <td className="px-4 py-2 font-mono text-xs">
+                            <a
+                              href={page.webUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline truncate block max-w-xs"
+                            >
+                              {page.webUrl}
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">PDF Reference</Label>
-                          <Input
-                            type="text"
-                            placeholder="https://example.com/original.pdf"
-                            value={row.pdfPath}
-                            onChange={(e) => updateRow(row.id, 'pdfPath', e.target.value)}
-                            disabled={isSubmitting}
-                          />
-                        </div>
+                {/* Action Buttons */}
+                <div className="flex justify-between items-center pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={handleClearBatch}>
+                    Clear Batch
+                  </Button>
 
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Original URL</Label>
-                          <Input
-                            type="url"
-                            placeholder="https://example.com/original-page"
-                            value={row.expectedUrl}
-                            onChange={(e) => updateRow(row.id, 'expectedUrl', e.target.value)}
-                            disabled={isSubmitting}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {rows.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeRow(row.id)}
-                        disabled={isSubmitting}
-                        className="flex-shrink-0"
-                      >
-                        Remove
-                      </Button>
-                    )}
+                  <div className="flex gap-3">
+                    <BatchExportButton batchId={batchData.batchId} disabled={true} />
+                    <Button type="button" onClick={handleStartEvaluation}>
+                      Start Evaluation
+                    </Button>
                   </div>
-                </Card>
-              ))}
-            </div>
+                </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addRow}
-              disabled={isSubmitting || rows.length >= 50}
-              className="w-full"
-            >
-              + Add Another Entry
-            </Button>
-          </div>
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertDescription className="text-blue-800 text-sm">
+                    <strong>Phase 27 Note:</strong> The export button is disabled because no results
+                    exist yet. Batch evaluation with SSE streaming will be implemented in Phase 28.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
-          {/* Submit Buttons */}
-          <div className="flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push('/')}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Processing Batch...' : 'Start Batch Evaluation'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      {/* Empty State (when no batch loaded) */}
+      {!batchData && (
+        <Card className="border-dashed">
+          <CardContent className="pt-6 pb-6 text-center text-gray-500">
+            <FileJson className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+            <p className="text-sm">No batch loaded. Import a JSON file to get started.</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
