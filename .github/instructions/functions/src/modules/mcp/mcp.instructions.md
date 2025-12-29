@@ -1,3 +1,7 @@
+---
+applyTo: "functions/src/modules/mcp/**/*.js"
+---
+
 # MCP (Model Context Protocol) Instructions
 
 ## MCP Implementation Requirements

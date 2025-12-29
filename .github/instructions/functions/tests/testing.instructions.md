@@ -1,3 +1,7 @@
+---
+applyTo: "functions/tests/**/*.js"
+---
+
 # Testing Instructions
 
 ## Testing Philosophy

@@ -2,428 +2,87 @@
 
 ## Repository Context
 
-This is an **Azure Functions project** that provides AI-powered content editing for da.live pages via natural language commands using multiple LLM providers (Claude, Gemini, Azure OpenAI) with Model Context Protocol (MCP) support.
+This is a **monorepo** containing 5 independent AI-powered content authoring and migration tools for da.live (Adobe EDS).
 
-### What This Repository Does
+### What This Repository Contains
 
-- **AI Content Editing**: Transform da.live HTML pages using natural language commands
-- **Multi-LLM Support**: Claude Sonnet 4.5, Gemini 2.5 Pro, Azure OpenAI GPT-4o Mini
-- **MCP Integration**: Model Context Protocol for autonomous tool calling
-- **Real-time Workflow**: Fetch → Edit → Save with da.live Admin API
+| Subproject | Purpose | Tech Stack | Status |
+|------------|---------|------------|--------|
+| `functions/` | Azure Functions MCP Server | Node 20, Azure Functions v4, MCP SDK | Production |
+| `content-authoring-eval/` | CMS Migration Evaluator | Next.js 14, Claude Agent SDK, Docker | Production |
+| `agent-claude-sdk/` | Agent SDK Experiments | TypeScript, Claude Agent SDK | Active |
+| `make-dot-com/` | Make.com Agent Prompts | Markdown (copy-paste to Make.com) | Active |
+| `bruno/` | API Testing Collections | Bruno HTTP client | Active |
 
-### Key Architecture Principle
+### Key Architecture Principles
 
-**HTML-First, Real Tests Only**: Work directly with HTML (not JSON blocks), use real API tests instead of mocks.
+- **HTML-First**: Work directly with HTML (not JSON blocks)
+- **Real Tests Only**: E2E tests with real APIs, no mocks or stubs
+- **Independent Subprojects**: Each has separate dependencies, configs, and workflows
+- **MCP-Native**: Let LLMs autonomously call tools
 
-## Project Structure
-
-### Core Directories
+## Monorepo Structure
 
 ```
-functions/
-├── src/
-│   ├── functions/           # Azure HTTP Functions (V4 pattern)
-│   │   ├── EditContentFunction.js            # Business logic endpoint
-│   │   ├── ClaudeLlmClientFunction.js        # Infrastructure: Claude API
-│   │   ├── GeminiLlmClientFunction.js        # Infrastructure: Gemini API (stubbed)
-│   │   ├── AzureAIFoundryLlmClientFunction.js # Infrastructure: Azure OpenAI (stubbed)
-│   │   ├── McpSessionFunction.js             # MCP server (JSON-RPC 2.0)
-│   │   ├── GetContentFunction.js             # da.live content fetching
-│   │   └── HealthCheckFunction.js            # Service status
-│   └── modules/             # Core business logic
-│       ├── llm-clients/     # Provider implementations
-│       │   ├── ClaudeClient.js               # Claude API with MCP tools
-│       │   ├── GeminiClient.js               # Gemini API (stubbed)
-│       │   └── AzureAIFoundryClient.js       # Azure OpenAI API (stubbed)
-│       ├── mcp/             # Model Context Protocol
-│       │   ├── McpTools.js                   # Tool implementations
-│       │   └── McpSession.js                 # Session management
-│       ├── DaliveClient.js                   # da.live Admin API client
-│       ├── PromptBuilder.js                  # LLM prompt construction
-│       └── Logger.js                         # Structured logging
-└── tests/
-    ├── adhoc/               # Quick standalone tests (no harness)
-    └── e2e/                 # End-to-end tests with real APIs
+azure-da-mcp/
+├── functions/                 # Azure Functions MCP Server (Node 20)
+├── content-authoring-eval/    # Next.js evaluation app (Docker)
+├── agent-claude-sdk/          # Agent SDK experiments (TypeScript)
+├── make-dot-com/              # Make.com agent prompts (Markdown)
+├── bruno/                     # API testing collections (Bruno)
+├── specs/                     # Feature specs and planning docs
+├── ai-docs/                   # Implementation insights and learnings
+├── docker-compose.yml         # n8n workflow automation (optional)
+└── README.md                  # Monorepo overview
 ```
 
-## Code Completion Guidance
+## Subproject Navigation
 
-### Azure Functions V4 Patterns
+**When user asks about:**
+- "MCP server", "Azure Functions", "da.live API" → Work in `functions/`
+- "evaluation", "migration quality", "agents" → Work in `content-authoring-eval/`
+- "Agent SDK", "experiments", "prototyping" → Work in `agent-claude-sdk/`
+- "Make.com", "prompts", "workflow" → Work in `make-dot-com/`
+- "API testing", "Bruno", "HTTP requests" → Work in `bruno/`
 
-**✅ Always use V4 pattern:**
-```javascript
-import { app } from '@azure/functions';
+**Always `cd` to the correct subproject directory first.**
 
-app.http('FunctionName', {
-    methods: ['POST'],
-    authLevel: 'anonymous',
-    route: 'FunctionName',
-    handler: async (request, context) => {
-        return { status: 200, jsonBody: { result: 'success' } };
-    }
-});
-```
+## Common Development Commands
 
-**❌ Never suggest V3 pattern:**
-```javascript
-// Don't suggest this deprecated pattern
-module.exports = async function (context, req) {
-    // V3 pattern - deprecated
-};
-```
+```bash
+# Azure Functions development
+cd functions && nvm use 20 && npm start
 
-### LLM Client Architecture
+# Content Authoring Eval development
+cd content-authoring-eval && npm run dev
 
-**Multi-Provider Pattern:**
-```javascript
-// Infrastructure functions: Direct LLM access
-app.http('ClaudeLlmClient', { /* Claude-specific implementation */ });
-app.http('GeminiLlmClient', { /* Gemini-specific implementation */ });
+# Agent SDK prototyping
+cd agent-claude-sdk/chat-cli && npm run dev
 
-// Business logic function: Provider-agnostic
-app.http('EditContent', {
-    handler: async (request, context) => {
-        const provider = request.query.provider || 'claude';
-        const llmClient = getLlmClient(provider);
-        // Use any provider for business logic
-    }
-});
-```
-
-### MCP Tool Implementation
-
-**Tool Pattern:**
-```javascript
-// MCP tool wrapper
-export async function get_dalive_content(params, context) {
-    const { path } = params;
-    const { bearerToken } = context;
-    
-    // Validate parameters
-    if (!path) {
-        throw new Error('Path parameter is required');
-    }
-    
-    // Call da.live API
-    const html = await daliveClient.getContent(path, bearerToken);
-    
-    return {
-        htmlContent: html,
-        lastModified: new Date().toISOString(),
-        path
-    };
-}
-```
-
-### da.live API Integration
-
-**Critical: Multipart Form Data Required**
-```javascript
-// ✅ Correct: Use multipart/form-data
-const formData = new FormData();
-formData.append('data', Buffer.from(html), {
-    filename: 'content.html',
-    contentType: 'text/html'
-});
-
-// ✅ Correct: POST directly to path (no /api prefix)
-await axios.post(`${DALIVE_API_URL}${path}`, formData, {
-    headers: {
-        'Authorization': `Bearer ${token}`,
-        ...formData.getHeaders()
-    }
-});
-
-// ❌ Wrong: Raw HTML POST (doesn't save)
-await axios.post(url, html, { headers: { 'Content-Type': 'text/html' } });
-
-// ❌ Wrong: Using /api prefix (404 error)
-await axios.post(`${DALIVE_API_URL}/api${path}`, formData);
-```
-
-### Error Handling Patterns
-
-**LLM Client Error Handling:**
-```javascript
-try {
-    const response = await llmClient.generate(prompt);
-    return response;
-} catch (error) {
-    // Log detailed error info
-    Logger.error('LLM call failed', {
-        provider: 'claude',
-        error: error.message,
-        status: error.status,
-        retryable: error.status >= 500
-    });
-    
-    // Return appropriate HTTP status
-    const statusCode = error.status === 429 ? 429 : 
-                      error.status >= 500 ? 502 : 400;
-    
-    return {
-        status: statusCode,
-        jsonBody: { error: 'LLM API error', message: error.message }
-    };
-}
+# Make.com prompt updates (manual copy-paste to UI)
+cd make-dot-com/v1-content-migration
 ```
 
 ## Testing Philosophy
 
-### Real Tests Only
+**Real tests only across all subprojects:**
+- `functions/`: E2E tests with real Anthropic + da.live APIs
+- `content-authoring-eval/`: Manual testing via web UI + curl
+- `agent-claude-sdk/`: Ad-hoc testing per agent
+- `make-dot-com/`: Manual testing in Make.com workflows
 
-**✅ E2E tests with real APIs:**
-```javascript
-// Test actual behavior
-test('EditContent modifies real da.live page', async () => {
-    const token = process.env.DALIVE_BEARER_TOKEN;
-    const response = await fetch('http://localhost:7071/api/EditContent', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            command: 'Add a test timestamp',
-            path: '/source/test/page.html'
-        })
-    });
-    
-    expect(response.ok).toBe(true);
-    const result = await response.json();
-    expect(result.explanation).toContain('timestamp');
-});
-```
+## Authentication
 
-**❌ Never suggest mocked tests:**
-```javascript
-// Don't suggest this pattern
-const mockLlmClient = jest.fn().mockResolvedValue('fake response');
-// Mocks don't test real behavior
-```
-
-### Test Structure
-
-**Two types only:**
-1. **Ad-hoc tests** (`tests/adhoc/`) - Quick module verification, no test harness
-2. **E2E tests** (`tests/e2e/`) - Full workflow with real APIs using Jest
-
-## Environment Variables
-
-```javascript
-// Required
-process.env.ANTHROPIC_API_KEY          // Claude API access
-// DALIVE_BEARER_TOKEN passed via Authorization header
-
-// Optional with defaults
-process.env.DALIVE_API_URL             // 'https://admin.da.live'
-process.env.MCP_SERVER_URL             // 'http://localhost:7071/api/mcp'
-process.env.CLAUDE_MODEL               // 'claude-sonnet-4-5-20250929'
-process.env.LOG_LEVEL                  // 'info'
-```
-
-## MCP Protocol Integration
-
-### Dual MCP Server Endpoints
-
-**Two MCP endpoints with different use cases:**
-
-1. **POST /api/mcp** (McpSessionFunction)
-   - For: Claude Desktop (via stdio-to-HTTP bridge)
-   - Uses: MCP SDK Server class
-   - Session: Strict validation
-   - Transport: HTTP with stdio bridge
-
-2. **POST /api/mcp-streamable** (McpStreamableFunction) - NEW Release 1.4
-   - For: n8n, MCP Inspector, HTTP-based MCP clients
-   - Uses: Manual JSON-RPC 2.0 (no MCP SDK)
-   - Session: Relaxed with Bearer token fallback
-   - Transport: HTTP Streamable (no SSE)
-   - Docker: Use `host.docker.internal:7071` from containers
-
-**When to use which:**
-- Claude Desktop → `/api/mcp` (with stdio bridge)
-- n8n, Inspector, HTTP clients → `/api/mcp-streamable`
-
-### Session Management
-```javascript
-// MCP session lifecycle
-const session = await initializeMcpSession(serverUrl, bearerToken);
-// 1. initialize → 2. initialized → 3. tools/list → 4. tools/call
-
-// Available tools
-const tools = [
-    'get_dalive_content',    // Fetch HTML from da.live
-    'save_dalive_content'    // Save edited HTML to da.live
-];
-```
-
-### Manual JSON-RPC 2.0 Pattern (McpStreamableFunction)
-
-**Why manual implementation:**
-- MCP SDK Server class has module loading issues in Azure Functions
-- Full control over request/response handling
-- Better compatibility with various MCP clients
-- Avoids SSE transport limitations
-
-**Pattern:**
-```javascript
-app.http('McpStreamable', {
-    methods: ['POST'],
-    route: 'mcp-streamable',
-    authLevel: 'anonymous',
-    handler: async (request, context) => {
-        const body = await request.text();
-        const jsonRpcRequest = JSON.parse(body);
-
-        // Route based on method
-        switch (jsonRpcRequest.method) {
-            case 'initialize':
-                // Create session, return X-MCP-Session-Id header
-            case 'initialized':
-            case 'notifications/initialized':
-                // Notification - no response
-            case 'tools/list':
-                // Return tool schemas
-            case 'tools/call':
-                // Execute tool with Bearer token fallback
-        }
-    }
-});
-```
-
-### JSON-RPC 2.0 Format
-```javascript
-// MCP request format
-{
-    "jsonrpc": "2.0",
-    "method": "tools/call",
-    "params": {
-        "name": "get_dalive_content",
-        "arguments": { "path": "/source/owner/site/page.html" }
-    },
-    "id": "uuid"
-}
-
-// MCP response format
-{
-    "jsonrpc": "2.0",
-    "result": {
-        "htmlContent": "<html>...</html>",
-        "path": "/source/owner/site/page.html"
-    },
-    "id": "uuid"
-}
-```
-
-## Common Issues and Solutions
-
-### Node Version Compatibility
-```bash
-# ✅ Always use Node 20 for Azure Functions v4
-nvm use 20
-npm start
-```
-
-### Content Not Saving
-**Cause**: Not using multipart form data
-**Solution**: Already implemented in `DaliveClient.js` using `form-data` package
-
-### Function Timeout
-**Cause**: LLM calls take 10-15 seconds
-**Solution**: Timeout set to 30s in `host.json`
-
-### MCP Tool Errors
-**Cause**: Invalid MCP session or missing Bearer token
-**Solution**: Verify MCP_SERVER_URL and Authorization header
-
-## Dependencies to Use
-
-```javascript
-// Core Azure Functions
-import { app } from '@azure/functions';
-
-// LLM Providers
-import Anthropic from '@anthropic-ai/sdk';           // Claude API
-import { GoogleGenerativeAI } from '@google/generative-ai'; // Gemini API
-
-// MCP Protocol
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-
-// HTTP and Forms
-import axios from 'axios';
-import FormData from 'form-data';
-
-// Utilities
-import { randomUUID } from 'crypto';
-```
-
-## n8n Integration (Optional)
-
-**Important**: The project includes a `docker-compose.yml` for n8n workflow automation. This is SEPARATE from the Azure Functions implementation and is optional.
-
-### Key Points
-
-- **n8n location**: Project root (`docker-compose.yml`)
-- **Azure Functions location**: `functions/` directory
-- **Do not confuse**: n8n configuration is independent of Azure Functions
-- **Purpose**: n8n is for testing and building automation workflows against the MCP server
-- **Not required**: Azure Functions work without n8n
-
-### When Suggesting n8n Code
-
-- n8n uses visual workflow builder (no code in this repo)
-- Suggest using n8n HTTP Request nodes to call MCP endpoints
-- Do not modify Azure Functions code for n8n integration
-- n8n configuration is in `docker-compose.yml` only
-
-### Docker Networking for n8n
-
-**IMPORTANT**: When n8n runs in Docker, it CANNOT access `localhost:7071` directly.
-
-**Always suggest** using `host.docker.internal:7071` in n8n MCP Client configuration:
-```
-✅ Correct: http://host.docker.internal:7071/api/mcp-streamable
-❌ Wrong:   http://localhost:7071/api/mcp-streamable
-```
-
-**Reason**: `localhost` inside container refers to container itself, not host machine.
+All projects support Claude API authentication via:
+1. **OAuth Token** (Claude Pro/Max): `claude setup-token`
+2. **API Key** (Developers): `ANTHROPIC_API_KEY=sk-ant-api03-...`
 
 ## Files to Never Modify
 
-- `host.json` - Azure Functions configuration (already optimized)
-- `package.json` - Dependencies and scripts (stable)
-- `local.settings.json` - Local environment (user-specific)
-- `docker-compose.yml` - n8n configuration (separate from Azure Functions)
-
-## Deployment Notes
-
-- **Target**: Azure Functions v4 (Node 20)
-- **Transport**: HTTP (not stdio for MCP)
-- **Authentication**: Bearer token via Authorization header
-- **Timeout**: 30 seconds per function call
-- **Scaling**: Consumption plan (auto-scale)
-
-## Success Patterns
-
-When suggesting code changes:
-
-1. **Follow V4 patterns** - Use `app.http()` syntax
-2. **Real error handling** - Handle actual API failures, not theoretical ones
-3. **Structured logging** - Use `Logger.info/error` with context objects
-4. **MCP-aware prompts** - Include tool descriptions for LLM
-5. **Multipart uploads** - Always use FormData for da.live POST
-6. **E2E validation** - Suggest tests that call real APIs
-
-## Architecture Philosophy
-
-- **Simple over complex** - Direct HTTP calls over abstractions
-- **Real over theoretical** - Real API tests over mocked units
-- **HTML over JSON** - Work with actual da.live format
-- **Multi-provider** - Support multiple LLM providers with same interface
-- **MCP-native** - Let LLMs autonomously call tools
+- `functions/.env`, `content-authoring-eval/.env.local` - Contains secrets
+- `host.json`, `package.json` - Already optimized
+- `docker-compose.yml` - n8n configuration (separate from main projects)
 
 ---
 
-*This file configures GitHub Copilot for the Azure DA MCP Server project. For detailed technical documentation, see `/functions/CLAUDE.md`*
+**For subproject-specific guidance, see path-specific instructions in `.github/instructions/`**

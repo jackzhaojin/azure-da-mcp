@@ -1,3 +1,7 @@
+---
+applyTo: "functions/src/functions/**/*.js"
+---
+
 # Azure Functions Instructions
 
 ## V4 Pattern Requirements

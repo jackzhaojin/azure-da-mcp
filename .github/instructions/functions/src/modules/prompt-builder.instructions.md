@@ -1,3 +1,7 @@
+---
+applyTo: "functions/src/modules/PromptBuilder.js"
+---
+
 # Prompt Builder Instructions
 
 ## Prompt Construction Pattern
