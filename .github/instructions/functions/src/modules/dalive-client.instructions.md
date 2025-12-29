@@ -1,3 +1,7 @@
+---
+applyTo: "functions/src/modules/DaliveClient.js"
+---
+
 # da.live API Client Instructions
 
 ## Critical Requirements

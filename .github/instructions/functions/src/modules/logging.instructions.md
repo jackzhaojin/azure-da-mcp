@@ -1,3 +1,7 @@
+---
+applyTo: "functions/src/modules/Logger.js"
+---
+
 # Logging Instructions
 
 ## Structured Logging Pattern

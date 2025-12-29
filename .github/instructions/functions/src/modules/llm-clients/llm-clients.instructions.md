@@ -1,3 +1,7 @@
+---
+applyTo: "functions/src/modules/llm-clients/**/*.js"
+---
+
 # LLM Clients Instructions
 
 ## Architecture Pattern
