@@ -1,23 +1,37 @@
 /**
- * PHASE 28: Batch Evaluation with SSE Streaming API Route
+ * PHASE 28-30: Batch Evaluation with SSE Streaming API Route
  *
  * POST /api/evaluate/batch-stream?batchId={batchId}
  * Start batch evaluation with Server-Sent Events (SSE) for real-time progress
+ *
+ * PHASE 30 Enhancements:
+ * - Timeout detection (5 min per page max)
+ * - Retry logic with exponential backoff (3 attempts)
+ * - Graceful error handling for invalid URLs
+ * - Network interruption recovery
  */
 
 import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { batchStorage } from '@/lib/batch-storage';
-import { runEvaluation } from '@/lib/evaluator';
+import { runEvaluation, ProgressCallback } from '@/lib/evaluator';
 import {
   BatchEvaluationEvent,
   BatchEvaluationOutput,
   BatchPageResult,
   DimensionResult,
   AgentResult,
+  EvaluationReport,
 } from '@/types/evaluation';
 
 const logger = createLogger('api');
+
+/**
+ * Configuration constants for edge case handling
+ */
+const PAGE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max per page
+const MAX_RETRIES = 3; // Retry failed pages up to 3 times
+const RETRY_DELAY_MS = 2000; // Initial retry delay (exponential backoff)
 
 /**
  * Convert score to grade
@@ -28,6 +42,72 @@ function scoreToGrade(score: number): 'Excellent' | 'Good' | 'Acceptable' | 'Nee
   if (score >= 60) return 'Acceptable';
   if (score >= 40) return 'Needs Improvement';
   return 'Critical';
+}
+
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Run evaluation with timeout
+ */
+async function runEvaluationWithTimeout(
+  request: { pdfPath?: string; migratedUrl: string },
+  onProgress: ProgressCallback,
+  timeoutMs: number
+): Promise<EvaluationReport> {
+  return Promise.race([
+    runEvaluation(request, onProgress),
+    new Promise<EvaluationReport>((_, reject) =>
+      setTimeout(() => reject(new Error(`Page evaluation timeout after ${timeoutMs / 1000}s`)), timeoutMs)
+    ),
+  ]);
+}
+
+/**
+ * Run evaluation with retry logic and exponential backoff
+ */
+async function runEvaluationWithRetry(
+  request: { pdfPath?: string; migratedUrl: string },
+  onProgress: ProgressCallback,
+  maxRetries: number = MAX_RETRIES
+): Promise<EvaluationReport> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      logger.info('Attempting evaluation', { attempt, maxRetries, url: request.migratedUrl });
+
+      // Run with timeout
+      const result = await runEvaluationWithTimeout(request, onProgress, PAGE_TIMEOUT_MS);
+
+      logger.info('Evaluation successful', { attempt, url: request.migratedUrl });
+      return result;
+
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      logger.warn('Evaluation attempt failed', {
+        attempt,
+        maxRetries,
+        error: lastError.message,
+        url: request.migratedUrl,
+      });
+
+      // If not the last attempt, wait before retrying (exponential backoff)
+      if (attempt < maxRetries) {
+        const delayMs = RETRY_DELAY_MS * Math.pow(2, attempt - 1); // 2s, 4s, 8s
+        logger.info('Retrying after delay', { delayMs, attempt: attempt + 1 });
+        await sleep(delayMs);
+      }
+    }
+  }
+
+  // All retries exhausted
+  throw lastError || new Error('Evaluation failed after all retries');
 }
 
 /**
@@ -74,13 +154,13 @@ async function processBatchWithStreaming(
         };
         await writer.write(encoder.encode(`data: ${JSON.stringify(startedEvent)}\n\n`));
 
-        // Run evaluation for this page
+        // Run evaluation for this page with retry and timeout
         const evaluationRequest = {
           pdfPath: page.pdfUrl,
           migratedUrl: page.webUrl,
         };
 
-        const report = await runEvaluation(evaluationRequest, (progressEvent) => {
+        const report = await runEvaluationWithRetry(evaluationRequest, (progressEvent) => {
           // Emit dimension events
           if (progressEvent.type === 'agent-start' && progressEvent.dimension) {
             const event: BatchEvaluationEvent = {
@@ -142,20 +222,41 @@ async function processBatchWithStreaming(
         await writer.write(encoder.encode(`data: ${JSON.stringify(completedEvent)}\n\n`));
 
       } catch (error) {
-        logger.error('Page evaluation failed', error instanceof Error ? error : new Error(String(error)), {
+        const errorMessage = error instanceof Error ? error.message : 'Evaluation failed';
+        const isTimeout = errorMessage.includes('timeout');
+        const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('ENOTFOUND');
+        const isInvalidUrl = errorMessage.includes('404') || errorMessage.includes('Invalid URL');
+
+        logger.error('Page evaluation failed after retries', error instanceof Error ? error : new Error(String(error)), {
           batchId,
           pageId: page.id,
+          isTimeout,
+          isNetworkError,
+          isInvalidUrl,
         });
+
+        // Provide user-friendly error message
+        let friendlyError = errorMessage;
+        if (isTimeout) {
+          friendlyError = `Evaluation timeout - Page took longer than ${PAGE_TIMEOUT_MS / 1000}s to evaluate. This may indicate an invalid URL or extremely large page.`;
+        } else if (isInvalidUrl) {
+          friendlyError = `Invalid URL - The PDF or web URL returned a 404 or could not be accessed. Please verify the URLs are correct.`;
+        } else if (isNetworkError) {
+          friendlyError = `Network error - Failed to reach the URL after ${MAX_RETRIES} attempts. Check your internet connection or verify the URL is accessible.`;
+        }
 
         // Emit page:error event
         const errorEvent: BatchEvaluationEvent = {
           type: 'page:error',
           batchId,
           pageId: page.id,
-          error: error instanceof Error ? error.message : 'Evaluation failed',
+          error: friendlyError,
           timestamp: new Date().toISOString(),
         };
         await writer.write(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
+
+        // Continue with next page (don't let one failure stop the batch)
+        logger.info('Continuing to next page after error', { batchId, pageId: page.id });
       }
     }
 

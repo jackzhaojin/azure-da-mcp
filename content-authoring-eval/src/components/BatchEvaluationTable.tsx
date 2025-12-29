@@ -1,7 +1,11 @@
 /**
- * PHASE 28: Real-time Batch Evaluation Table Component
+ * PHASE 29: Enhanced Real-time Batch Evaluation Table Component
  *
- * ShadCN table with live progress indicators and color-coded scores
+ * Features:
+ * - Tooltips with score explanations
+ * - Expandable row details showing findings
+ * - Row animations on state changes
+ * - Smooth transitions
  */
 
 'use client';
@@ -15,8 +19,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { PageEvaluationState } from '@/hooks/useBatchEvaluationStream';
-import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Dimension, Finding } from '@/types/evaluation';
 
 interface BatchEvaluationTableProps {
   pageStates: Map<string, PageEvaluationState>;
@@ -31,6 +48,28 @@ function getScoreColor(score: number): string {
   if (score >= 60) return 'text-yellow-600 font-semibold'; // Acceptable
   if (score >= 40) return 'text-orange-600 font-semibold'; // Needs Improvement
   return 'text-red-600 font-semibold'; // Critical
+}
+
+/**
+ * Get grade text for score
+ */
+function getGradeText(score: number): string {
+  if (score >= 90) return 'Excellent';
+  if (score >= 75) return 'Good';
+  if (score >= 60) return 'Acceptable';
+  if (score >= 40) return 'Needs Improvement';
+  return 'Critical';
+}
+
+/**
+ * Get grade description for tooltip
+ */
+function getGradeDescription(score: number): string {
+  if (score >= 90) return 'Exceeds original quality';
+  if (score >= 75) return 'Matches original, minor issues';
+  if (score >= 60) return 'Functional, some issues';
+  if (score >= 40) return 'Significant issues';
+  return 'Not production-ready';
 }
 
 /**
@@ -73,12 +112,37 @@ function getGradeBadge(score: number): JSX.Element {
 }
 
 /**
- * Render dimension cell with spinner, score, or placeholder
+ * Get severity badge
  */
-function DimensionCell({ status, score }: { status: string; score?: number }) {
+function getSeverityBadge(severity: string): JSX.Element {
+  switch (severity) {
+    case 'critical':
+      return <Badge variant="destructive" className="text-xs">Critical</Badge>;
+    case 'serious':
+      return <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">Serious</Badge>;
+    case 'moderate':
+      return <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700">Moderate</Badge>;
+    case 'minor':
+      return <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">Minor</Badge>;
+    case 'info':
+      return <Badge variant="outline" className="text-xs">Info</Badge>;
+    default:
+      return <Badge variant="outline" className="text-xs">{severity}</Badge>;
+  }
+}
+
+/**
+ * Render dimension cell with spinner, score, or placeholder (with tooltip)
+ */
+function DimensionCell({ status, score, findings }: {
+  status: string;
+  score?: number;
+  dimension: Dimension;
+  findings: Finding[];
+}) {
   if (status === 'running') {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 justify-center transition-all duration-300 ease-out">
         <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
         <span className="text-gray-400 text-sm">Evaluating...</span>
       </div>
@@ -86,15 +150,49 @@ function DimensionCell({ status, score }: { status: string; score?: number }) {
   }
 
   if (status === 'completed' && score !== undefined) {
-    return <span className={getScoreColor(score)}>{score}</span>;
+    const gradeText = getGradeText(score);
+    const gradeDesc = getGradeDescription(score);
+    const findingCount = findings.length;
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="cursor-help transition-all duration-300 ease-out animate-in fade-in-50 zoom-in-95">
+              <span className={getScoreColor(score)}>{score}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <div className="space-y-1">
+              <p className="font-semibold">{score} - {gradeText}</p>
+              <p className="text-xs">{gradeDesc}</p>
+              {findingCount > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {findingCount} finding{findingCount > 1 ? 's' : ''} - click row to expand
+                </p>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   if (status === 'error') {
     return (
-      <div className="flex items-center gap-1 text-red-600">
-        <XCircle className="h-4 w-4" />
-        <span className="text-sm">Error</span>
-      </div>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1 text-red-600 justify-center cursor-help">
+              <XCircle className="h-4 w-4" />
+              <span className="text-sm">Error</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs">Evaluation failed for this dimension</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
@@ -125,7 +223,7 @@ function StatusBadge({ status, error }: { status: string; error?: string }) {
 
     case 'done':
       return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 transition-all duration-300 ease-out animate-in fade-in-50">
           <CheckCircle className="h-3 w-3 mr-1" />
           Done
         </Badge>
@@ -133,10 +231,19 @@ function StatusBadge({ status, error }: { status: string; error?: string }) {
 
     case 'error':
       return (
-        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200" title={error}>
-          <XCircle className="h-3 w-3 mr-1" />
-          Error
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 cursor-help">
+                <XCircle className="h-3 w-3 mr-1" />
+                Error
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs max-w-xs">{error || 'Evaluation failed'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
 
     default:
@@ -145,29 +252,47 @@ function StatusBadge({ status, error }: { status: string; error?: string }) {
 }
 
 /**
- * Render overall score cell
+ * Render overall score cell with tooltip
  */
 function OverallScoreCell({ status, score }: { status: string; score?: number }) {
   if (status === 'running') {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 justify-center">
         <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
       </div>
     );
   }
 
   if (status === 'done' && score !== undefined) {
+    const gradeText = getGradeText(score);
+    const gradeDesc = getGradeDescription(score);
+
     return (
-      <div className="flex items-center gap-2">
-        <span className={getScoreColor(score)}>{score}</span>
-        {getGradeBadge(score)}
-      </div>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2 justify-center cursor-help transition-all duration-500 ease-out animate-in fade-in-50 zoom-in-95">
+              <span className={getScoreColor(score)}>{score}</span>
+              {getGradeBadge(score)}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <div className="space-y-1">
+              <p className="font-semibold">{score} - {gradeText}</p>
+              <p className="text-xs">{gradeDesc}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Weighted average of all dimensions
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
   if (status === 'error') {
     return (
-      <div className="flex items-center gap-1 text-red-600">
+      <div className="flex items-center gap-1 text-red-600 justify-center">
         <XCircle className="h-4 w-4" />
       </div>
     );
@@ -175,6 +300,184 @@ function OverallScoreCell({ status, score }: { status: string; score?: number })
 
   // Queued
   return <span className="text-gray-400">-</span>;
+}
+
+/**
+ * Render findings list for a dimension
+ */
+function FindingsList({ findings, dimension }: { findings: Finding[]; dimension: string }) {
+  if (findings.length === 0) {
+    return (
+      <div className="text-sm text-gray-500 italic">
+        No findings for {dimension}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {findings.map((finding, index) => (
+        <div key={index} className="border-l-2 border-gray-200 pl-3 space-y-1">
+          <div className="flex items-start gap-2">
+            {getSeverityBadge(finding.severity)}
+            <AlertTriangle className="h-4 w-4 text-gray-400 mt-0.5" />
+            <p className="text-sm font-medium text-gray-900 flex-1">{finding.issue}</p>
+          </div>
+          <p className="text-sm text-gray-600 ml-6">{finding.recommendation}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Expandable row details showing all findings
+ */
+function ExpandableRowDetails({ page }: { page: PageEvaluationState }) {
+  const allFindings = [
+    ...page.findings.structure,
+    ...page.findings.accessibility,
+    ...page.findings.content,
+    ...page.findings.visual,
+  ];
+
+  if (page.status !== 'done' || allFindings.length === 0) {
+    return null;
+  }
+
+  return (
+    <TableRow className="bg-gray-50">
+      <TableCell colSpan={7} className="p-0">
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="findings" className="border-none">
+            <AccordionTrigger className="px-6 py-3 hover:no-underline hover:bg-gray-100">
+              <div className="flex items-center gap-2">
+                <ChevronDown className="h-4 w-4" />
+                <span className="text-sm font-medium">View All Findings ({allFindings.length})</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Structure Findings */}
+                <div>
+                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                    Structure {page.scores.structure && `(${page.scores.structure})`}
+                  </h4>
+                  <FindingsList findings={page.findings.structure} dimension="structure" />
+                </div>
+
+                {/* Accessibility Findings */}
+                <div>
+                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                    Accessibility {page.scores.accessibility && `(${page.scores.accessibility})`}
+                  </h4>
+                  <FindingsList findings={page.findings.accessibility} dimension="accessibility" />
+                </div>
+
+                {/* Content Findings */}
+                <div>
+                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                    Content {page.scores.content && `(${page.scores.content})`}
+                  </h4>
+                  <FindingsList findings={page.findings.content} dimension="content" />
+                </div>
+
+                {/* Visual Findings */}
+                <div>
+                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                    Visual {page.scores.visual && `(${page.scores.visual})`}
+                  </h4>
+                  <FindingsList findings={page.findings.visual} dimension="visual" />
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+/**
+ * Table row with animation on status change
+ */
+function AnimatedTableRow({ page }: { page: PageEvaluationState }) {
+  // Determine row background based on status
+  const getRowClassName = () => {
+    if (page.status === 'running') {
+      return 'bg-blue-50/30 transition-colors duration-300';
+    }
+    if (page.status === 'done') {
+      return 'hover:bg-gray-50 transition-colors duration-300';
+    }
+    return 'hover:bg-gray-50 transition-colors duration-300';
+  };
+
+  return (
+    <>
+      <TableRow className={getRowClassName()}>
+        {/* Page Title */}
+        <TableCell className="font-medium">
+          <div className="truncate max-w-xs" title={page.title}>
+            {page.title}
+          </div>
+        </TableCell>
+
+        {/* Status Badge */}
+        <TableCell>
+          <StatusBadge status={page.status} error={page.error} />
+        </TableCell>
+
+        {/* Structure Score */}
+        <TableCell className="text-center">
+          <DimensionCell
+            status={page.dimensions.structure}
+            score={page.scores.structure}
+            dimension="structure"
+            findings={page.findings.structure}
+          />
+        </TableCell>
+
+        {/* Accessibility Score */}
+        <TableCell className="text-center">
+          <DimensionCell
+            status={page.dimensions.accessibility}
+            score={page.scores.accessibility}
+            dimension="accessibility"
+            findings={page.findings.accessibility}
+          />
+        </TableCell>
+
+        {/* Content Score */}
+        <TableCell className="text-center">
+          <DimensionCell
+            status={page.dimensions.content}
+            score={page.scores.content}
+            dimension="content"
+            findings={page.findings.content}
+          />
+        </TableCell>
+
+        {/* Visual Score */}
+        <TableCell className="text-center">
+          <DimensionCell
+            status={page.dimensions.visual}
+            score={page.scores.visual}
+            dimension="visual"
+            findings={page.findings.visual}
+          />
+        </TableCell>
+
+        {/* Overall Score */}
+        <TableCell className="text-center">
+          <OverallScoreCell status={page.status} score={page.scores.overall} />
+        </TableCell>
+      </TableRow>
+
+      {/* Expandable row details */}
+      <ExpandableRowDetails page={page} />
+    </>
+  );
 }
 
 /**
@@ -199,47 +502,7 @@ export function BatchEvaluationTable({ pageStates }: BatchEvaluationTableProps) 
         </TableHeader>
         <TableBody>
           {pages.map((page) => (
-            <TableRow key={page.pageId}>
-              {/* Page Title */}
-              <TableCell className="font-medium">
-                <div className="truncate max-w-xs" title={page.title}>
-                  {page.title}
-                </div>
-              </TableCell>
-
-              {/* Status Badge */}
-              <TableCell>
-                <StatusBadge status={page.status} error={page.error} />
-              </TableCell>
-
-              {/* Structure Score */}
-              <TableCell className="text-center">
-                <DimensionCell status={page.dimensions.structure} score={page.scores.structure} />
-              </TableCell>
-
-              {/* Accessibility Score */}
-              <TableCell className="text-center">
-                <DimensionCell
-                  status={page.dimensions.accessibility}
-                  score={page.scores.accessibility}
-                />
-              </TableCell>
-
-              {/* Content Score */}
-              <TableCell className="text-center">
-                <DimensionCell status={page.dimensions.content} score={page.scores.content} />
-              </TableCell>
-
-              {/* Visual Score */}
-              <TableCell className="text-center">
-                <DimensionCell status={page.dimensions.visual} score={page.scores.visual} />
-              </TableCell>
-
-              {/* Overall Score */}
-              <TableCell className="text-center">
-                <OverallScoreCell status={page.status} score={page.scores.overall} />
-              </TableCell>
-            </TableRow>
+            <AnimatedTableRow key={page.pageId} page={page} />
           ))}
         </TableBody>
       </Table>

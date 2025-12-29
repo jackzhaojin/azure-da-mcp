@@ -9,17 +9,21 @@ import { BatchEvaluationInput } from '@/types/evaluation';
 import { JsonBatchImport } from '@/components/JsonBatchImport';
 import { BatchExportButton } from '@/components/BatchExportButton';
 import { BatchEvaluationTable } from '@/components/BatchEvaluationTable';
+import { BatchProgressBar } from '@/components/BatchProgressBar';
+import { BatchSummaryCard } from '@/components/BatchSummaryCard';
 import { useBatchEvaluationStream } from '@/hooks/useBatchEvaluationStream';
-import { FileJson, ListChecks, ChevronDown, ChevronRight, PlayCircle, RotateCcw } from 'lucide-react';
+import { FileJson, ListChecks, ChevronDown, ChevronRight, PlayCircle, RotateCcw, XCircle, RefreshCw } from 'lucide-react';
 
 export function BatchEvaluationForm() {
   const [batchData, setBatchData] = useState<BatchEvaluationInput | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [evaluationStartTime, setEvaluationStartTime] = useState<number>(0);
+  const [evaluationEndTime, setEvaluationEndTime] = useState<number>(0);
 
   // SSE streaming state
-  const { isConnected, isComplete, error: streamError, pageStates, startEvaluation, reset } = useBatchEvaluationStream();
+  const { isConnected, isComplete, error: streamError, pageStates, startEvaluation, cancelEvaluation, getFailedPages, reset } = useBatchEvaluationStream();
 
   const handleImportSuccess = (importedBatch: BatchEvaluationInput) => {
     setBatchData(importedBatch);
@@ -50,6 +54,7 @@ export function BatchEvaluationForm() {
 
     setError(null);
     setSuccess(null);
+    setEvaluationStartTime(Date.now());
 
     // Start SSE streaming
     const pages = batchData.pages.map((p) => ({ id: p.id, title: p.title }));
@@ -60,13 +65,52 @@ export function BatchEvaluationForm() {
     reset();
     setSuccess(null);
     setError(null);
+    setEvaluationStartTime(0);
+    setEvaluationEndTime(0);
   };
+
+  const handleCancel = () => {
+    if (window.confirm('Are you sure you want to cancel the evaluation? Progress will be lost.')) {
+      cancelEvaluation();
+      setEvaluationEndTime(Date.now());
+    }
+  };
+
+  const handleRetryFailed = () => {
+    if (!batchData) return;
+
+    const failedPages = getFailedPages();
+    if (failedPages.length === 0) {
+      setError('No failed pages to retry');
+      return;
+    }
+
+    // Reset state and restart with failed pages only
+    setError(null);
+    setSuccess(null);
+    setEvaluationStartTime(Date.now());
+    setEvaluationEndTime(0);
+
+    // Create a filtered batch with only failed pages
+    const retryPages = failedPages.map((fp) => {
+      const originalPage = batchData.pages.find((p) => p.id === fp.id);
+      return originalPage ? { id: originalPage.id, title: originalPage.title } : { id: fp.id, title: fp.title };
+    });
+
+    startEvaluation(batchData.batchId + '-retry', retryPages);
+  };
+
+  // Track when evaluation completes
+  if (isComplete && evaluationStartTime > 0 && evaluationEndTime === 0) {
+    setEvaluationEndTime(Date.now());
+  }
 
   // Show stream error if any
   const displayError = error || streamError;
 
-  // Determine if export should be enabled (batch is complete)
-  const canExport = isComplete && batchData;
+  // Determine if export should be enabled (batch is complete OR has some completed pages)
+  const hasCompletedPages = Array.from(pageStates.values()).some((p) => p.status === 'done');
+  const canExport = batchData && (isComplete || hasCompletedPages);
 
   // Show evaluation running state
   const isEvaluating = isConnected || (pageStates.size > 0 && !isComplete);
@@ -200,58 +244,102 @@ export function BatchEvaluationForm() {
 
       {/* Real-time Evaluation Table (shown during and after evaluation) */}
       {isEvaluating && batchData && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Batch Evaluation: {batchData.batchId}</CardTitle>
-                <CardDescription>
-                  {isComplete
-                    ? `Evaluation complete - ${batchData.pages.length} pages processed`
-                    : `Evaluating ${batchData.pages.length} pages in real-time...`}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {isComplete ? (
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                    Complete
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 animate-pulse">
-                    Running...
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
+        <>
+          {/* Progress Bar */}
+          {!isComplete && (
+            <BatchProgressBar pageStates={pageStates} isComplete={isComplete} />
+          )}
 
-          <CardContent className="space-y-4">
-            {/* Real-time table */}
-            <BatchEvaluationTable pageStates={pageStates} />
+          {/* Summary Card (shown when complete) */}
+          {isComplete && evaluationStartTime > 0 && evaluationEndTime > 0 && (
+            <BatchSummaryCard
+              pageStates={pageStates}
+              batchId={batchData.batchId}
+              startedAt={evaluationStartTime}
+              completedAt={evaluationEndTime}
+            />
+          )}
 
-            {/* Action buttons (shown when complete) */}
-            {isComplete && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Batch Evaluation: {batchData.batchId}</CardTitle>
+                  <CardDescription>
+                    {isComplete
+                      ? `Evaluation complete - ${batchData.pages.length} pages processed`
+                      : `Evaluating ${batchData.pages.length} pages in real-time...`}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isComplete ? (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      Complete
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 animate-pulse">
+                      Running...
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {/* Real-time table */}
+              <BatchEvaluationTable pageStates={pageStates} />
+
+              {/* Action buttons */}
               <div className="flex justify-between items-center pt-4 border-t">
-                <Button type="button" variant="outline" onClick={handleRestart}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Start New Evaluation
-                </Button>
+                {/* Left side buttons */}
+                <div className="flex gap-2">
+                  {!isComplete && isConnected && (
+                    <Button type="button" variant="destructive" onClick={handleCancel}>
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Cancel Batch
+                    </Button>
+                  )}
 
-                <BatchExportButton batchId={batchData.batchId} disabled={!canExport} />
+                  {isComplete && (
+                    <>
+                      <Button type="button" variant="outline" onClick={handleRestart}>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Start New Evaluation
+                      </Button>
+
+                      {getFailedPages().length > 0 && (
+                        <Button type="button" variant="outline" onClick={handleRetryFailed}>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Retry Failed Pages ({getFailedPages().length})
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Right side buttons */}
+                <div className="flex gap-2">
+                  {hasCompletedPages && !isComplete && (
+                    <Button type="button" variant="outline" disabled>
+                      Export Partial ({Array.from(pageStates.values()).filter((p) => p.status === 'done').length} completed)
+                    </Button>
+                  )}
+                  {batchData && <BatchExportButton batchId={batchData.batchId} disabled={!canExport} />}
+                </div>
               </div>
-            )}
 
-            {/* Info alert during evaluation */}
-            {!isComplete && isConnected && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <AlertDescription className="text-blue-800 text-sm">
-                  <strong>Evaluation in progress:</strong> Scores will update automatically as each dimension completes.
-                  This may take several minutes depending on the number of pages.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+              {/* Info alert during evaluation */}
+              {!isComplete && isConnected && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertDescription className="text-blue-800 text-sm">
+                    <strong>Evaluation in progress:</strong> Scores will update automatically as each dimension completes.
+                    This may take several minutes depending on the number of pages.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Empty State (when no batch loaded and not evaluating) */}
