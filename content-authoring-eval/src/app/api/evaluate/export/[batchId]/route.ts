@@ -1,5 +1,5 @@
 /**
- * PHASE 26: Export Batch Results API Route
+ * PHASE 27: Export Batch Results API Route
  *
  * GET /api/evaluate/export/:batchId
  * Download batch evaluation results as JSON
@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@/lib/logger';
+import { batchStorage } from '@/lib/batch-storage';
 
 const logger = createLogger('api');
 
@@ -25,20 +26,39 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   logger.requestStart('GET', `/api/evaluate/export/${batchId}`);
 
   try {
-    // Phase 26: Stub implementation
-    // Phase 27-28: Will retrieve actual batch results from storage
+    // Phase 27: Retrieve batch results from storage
+    const results = batchStorage.getResults(batchId);
 
-    logger.warn('Export endpoint not yet implemented', { batchId });
+    if (!results) {
+      logger.warn('Batch results not found', { batchId });
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Export functionality not yet implemented',
-        message: 'Phase 26: API route stub created. Implementation in Phase 27-28.',
-        batchId,
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Batch results not found',
+          message: `No results found for batch ID: ${batchId}. The batch may not exist or evaluation may not be complete.`,
+          batchId,
+        },
+        { status: 404 }
+      );
+    }
+
+    logger.info('Batch results retrieved successfully', {
+      batchId,
+      totalPages: results.totalPages,
+    });
+
+    // Return results with Content-Disposition header for download
+    const filename = `batch-${batchId}-results.json`;
+    const response = NextResponse.json(results, {
+      status: 200,
+      headers: {
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Type': 'application/json',
       },
-      { status: 501 }
-    );
+    });
+
+    return response;
   } catch (error) {
     logger.error('Export failed', error instanceof Error ? error : new Error(String(error)));
 
