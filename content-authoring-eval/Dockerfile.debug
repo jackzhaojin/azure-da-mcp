@@ -1,110 +1,61 @@
-# Dockerfile.debug - Simplified Single-Stage Build for Agent SDK Debugging
-# Phase 25.1: Strip away all optimizations to isolate Agent SDK containerization issue
-# Philosophy: "Make it work, then make it right, then make it fast." - Kent Beck
+# Dockerfile.debug - Debug build with verbose logging and source maps
+# Based on production Dockerfile with debugging enhancements
 
-FROM node:20
+FROM node:20-slim AS base
 WORKDIR /app
 
-# Install ALL system dependencies (no --no-install-recommends for debugging)
-RUN apt-get update && apt-get install -y \
-    chromium \
-    chromium-driver \
-    imagemagick \
-    curl \
-    git \
-    ca-certificates \
-    fonts-liberation \
-    # Keep chromium dependencies for Playwright
-    libnss3 \
-    libnspr4 \
-    libdbus-1-3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libasound2 \
-    libatspi2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies (same as production)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+    libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 \
+    libasound2 libatspi2.0-0 ca-certificates fonts-liberation \
+    libappindicator3-1 libu2f-udev xdg-utils imagemagick curl && \
+    npm install -g lighthouse@12.2.1 pa11y@8.0.0 \
+    @anthropic-ai/claude-code @modelcontextprotocol/server-filesystem @playwright/mcp && \
+    npm cache clean --force && \
+    apt-get autoremove -y && apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Copy package files and install ALL dependencies (dev + prod)
+# Create non-root user
+RUN useradd -m -s /bin/bash appuser
+
+# Copy application files
 COPY package*.json ./
 RUN npm ci
-
-# Install Playwright with browsers (as root, full install)
-RUN npx playwright install chromium --with-deps
-
-# Install global CLI tools
-RUN npm install -g \
-    @anthropic-ai/claude-code \
-    lighthouse@12.2.1 \
-    pa11y@8.0.0
-
-# DEBUG: Check what MCP server packages are available
-RUN echo "=== Checking for MCP servers ===" && \
-    npm list -g --depth=0 || true && \
-    echo "=== Checking for @playwright/mcp ===" && \
-    npm list -g @playwright/mcp 2>&1 || echo "Not found globally" && \
-    echo "=== Checking /usr/local/lib/node_modules ===" && \
-    ls -la /usr/local/lib/node_modules/ || true
-
-# DEBUG: Install MCP servers globally for Agent SDK
-# Based on Phase 25 production Dockerfile attempts
-RUN npm install -g @modelcontextprotocol/server-filesystem || \
-    echo "WARNING: @modelcontextprotocol/server-filesystem not available" && \
-    npm install -g @playwright/mcp || \
-    echo "WARNING: @playwright/mcp not available"
-
-# DEBUG: Verify MCP server binaries after install
-RUN echo "=== Verifying MCP server binaries ===" && \
-    ls -la /usr/local/bin/ | grep mcp || echo "No MCP binaries found in /usr/local/bin" && \
-    echo "=== Checking node_modules for MCP ===" && \
-    find /usr/local/lib/node_modules -name "*mcp*" -type d 2>/dev/null | head -20 || true
-
-# Copy application source
 COPY . .
-
-# Build Next.js (production build)
 RUN npm run build
 
-# Environment variables
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+# Pre-install chromium browsers (ARM64 compatible)
+RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium && \
+    mkdir -p /home/appuser/.cache/ms-playwright && \
+    cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ && \
+    cd /home/appuser/.cache/ms-playwright && \
+    ln -s chromium-1205 chromium-1200 && \
+    ln -s chromium_headless_shell-1205 chromium_headless_shell-1200 && \
+    chown -R appuser:appuser /home/appuser/.cache && \
+    rm -rf /root/.cache/ms-playwright
 
-# DEBUG: Add verbose Node.js logging for Agent SDK (DISABLED for Phase 25.3)
-# ENV NODE_DEBUG=*
-# ENV DEBUG=*
+# Setup directories
+RUN mkdir -p /home/appuser/.claude /app/public/screenshots /tmp/debug-logs && \
+    chown -R appuser:appuser /home/appuser /app /tmp/debug-logs
 
-# PHASE 25.2: Accept OAuth token as build argument and set as env var
-ARG CLAUDE_CODE_OAUTH_TOKEN
-ENV CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+# Copy entrypoint script
+COPY --chown=appuser:appuser docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# PHASE 25.3: Create non-root user for Claude CLI
-# Claude CLI refuses --dangerously-skip-permissions when running as root
-RUN useradd -m -s /bin/bash appuser && \
-    chown -R appuser:appuser /app
-
-# PHASE 25.3: Create .claude.json with OAuth account info for CLI authentication
-# This tells the `claude` CLI WHO is authenticated (account, email, org)
-# The OAuth token itself comes from CLAUDE_CODE_OAUTH_TOKEN env var
-# NOTE: mcpServers is empty because we configure MCP servers programmatically in agentic.ts
-RUN mkdir -p /home/appuser/.claude && \
-    echo '{"oauthAccount":{"accountUuid":"434c49a7-3afc-4399-9a7c-c4fea4785c7b","emailAddress":"jackzhaojin@gmail.com","organizationUuid":"170f4c50-03d8-42fc-82b3-dd0a83e476ae"},"mcpServers":{}}' > /home/appuser/.claude.json && \
-    chown -R appuser:appuser /home/appuser/.claude
-
-# Run as non-root user (REQUIRED for --dangerously-skip-permissions to work)
 USER appuser
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 ENV HOME=/home/appuser
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
+ENV NODE_ENV=production
 
-EXPOSE 3000
+EXPOSE 3000 9229
 
-# DEBUG: Start with explicit error logging
-CMD ["sh", "-c", "echo '=== Starting Next.js server ===' && echo 'Node version:' && node --version && echo 'Environment:' && env | grep -E '(NODE_ENV|CLAUDE|PLAYWRIGHT)' && npm start 2>&1 | tee /tmp/server.log"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/evaluate', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["node", "--inspect=0.0.0.0:9229", "server.js"]

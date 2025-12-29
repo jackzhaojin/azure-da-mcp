@@ -343,6 +343,32 @@ docker-compose logs -f
 
 **See**: [DEPLOYMENT.md](./DEPLOYMENT.md) for complete guide.
 
+### Docker Build Modes
+
+Two Dockerfile configurations available:
+
+| Feature | **Dockerfile** (Production) | **Dockerfile.debug** (Debug) |
+|---------|---------------------------|----------------------------|
+| **Purpose** | Optimized production deployment | Fast iteration & debugging |
+| **Build Strategy** | Multi-stage (4 stages) | Single-stage |
+| **Image Size** | ~3.9GB (optimized layers) | ~4.5GB (includes dev deps) |
+| **Dependencies** | Production only | All deps (dev + prod) |
+| **Debugging** | ❌ No inspector | ✅ Node inspector on port 9229 |
+| **Logging** | Standard | Verbose (`DEBUG=*`) |
+| **Rebuild Time** | ~3-5 min | ~1-2 min |
+| **Use Case** | Production, staging | Local debugging, troubleshooting |
+
+**Usage:**
+```bash
+# Production
+docker-compose up -d
+
+# Debug mode (port 3005, inspector on 9229)
+docker-compose -f docker-compose.debug.yml up
+```
+
+**ARM64 Support:** Both Dockerfiles include chromium ARM64 fix (symlinks chromium-1200 → chromium-1205) for Apple Silicon compatibility.
+
 ## Common Issues
 
 ### Agent Timeout

@@ -5,28 +5,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.debug
-    container_name: content-authoring-eval-debug
+    container_name: content-eval-debug
     ports:
-      - "3005:3000"  # Use 3005 to avoid conflict with dev server
-    environment:
-      - NODE_ENV=production
-      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
-      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
-      # Playwright browser path (root user in debug mode)
-      - PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-      # DEBUG: Verbose logging
-      - DEBUG=*
-      - NODE_DEBUG=*
+      - "3005:3000"
     env_file:
-      - .env.local
+      - .env.docker
+    environment:
+      - DEBUG=*
+      - NODE_OPTIONS=--inspect=0.0.0.0:9229
     volumes:
-      # Mount source for live debugging (optional)
-      - ./src:/app/src
-      - ./public:/app/public
-      # Mount logs for inspection
       - ./debug-logs:/tmp/debug-logs
-    # Keep container running even if it crashes
     restart: "no"
-    # Allow interactive debugging
     stdin_open: true
     tty: true

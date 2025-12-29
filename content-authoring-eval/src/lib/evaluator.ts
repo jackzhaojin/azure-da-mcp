@@ -43,7 +43,8 @@ interface AgentExecutionResult {
 async function runAgent(
   dimension: 'structure' | 'accessibility' | 'content' | 'visual',
   request: EvaluationRequest,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  completedCountRef?: { value: number }
 ): Promise<AgentExecutionResult> {
   const timer = new Timer();
   logger.info(`Starting ${dimension} agent`, { dimension });
@@ -311,12 +312,13 @@ async function runAgent(
       findingsCount: result.findings.length,
     });
 
-    if (onProgress) {
+    if (onProgress && completedCountRef) {
+      completedCountRef.value += 1;
       onProgress({
         type: 'agent-complete',
         dimension,
         result,
-        progress: calculateProgress(dimension),
+        progress: calculateProgress(completedCountRef.value, 4),
       });
     }
 
@@ -339,12 +341,10 @@ async function runAgent(
 }
 
 /**
- * Calculate progress percentage based on completed agent
+ * Calculate progress percentage based on number of completed agents
  */
-function calculateProgress(dimension: string): number {
-  const order = ['structure', 'accessibility', 'content', 'visual'];
-  const index = order.indexOf(dimension);
-  return ((index + 1) / order.length) * 100;
+function calculateProgress(completedCount: number, totalCount: number): number {
+  return Math.round((completedCount / totalCount) * 100);
 }
 
 /**
@@ -458,12 +458,15 @@ export async function runEvaluation(
     agents: 4,
   });
 
+  // Track completed agents count for accurate progress calculation
+  const completedCountRef = { value: 0 };
+
   // Run all 4 agents in parallel
   const agentPromises = [
-    runAgent('structure', request, onProgress),
-    runAgent('accessibility', request, onProgress),
-    runAgent('content', request, onProgress),
-    runAgent('visual', request, onProgress),
+    runAgent('structure', request, onProgress, completedCountRef),
+    runAgent('accessibility', request, onProgress, completedCountRef),
+    runAgent('content', request, onProgress, completedCountRef),
+    runAgent('visual', request, onProgress, completedCountRef),
   ];
 
   const agentResults = await Promise.all(agentPromises);

@@ -94,6 +94,54 @@ docker-compose logs -f
 
 **Note**: Docker is for production deployment only. For daily development, use `npm run dev` (much faster).
 
+### Docker Build Modes
+
+This project includes two Dockerfile configurations for different use cases:
+
+| Feature | **Dockerfile** (Production) | **Dockerfile.debug** (Debug) |
+|---------|---------------------------|----------------------------|
+| **Purpose** | Optimized production deployment | Fast iteration & debugging |
+| **Build Strategy** | Multi-stage (4 stages) | Single-stage |
+| **Size** | 171 lines | 61 lines |
+| **Image Size** | ~3.9GB (optimized layers) | ~4.5GB (includes dev deps) |
+| **Dependencies** | Production only | All deps (dev + prod) |
+| **Next.js Mode** | Standalone output (minimal) | Full build with source maps |
+| **Debugging** | ❌ No inspector | ✅ Node inspector on port 9229 |
+| **Logging** | Standard | Verbose (`DEBUG=*`) |
+| **Rebuild Time** | ~3-5 min | ~1-2 min |
+| **Source Mounting** | ❌ Not supported | ✅ Can mount `./src` for live changes |
+| **Use Case** | Production, staging, demos | Local debugging, troubleshooting |
+
+**When to Use Each:**
+
+**Production (`Dockerfile`):**
+```bash
+# Standard deployment
+docker-compose up -d
+
+# Or build manually
+docker build -t content-authoring-eval:latest .
+docker run -d --env-file .env.docker -p 3000:3000 content-authoring-eval:latest
+```
+- Production deployments
+- Performance testing
+- Final validation before release
+
+**Debug (`Dockerfile.debug`):**
+```bash
+# Debug mode with inspector
+docker-compose -f docker-compose.debug.yml up
+
+# Container runs on port 3005 with Node inspector on 9229
+# Attach debugger: chrome://inspect or VS Code
+```
+- Debugging agent issues
+- Testing configuration changes quickly
+- Investigating runtime errors
+- Live code changes (mount source volumes)
+
+**ARM64 Support:** Both Dockerfiles include the chromium ARM64 fix (symlinks chromium-1200 → chromium-1205) for Apple Silicon compatibility.
+
 ## Architecture
 
 ### Technology Stack
