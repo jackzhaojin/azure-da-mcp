@@ -208,7 +208,7 @@ ${userPrompt}`;
     for await (const message of query({
       prompt: fullPrompt,
       options: {
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-haiku-4-5-20250929',
         maxTurns: 20, // Increased for multiple tool invocations
         // PHASE 25: Remove settingSources - use programmatic MCP config instead
         // settingSources: ['user', 'project'],
