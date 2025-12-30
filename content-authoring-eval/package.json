@@ -29,7 +29,6 @@
     "lucide-react": "^0.562.0",
     "next": "^14.2.0",
     "pixelmatch": "^6.0.0",
-    "playwright": "^1.57.0",
     "pngjs": "^7.0.0",
     "react": "^18.3.0",
     "react-chartjs-2": "^5.3.1",
