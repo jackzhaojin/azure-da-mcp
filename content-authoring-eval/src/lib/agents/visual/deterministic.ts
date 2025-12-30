@@ -13,6 +13,7 @@ import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import fs from 'fs';
 import path from 'path';
+import imageSize from 'image-size';
 import { createLogger, Timer } from '@/lib/logger';
 import type {
   ScreenshotResult,
@@ -23,40 +24,91 @@ import type {
 const logger = createLogger('visual');
 
 /**
- * PHASE 31: Stub function - returns placeholder screenshot result
+ * PHASE 36: Screenshot capture using Playwright CLI
  *
- * Rationale: Removing direct chromium.launch() to allow Docker to use ONLY @playwright/mcp browsers.
- * The agentic agent will capture screenshots via MCP and perform visual analysis.
+ * Uses npx playwright screenshot command to avoid Docker bloat while still capturing real screenshots
  */
 export async function captureScreenshot(
   url: string,
   viewport: { width: number; height: number } = { width: 1280, height: 720 }
 ): Promise<ScreenshotResult> {
   const timer = new Timer();
-  logger.warn('PHASE 31: Deterministic screenshot capture DISABLED - using agentic-only mode', { url, viewport });
-  logger.info('Returning placeholder screenshot result (agentic agent will handle capture)', { url });
+  logger.info('PHASE 36: Capturing screenshot via Playwright CLI', { url, viewport });
 
-  // PHASE 31: Return placeholder result
-  // The agentic agent (analyzeVisualWithClaude) will capture the screenshot via MCP
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `screenshot-placeholder-${timestamp}.png`;
+  const filename = `screenshot-${timestamp}.png`;
   const relativePath = `screenshots/${filename}`;
   const absolutePath = path.join(process.cwd(), 'public', relativePath);
 
-  logger.operationComplete('Screenshot capture (stub)', timer.elapsed(), {
-    note: 'Deterministic screenshot disabled in Phase 31 - use agentic mode',
-  });
+  // Ensure screenshots directory exists
+  const screenshotsDir = path.join(process.cwd(), 'public', 'screenshots');
+  if (!fs.existsSync(screenshotsDir)) {
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+  }
 
-  return {
-    path: relativePath,
-    absolutePath,
-    size: 0, // Placeholder
-    dimensions: {
-      width: viewport.width,
-      height: viewport.height,
-    },
-    capturedAt: new Date().toISOString(),
-  };
+  try {
+    // Use custom Node.js script with Playwright (more reliable than CLI)
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
+    const scriptPath = path.join(process.cwd(), 'scripts', 'capture-screenshot.js');
+    const command = `node "${scriptPath}" "${url}" "${absolutePath}" ${viewport.width} ${viewport.height}`;
+
+    logger.debug('Executing Playwright screenshot script', { command });
+
+    const { stdout, stderr } = await execAsync(command, {
+      timeout: 45000, // 45 second timeout
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+    });
+
+    if (stderr) {
+      logger.warn('Screenshot script stderr', { stderr });
+    }
+    if (stdout) {
+      logger.debug('Screenshot script output', { stdout: stdout.trim() });
+    }
+
+    // Verify screenshot was created
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error(`Screenshot file not created at ${absolutePath}`);
+    }
+
+    const stats = fs.statSync(absolutePath);
+    const imageBuffer = fs.readFileSync(absolutePath);
+    const dimensions = imageSize(imageBuffer);
+
+    logger.operationComplete('Screenshot capture', timer.elapsed(), {
+      url,
+      size: stats.size,
+      dimensions,
+    });
+
+    return {
+      path: relativePath,
+      absolutePath,
+      size: stats.size,
+      dimensions: {
+        width: dimensions.width || viewport.width,
+        height: dimensions.height || viewport.height,
+      },
+      capturedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('Screenshot capture failed', error as Error, {
+      url,
+      duration: timer.elapsed(),
+    });
+
+    // Return placeholder on error (allows agentic fallback)
+    return {
+      path: relativePath,
+      absolutePath,
+      size: 0,
+      dimensions: viewport,
+      capturedAt: new Date().toISOString(),
+    };
+  }
 }
 
 /**
@@ -166,29 +218,73 @@ export function calculateVisualScore(comparison?: ImageComparisonResult): number
  */
 export async function analyzeVisual(
   url: string,
-  baselineImagePath?: string,
-  viewport: { width: number; height: number } = { width: 1280, height: 720 }
+  options?: {
+    baselineImagePath?: string;
+    sourceUrl?: string;
+    pdfPath?: string;
+    viewport?: { width: number; height: number };
+  }
 ): Promise<VisualMetrics> {
   const timer = new Timer();
-  logger.info('Starting deterministic visual analysis', { url, hasBaseline: !!baselineImagePath });
+  const viewport = options?.viewport || { width: 1280, height: 720 };
+
+  // Determine source type
+  const sourceType = options?.sourceUrl ? 'html' as const :
+                    options?.pdfPath ? 'pdf' as const :
+                    'none' as const;
+
+  logger.info('Starting deterministic visual analysis', {
+    url,
+    sourceType,
+    hasBaseline: !!options?.baselineImagePath,
+    hasSourceUrl: !!options?.sourceUrl,
+    hasPdfPath: !!options?.pdfPath,
+  });
 
   try {
-    // Capture screenshot
+    // Capture migrated page screenshot (stub returns placeholder)
     const screenshot = await captureScreenshot(url, viewport);
 
-    // Compare with baseline if provided
+    // Capture baseline screenshot if HTML source URL provided
+    let baselineScreenshot: typeof screenshot | undefined;
+    if (options?.sourceUrl) {
+      logger.info('Capturing baseline screenshot from source URL', { sourceUrl: options.sourceUrl });
+      baselineScreenshot = await captureScreenshot(options.sourceUrl, viewport);
+    }
+
+    // Compare with baseline if provided (either direct path or captured screenshot)
     let comparison: ImageComparisonResult | undefined;
-    if (baselineImagePath) {
-      logger.info('Baseline provided, performing comparison', { baselineImagePath });
-      comparison = await compareImages(screenshot.absolutePath, baselineImagePath);
+    const baselineToCompare = options?.baselineImagePath || baselineScreenshot?.absolutePath;
+
+    if (baselineToCompare && screenshot.size > 0) {
+      logger.info('Baseline available, performing comparison', {
+        baselineType: options?.baselineImagePath ? 'direct-path' : 'captured-screenshot',
+        baselinePath: baselineToCompare,
+      });
+      try {
+        comparison = await compareImages(screenshot.absolutePath, baselineToCompare);
+      } catch (error) {
+        logger.warn('Image comparison failed, continuing without comparison', {
+          error: (error as Error).message,
+        });
+      }
     }
 
     // Calculate score
     const score = calculateVisualScore(comparison);
 
+    // Build source info
+    const source = sourceType !== 'none' ? {
+      type: sourceType,
+      url: options?.sourceUrl,
+      pdfPath: options?.pdfPath,
+    } : undefined;
+
     const result: VisualMetrics = {
       url,
       screenshot,
+      source,
+      baselineScreenshot,
       comparison,
       score,
       viewport,
@@ -202,6 +298,7 @@ export async function analyzeVisual(
 
     logger.operationComplete('Deterministic visual analysis', timer.elapsed(), {
       url,
+      sourceType,
       score,
       hasComparison: !!comparison,
     });
@@ -210,6 +307,7 @@ export async function analyzeVisual(
   } catch (error) {
     logger.error('Deterministic visual analysis failed', error as Error, {
       url,
+      sourceType,
       duration: timer.elapsed(),
     });
     throw error;

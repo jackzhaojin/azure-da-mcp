@@ -10,6 +10,8 @@ import fs from 'fs';
 import { createLogger, Timer } from '@/lib/logger';
 import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './types';
 import visualPrompt from '@/lib/prompts/visual.json';
+import visualHtmlSourcePrompt from '@/lib/prompts/visual-html-source.json';
+import visualPdfSourcePrompt from '@/lib/prompts/visual-pdf-source.json';
 import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
@@ -27,9 +29,21 @@ const VISION_API_RECOMMENDED_MAX_DIMENSION = 1568; // pixels
 /**
  * Format visual metrics for Claude analysis
  */
-export function formatVisualForPrompt(metrics: VisualMetrics): string {
-  const { url, screenshot, comparison, score, viewport } = metrics;
+export function formatVisualForPrompt(metrics: VisualMetrics): { system: string; user: string } {
+  const { url, screenshot, comparison, score, viewport, source } = metrics;
 
+  // Determine which prompt to use based on source type
+  const sourceType = source?.type || 'none';
+  const promptTemplate = sourceType === 'html' ? visualHtmlSourcePrompt :
+                        sourceType === 'pdf' ? visualPdfSourcePrompt :
+                        visualPrompt;
+
+  logger.debug('Selected visual prompt template', {
+    sourceType,
+    promptName: promptTemplate.name,
+  });
+
+  // Build deterministic summary
   let deterministicSummary = `**Deterministic Score**: ${score}/100\n\n`;
 
   if (comparison) {
@@ -44,15 +58,41 @@ export function formatVisualForPrompt(metrics: VisualMetrics): string {
     deterministicSummary += `**No Baseline Comparison**: Analyzing screenshot visual quality only.\n`;
   }
 
-  const prompt = visualPrompt.user_template
-    .replace('{{url}}', url)
-    .replace('{{viewport_width}}', viewport.width.toString())
-    .replace('{{viewport_height}}', viewport.height.toString())
-    .replace('{{screenshot_size}}', screenshot.size.toString())
-    .replace('{{captured_at}}', screenshot.capturedAt)
-    .replace('{{deterministic_summary}}', deterministicSummary);
+  // Format user prompt based on source type
+  let userPrompt = promptTemplate.user_template;
 
-  return prompt;
+  if (sourceType === 'html' && source?.url) {
+    // HTML source comparison
+    userPrompt = userPrompt
+      .replace('{{source_url}}', source.url)
+      .replace('{{migrated_url}}', url)
+      .replace('{{viewport_width}}', viewport.width.toString())
+      .replace('{{viewport_height}}', viewport.height.toString())
+      .replace('{{timestamp}}', Date.now().toString())
+      .replace('{{deterministic_summary}}', deterministicSummary);
+  } else if (sourceType === 'pdf' && source?.pdfPath) {
+    // PDF source comparison
+    userPrompt = userPrompt
+      .replace('{{pdf_path}}', source.pdfPath)
+      .replace('{{migrated_url}}', url)
+      .replace('{{viewport_width}}', viewport.width.toString())
+      .replace('{{viewport_height}}', viewport.height.toString())
+      .replace('{{deterministic_summary}}', deterministicSummary);
+  } else {
+    // No source comparison (legacy mode)
+    userPrompt = userPrompt
+      .replace('{{url}}', url)
+      .replace('{{viewport_width}}', viewport.width.toString())
+      .replace('{{viewport_height}}', viewport.height.toString())
+      .replace('{{screenshot_size}}', screenshot.size.toString())
+      .replace('{{captured_at}}', screenshot.capturedAt)
+      .replace('{{deterministic_summary}}', deterministicSummary);
+  }
+
+  return {
+    system: promptTemplate.system,
+    user: userPrompt,
+  };
 }
 
 /**
@@ -157,91 +197,31 @@ export async function analyzeVisualWithClaude(
     }
 
     // Format prompt with visual metrics
-    const userPrompt = formatVisualForPrompt(metrics);
+    const prompts = formatVisualForPrompt(metrics);
     logger.debug('Prompt formatted', {
       url: metrics.url,
-      promptLength: userPrompt.length,
+      sourceType: metrics.source?.type || 'none',
+      systemLength: prompts.system.length,
+      userLength: prompts.user.length,
     });
 
-    // PHASE 34: Check if screenshot actually exists (Phase 31 stub returns size: 0)
-    const screenshotExists = metrics.screenshot.size > 0 && fs.existsSync(metrics.screenshot.absolutePath);
+    // PHASE 36: Screenshots already captured by deterministic analysis
+    // No need to capture here - just read and analyze with Vision API
+    logger.info('PHASE 36: Using screenshots from deterministic analysis', {
+      migratedScreenshot: metrics.screenshot.absolutePath,
+      migratedSize: metrics.screenshot.size,
+      baselineScreenshot: metrics.baselineScreenshot?.absolutePath,
+      baselineSize: metrics.baselineScreenshot?.size,
+      sourceType: metrics.source?.type,
+    });
 
-    if (!screenshotExists) {
-      logger.warn('PHASE 34: No screenshot from deterministic analysis - must capture via MCP', {
-        path: metrics.screenshot.absolutePath,
-        size: metrics.screenshot.size,
-        url: metrics.url,
-        reason: 'Phase 31 stubbed deterministic screenshot capture',
-      });
-
-      // PHASE 34: Capture screenshot via Agent SDK + Playwright MCP
-      logger.info('PHASE 34: Capturing screenshot via Playwright MCP before vision analysis', {
-        url: metrics.url,
-        viewport: metrics.viewport,
-      });
-
-      // Create MCP capture prompt
-      const capturePrompt = `You must capture a screenshot of ${metrics.url} and save it to ${metrics.screenshot.absolutePath}.
-
-1. Use mcp__playwright__browser_navigate to open ${metrics.url}
-2. Use mcp__playwright__browser_take_screenshot with fullPage: true, filename: "${metrics.screenshot.absolutePath}"
-3. Verify the screenshot was saved successfully
-4. Respond with JSON: {"success": true, "screenshotPath": "${metrics.screenshot.absolutePath}"}
-
-CRITICAL: You MUST use the Playwright MCP tools to capture the screenshot. This is NOT optional.`;
-
-      // Create tool logging plugin for capture phase
-      const captureToolLogger = createToolLoggingPlugin();
-
-      // Run screenshot capture via Agent SDK
-      const captureMessages: string[] = [];
-
-      for await (const message of query({
-        prompt: capturePrompt,
-        options: {
-          model: (process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929') as 'claude-sonnet-4-5-20250929' | 'claude-haiku-4-5-20250929',
-          maxTurns: 10,
-          mcpServers: getMCPServersConfig(),
-          allowedTools: ['mcp__playwright__browser_navigate', 'mcp__playwright__browser_take_screenshot', 'Write'],
-          permissionMode: 'bypassPermissions' as const,
-          allowDangerouslySkipPermissions: true,
-          cwd: process.cwd(),
-          plugins: [captureToolLogger],
-        },
-      })) {
-        if (message.type === 'assistant' && message.message?.content) {
-          for (const block of message.message.content) {
-            if (block.type === 'text' && block.text) {
-              captureMessages.push(block.text);
-            }
-          }
-        }
-      }
-
-      const captureToolStats = captureToolLogger.getStats();
-      logger.info('PHASE 34: Screenshot capture completed', {
-        toolInvocations: captureToolStats.totalInvocations,
-        toolsUsed: Object.keys(captureToolStats.toolCounts).join(', '),
-      });
-
-      // Verify screenshot was actually created
-      if (!fs.existsSync(metrics.screenshot.absolutePath)) {
-        const error = new Error('PHASE 34: Screenshot capture failed - file not created by MCP');
-        logger.error('Screenshot capture failed', error, {
-          expectedPath: metrics.screenshot.absolutePath,
-          toolInvocations: captureToolStats.totalInvocations,
-        });
-        throw error;
-      }
-
-      // Update metrics with actual file size
-      const stats = fs.statSync(metrics.screenshot.absolutePath);
-      metrics.screenshot.size = stats.size;
-
-      logger.info('PHASE 34: Screenshot captured successfully', {
-        path: metrics.screenshot.absolutePath,
-        size: metrics.screenshot.size,
-        toolInvocations: captureToolStats.totalInvocations,
+    // Verify screenshots exist
+    if (!fs.existsSync(metrics.screenshot.absolutePath)) {
+      throw new Error(`Migrated screenshot not found: ${metrics.screenshot.absolutePath}`);
+    }
+    if (metrics.baselineScreenshot && !fs.existsSync(metrics.baselineScreenshot.absolutePath)) {
+      logger.warn('Baseline screenshot not found, continuing without comparison', {
+        expectedPath: metrics.baselineScreenshot.absolutePath,
       });
     }
 
@@ -293,7 +273,90 @@ CRITICAL: You MUST use the Playwright MCP tools to capture the screenshot. This 
       mediaType,
     });
 
-    // PHASE 22: Create multimodal message generator with proper typing
+    // PHASE 36: Build multimodal content with Claude native capabilities
+    // Support: PDF documents (native), multiple images (baseline + migrated)
+    const content: Array<{ type: 'text' | 'image' | 'document'; [key: string]: unknown }> = [
+      {
+        type: 'text' as const,
+        text: `${prompts.system}\n\n${prompts.user}`,
+      },
+    ];
+
+    // Add baseline comparison based on source type
+    if (metrics.source?.type === 'html' && metrics.baselineScreenshot?.size > 0) {
+      // HTML source: Add baseline screenshot
+      const baselineBuffer = fs.readFileSync(metrics.baselineScreenshot.absolutePath);
+      const baselineBase64 = baselineBuffer.toString('base64');
+
+      logger.info('Adding baseline HTML screenshot for comparison', {
+        size: metrics.baselineScreenshot.size,
+        url: metrics.source.url,
+      });
+
+      content.push({
+        type: 'image' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: mediaType,
+          data: baselineBase64,
+        },
+      });
+    } else if (metrics.source?.type === 'pdf' && metrics.source.pdfPath) {
+      // PDF source: Add PDF document (Claude native PDF support)
+      logger.info('Adding PDF document for comparison', {
+        pdfPath: metrics.source.pdfPath,
+      });
+
+      // Check if PDF is a URL or local file
+      if (metrics.source.pdfPath.startsWith('http')) {
+        // URL-based PDF - Claude can fetch it
+        content.push({
+          type: 'document' as const,
+          source: {
+            type: 'url' as const,
+            url: metrics.source.pdfPath,
+          },
+        });
+      } else {
+        // Local PDF file - read and encode as base64
+        try {
+          const pdfBuffer = fs.readFileSync(metrics.source.pdfPath);
+          const pdfBase64 = pdfBuffer.toString('base64');
+
+          content.push({
+            type: 'document' as const,
+            source: {
+              type: 'base64' as const,
+              media_type: 'application/pdf' as const,
+              data: pdfBase64,
+            },
+          });
+        } catch (error) {
+          logger.warn('Failed to read PDF file, skipping PDF comparison', {
+            pdfPath: metrics.source.pdfPath,
+            error: (error as Error).message,
+          });
+        }
+      }
+    }
+
+    // Add migrated page screenshot (always included)
+    content.push({
+      type: 'image' as const,
+      source: {
+        type: 'base64' as const,
+        media_type: mediaType,
+        data: screenshotBase64,
+      },
+    });
+
+    logger.info('Multimodal content prepared', {
+      totalItems: content.length,
+      hasBaseline: metrics.source?.type === 'html' && metrics.baselineScreenshot?.size > 0,
+      hasPDF: metrics.source?.type === 'pdf',
+    });
+
+    // PHASE 36: Create multimodal message generator
     const generateMultimodalMessage = async function* () {
       yield {
         type: 'user' as const,
@@ -301,20 +364,7 @@ CRITICAL: You MUST use the Playwright MCP tools to capture the screenshot. This 
         parent_tool_use_id: null,
         message: {
           role: 'user' as const,
-          content: [
-            {
-              type: 'text' as const,
-              text: `${visualPrompt.system}\n\n${userPrompt}`,
-            },
-            {
-              type: 'image' as const,
-              source: {
-                type: 'base64' as const,
-                media_type: mediaType,
-                data: screenshotBase64,
-              },
-            },
-          ],
+          content,
         },
       };
     };

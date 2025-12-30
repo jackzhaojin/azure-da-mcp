@@ -6,6 +6,23 @@
  */
 
 /**
+ * Source type for visual comparison
+ */
+export type VisualSourceType = 'html' | 'pdf' | 'none';
+
+/**
+ * Source information for comparison
+ */
+export interface VisualSourceInfo {
+  /** Source type */
+  type: VisualSourceType;
+  /** Source URL (for HTML comparison) */
+  url?: string;
+  /** Source PDF path (for PDF comparison) */
+  pdfPath?: string;
+}
+
+/**
  * Screenshot capture result
  */
 export interface ScreenshotResult {
@@ -46,10 +63,14 @@ export interface ImageComparisonResult {
  * Visual metrics from deterministic analysis
  */
 export interface VisualMetrics {
-  /** URL analyzed */
+  /** URL analyzed (migrated URL) */
   url: string;
   /** Screenshot result */
   screenshot: ScreenshotResult;
+  /** Source information for comparison */
+  source?: VisualSourceInfo;
+  /** Baseline screenshot (for HTML source comparison) */
+  baselineScreenshot?: ScreenshotResult;
   /** Image comparison result (if baseline provided) */
   comparison?: ImageComparisonResult;
   /** Visual quality score (0-100) */
@@ -74,7 +95,13 @@ export interface VisualMetrics {
  */
 export interface VisualFinding {
   /** Finding type */
-  type: 'layout-broken' | 'missing-image' | 'rendering-issue' | 'design-inconsistency' | 'responsive-issue';
+  type:
+    // Generic quality issues (no source comparison)
+    | 'layout-broken' | 'missing-image' | 'rendering-issue' | 'design-inconsistency' | 'responsive-issue'
+    // HTML source comparison findings
+    | 'layout-shift' | 'missing-element' | 'color-change' | 'typography-change' | 'spacing-change' | 'broken-feature'
+    // PDF source comparison findings
+    | 'missing-content' | 'layout-degradation' | 'hierarchy-broken' | 'format-adaptation' | 'content-mismatch';
   /** Severity level */
   severity: 'critical' | 'serious' | 'moderate' | 'minor';
   /** Plain language issue description */

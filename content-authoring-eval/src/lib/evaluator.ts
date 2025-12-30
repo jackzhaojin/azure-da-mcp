@@ -252,8 +252,11 @@ async function runAgent(
       }
 
       case 'visual': {
-        // Always run deterministic analysis first
-        const deterministic = await analyzeVisual(request.migratedUrl);
+        // Always run deterministic analysis first with source info
+        const deterministic = await analyzeVisual(request.migratedUrl, {
+          sourceUrl: request.expectedUrl, // HTML source for comparison
+          pdfPath: request.pdfPath, // PDF source for comparison
+        });
 
         // Try agentic if OAuth token available
         try {

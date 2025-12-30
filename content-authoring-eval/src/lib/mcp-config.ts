@@ -31,23 +31,30 @@ export function getMCPServerPaths() {
   }
 
   // Local development paths
-  // Try multiple common locations
+  // Try multiple common locations including nvm
+  const homeDir = process.env.HOME || '';
+  const nvmBin = process.env.NVM_BIN || '';
+
   const playwrightPaths = [
-    '/opt/homebrew/bin/mcp-server-playwright', // macOS Homebrew ARM
-    '/usr/local/bin/mcp-server-playwright',     // macOS Homebrew Intel
-    'mcp-server-playwright',                     // Fallback to PATH
-  ];
+    '/opt/homebrew/bin/mcp-server-playwright',           // macOS Homebrew ARM
+    '/usr/local/bin/mcp-server-playwright',              // macOS Homebrew Intel
+    nvmBin ? `${nvmBin}/mcp-server-playwright` : '',    // nvm global install
+    homeDir ? `${homeDir}/.nvm/versions/node/v20.19.5/bin/mcp-server-playwright` : '', // nvm fallback
+    'mcp-server-playwright',                              // Fallback to PATH
+  ].filter(Boolean); // Remove empty strings
 
   const filesystemPaths = [
-    '/opt/homebrew/bin/mcp-server-filesystem', // macOS Homebrew ARM
-    '/usr/local/bin/mcp-server-filesystem',     // macOS Homebrew Intel
-    'npx',                                       // Fallback to npx
-  ];
+    '/opt/homebrew/bin/mcp-server-filesystem',           // macOS Homebrew ARM
+    '/usr/local/bin/mcp-server-filesystem',              // macOS Homebrew Intel
+    nvmBin ? `${nvmBin}/mcp-server-filesystem` : '',    // nvm global install
+    homeDir ? `${homeDir}/.nvm/versions/node/v20.19.5/bin/mcp-server-filesystem` : '', // nvm fallback
+    'npx',                                                 // Fallback to npx
+  ].filter(Boolean); // Remove empty strings
 
   // Find first existing playwright path
   const playwrightPath = playwrightPaths.find(p => {
     try {
-      return fs.existsSync(p);
+      return p !== '' && fs.existsSync(p);
     } catch {
       return false;
     }
@@ -56,7 +63,7 @@ export function getMCPServerPaths() {
   // For filesystem, use npx if no binary found
   const filesystemPath = filesystemPaths.find(p => {
     try {
-      return p !== 'npx' && fs.existsSync(p);
+      return p !== 'npx' && p !== '' && fs.existsSync(p);
     } catch {
       return false;
     }
