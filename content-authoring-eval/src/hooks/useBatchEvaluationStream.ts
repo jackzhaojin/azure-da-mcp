@@ -230,11 +230,22 @@ export function useBatchEvaluationStream(): UseBatchEvaluationStreamReturn {
 
       eventSource.onerror = (error) => {
         console.error('SSE connection error:', error);
-        setState((prev) => ({
-          ...prev,
-          isConnected: false,
-          error: 'Connection lost. Please refresh and try again.',
-        }));
+        setState((prev) => {
+          // Don't show error if batch already completed - connection close is expected
+          if (prev.isComplete) {
+            return {
+              ...prev,
+              isConnected: false,
+            };
+          }
+
+          // Only show error if batch hasn't completed yet
+          return {
+            ...prev,
+            isConnected: false,
+            error: 'Connection lost. Please refresh and try again.',
+          };
+        });
         eventSource.close();
       };
     },

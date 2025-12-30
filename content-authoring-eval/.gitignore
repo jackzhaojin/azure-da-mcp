@@ -39,3 +39,5 @@ next-env.d.ts
 
 # screenshots and test artifacts
 /public
+/output
+/test-results
