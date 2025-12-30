@@ -112,8 +112,8 @@ export function BatchEvaluationForm() {
   const hasCompletedPages = Array.from(pageStates.values()).some((p) => p.status === 'done');
   const canExport = batchData && (isComplete || hasCompletedPages);
 
-  // Show evaluation running state
-  const isEvaluating = isConnected || (pageStates.size > 0 && !isComplete);
+  // Show evaluation UI if we're running OR if we have results to display
+  const isEvaluating = isConnected || pageStates.size > 0;
 
   return (
     <div className="space-y-6">

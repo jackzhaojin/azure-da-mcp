@@ -88,6 +88,14 @@ class BatchStorage {
 }
 
 /**
- * Singleton instance
+ * Singleton instance using globalThis to persist across hot reloads in dev mode
  */
-export const batchStorage = new BatchStorage();
+declare global {
+  var __batchStorage: BatchStorage | undefined;
+}
+
+if (!globalThis.__batchStorage) {
+  globalThis.__batchStorage = new BatchStorage();
+}
+
+export const batchStorage = globalThis.__batchStorage;
