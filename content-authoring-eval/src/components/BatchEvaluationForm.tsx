@@ -12,6 +12,8 @@ import { BatchEvaluationTable } from '@/components/BatchEvaluationTable';
 import { BatchProgressBar } from '@/components/BatchProgressBar';
 import { BatchSummaryCard } from '@/components/BatchSummaryCard';
 import { useBatchEvaluationStream } from '@/hooks/useBatchEvaluationStream';
+import { useEvaluations } from '@/hooks/useEvaluations'; // PHASE 32
+import { convertToBatchReport } from '@/lib/batch-report-utils'; // PHASE 32
 import { FileJson, ListChecks, ChevronDown, ChevronRight, PlayCircle, RotateCcw, XCircle, RefreshCw } from 'lucide-react';
 
 export function BatchEvaluationForm() {
@@ -21,9 +23,13 @@ export function BatchEvaluationForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [evaluationStartTime, setEvaluationStartTime] = useState<number>(0);
   const [evaluationEndTime, setEvaluationEndTime] = useState<number>(0);
+  const [hasBeenSaved, setHasBeenSaved] = useState(false); // PHASE 32: Track if batch has been saved
 
   // SSE streaming state
   const { isConnected, isComplete, error: streamError, pageStates, startEvaluation, cancelEvaluation, getFailedPages, reset } = useBatchEvaluationStream();
+
+  // PHASE 32: localStorage persistence
+  const { addBatchEvaluation } = useEvaluations();
 
   const handleImportSuccess = (importedBatch: BatchEvaluationInput) => {
     setBatchData(importedBatch);
@@ -67,6 +73,7 @@ export function BatchEvaluationForm() {
     setError(null);
     setEvaluationStartTime(0);
     setEvaluationEndTime(0);
+    setHasBeenSaved(false); // PHASE 32: Reset save flag
   };
 
   const handleCancel = () => {
@@ -100,9 +107,28 @@ export function BatchEvaluationForm() {
     startEvaluation(batchData.batchId + '-retry', retryPages);
   };
 
-  // Track when evaluation completes
-  if (isComplete && evaluationStartTime > 0 && evaluationEndTime === 0) {
-    setEvaluationEndTime(Date.now());
+  // PHASE 32: Track when evaluation completes AND save to localStorage
+  if (isComplete && evaluationStartTime > 0 && evaluationEndTime === 0 && pageStates.size > 0 && !hasBeenSaved) {
+    const completionTime = Date.now();
+    setEvaluationEndTime(completionTime);
+
+    // Only save if we have a batchId
+    if (batchData?.batchId) {
+      try {
+        const batchReport = convertToBatchReport(
+          batchData.batchId,
+          pageStates,
+          evaluationStartTime,
+          completionTime
+        );
+
+        addBatchEvaluation(batchReport);
+        setHasBeenSaved(true);
+        console.log('[BatchEvaluationForm] Batch saved to localStorage:', batchReport.id);
+      } catch (err) {
+        console.error('[BatchEvaluationForm] Failed to save batch:', err);
+      }
+    }
   }
 
   // Show stream error if any
