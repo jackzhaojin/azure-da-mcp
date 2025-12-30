@@ -11,6 +11,7 @@ import { createLogger, Timer } from '@/lib/logger';
 import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './types';
 import visualPrompt from '@/lib/prompts/visual.json';
 import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
+import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
 
@@ -200,16 +201,7 @@ CRITICAL: You MUST use the Playwright MCP tools to capture the screenshot. This 
         options: {
           model: (process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929') as 'claude-sonnet-4-5-20250929' | 'claude-haiku-4-5-20250929',
           maxTurns: 10,
-          mcpServers: {
-            "playwright": {
-              command: "/usr/local/bin/mcp-server-playwright",
-              args: []
-            },
-            "filesystem": {
-              command: "/usr/local/bin/mcp-server-filesystem",
-              args: [process.cwd()]
-            }
-          },
+          mcpServers: getMCPServersConfig(),
           allowedTools: ['mcp__playwright__browser_navigate', 'mcp__playwright__browser_take_screenshot', 'Write'],
           permissionMode: 'bypassPermissions' as const,
           allowDangerouslySkipPermissions: true,
@@ -338,18 +330,9 @@ CRITICAL: You MUST use the Playwright MCP tools to capture the screenshot. This 
         maxTurns: 20, // Increased for multiple tool invocations
         // PHASE 25: Remove settingSources - use programmatic MCP config instead
         // settingSources: ['user', 'project'],
-        // PHASE 25: Configure MCP servers programmatically (bundled in container)
-        // Use direct paths to globally installed MCP servers to avoid npx HOME directory issues
-        mcpServers: {
-          "playwright": {
-            command: "/usr/local/bin/mcp-server-playwright",
-            args: []
-          },
-          "filesystem": {
-            command: "/usr/local/bin/mcp-server-filesystem",
-            args: [process.cwd()]
-          }
-        },
+        // PHASE 25: Configure MCP servers programmatically (environment-aware paths)
+        // Use getMCPServersConfig() to get correct paths for Docker vs local development
+        mcpServers: getMCPServersConfig(),
         allowedTools: ['Read', 'Write', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,

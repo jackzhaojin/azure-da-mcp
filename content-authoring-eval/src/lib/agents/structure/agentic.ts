@@ -16,6 +16,7 @@ import {
 } from './types';
 import structurePrompt from '@/lib/prompts/structure.json';
 import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
+import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
 
@@ -266,16 +267,7 @@ ${userPrompt}`;
     const agentConfig = {
       model: 'claude-sonnet-4-5-20250929',
       maxTurns: 20,
-      mcpServers: {
-        "playwright": {
-          command: "/usr/local/bin/mcp-server-playwright",
-          args: []
-        },
-        "filesystem": {
-          command: "/usr/local/bin/mcp-server-filesystem",
-          args: [process.cwd()]
-        }
-      },
+      mcpServers: getMCPServersConfig(),
       allowedTools: ['Read', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
