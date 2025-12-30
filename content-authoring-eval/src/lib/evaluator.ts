@@ -287,7 +287,14 @@ async function runAgent(
               },
             },
           };
-        } catch {
+        } catch (error) {
+          // PHASE 34: Log warning instead of silent fallback
+          logger.warn('Agentic visual analysis failed, using deterministic fallback', {
+            error: (error as Error).message,
+            dimension: 'visual',
+            fallbackScore: deterministic.score,
+          });
+
           // Fallback to deterministic-only
           result = {
             dimension: 'visual',

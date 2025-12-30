@@ -162,6 +162,97 @@ export async function analyzeVisualWithClaude(
       promptLength: userPrompt.length,
     });
 
+    // PHASE 34: Check if screenshot actually exists (Phase 31 stub returns size: 0)
+    const screenshotExists = metrics.screenshot.size > 0 && fs.existsSync(metrics.screenshot.absolutePath);
+
+    if (!screenshotExists) {
+      logger.warn('PHASE 34: No screenshot from deterministic analysis - must capture via MCP', {
+        path: metrics.screenshot.absolutePath,
+        size: metrics.screenshot.size,
+        url: metrics.url,
+        reason: 'Phase 31 stubbed deterministic screenshot capture',
+      });
+
+      // PHASE 34: Capture screenshot via Agent SDK + Playwright MCP
+      logger.info('PHASE 34: Capturing screenshot via Playwright MCP before vision analysis', {
+        url: metrics.url,
+        viewport: metrics.viewport,
+      });
+
+      // Create MCP capture prompt
+      const capturePrompt = `You must capture a screenshot of ${metrics.url} and save it to ${metrics.screenshot.absolutePath}.
+
+1. Use mcp__playwright__browser_navigate to open ${metrics.url}
+2. Use mcp__playwright__browser_take_screenshot with fullPage: true, filename: "${metrics.screenshot.absolutePath}"
+3. Verify the screenshot was saved successfully
+4. Respond with JSON: {"success": true, "screenshotPath": "${metrics.screenshot.absolutePath}"}
+
+CRITICAL: You MUST use the Playwright MCP tools to capture the screenshot. This is NOT optional.`;
+
+      // Create tool logging plugin for capture phase
+      const captureToolLogger = createToolLoggingPlugin();
+
+      // Run screenshot capture via Agent SDK
+      const captureMessages: string[] = [];
+
+      for await (const message of query({
+        prompt: capturePrompt,
+        options: {
+          model: (process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929') as 'claude-sonnet-4-5-20250929' | 'claude-haiku-4-5-20250929',
+          maxTurns: 10,
+          mcpServers: {
+            "playwright": {
+              command: "/usr/local/bin/mcp-server-playwright",
+              args: []
+            },
+            "filesystem": {
+              command: "/usr/local/bin/mcp-server-filesystem",
+              args: [process.cwd()]
+            }
+          },
+          allowedTools: ['mcp__playwright__browser_navigate', 'mcp__playwright__browser_take_screenshot', 'Write'],
+          permissionMode: 'bypassPermissions' as const,
+          allowDangerouslySkipPermissions: true,
+          cwd: process.cwd(),
+          plugins: [captureToolLogger],
+        },
+      })) {
+        if (message.type === 'assistant' && message.message?.content) {
+          for (const block of message.message.content) {
+            if (block.type === 'text' && block.text) {
+              captureMessages.push(block.text);
+            }
+          }
+        }
+      }
+
+      const captureToolStats = captureToolLogger.getStats();
+      logger.info('PHASE 34: Screenshot capture completed', {
+        toolInvocations: captureToolStats.totalInvocations,
+        toolsUsed: Object.keys(captureToolStats.toolCounts).join(', '),
+      });
+
+      // Verify screenshot was actually created
+      if (!fs.existsSync(metrics.screenshot.absolutePath)) {
+        const error = new Error('PHASE 34: Screenshot capture failed - file not created by MCP');
+        logger.error('Screenshot capture failed', error, {
+          expectedPath: metrics.screenshot.absolutePath,
+          toolInvocations: captureToolStats.totalInvocations,
+        });
+        throw error;
+      }
+
+      // Update metrics with actual file size
+      const stats = fs.statSync(metrics.screenshot.absolutePath);
+      metrics.screenshot.size = stats.size;
+
+      logger.info('PHASE 34: Screenshot captured successfully', {
+        path: metrics.screenshot.absolutePath,
+        size: metrics.screenshot.size,
+        toolInvocations: captureToolStats.totalInvocations,
+      });
+    }
+
     // PHASE 22: Read screenshot as base64 for Vision API integration
     const screenshotBuffer = fs.readFileSync(metrics.screenshot.absolutePath);
     const screenshotBase64 = screenshotBuffer.toString('base64');
