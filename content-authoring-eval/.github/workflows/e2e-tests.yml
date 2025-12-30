@@ -1,0 +1,164 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * *'  # 6am UTC daily
+  workflow_dispatch:  # Manual trigger
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  smoke-tests:
+    name: Smoke Tests (Fast & Free)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: content-authoring-eval/package-lock.json
+
+      - name: Install dependencies
+        working-directory: content-authoring-eval
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: content-authoring-eval
+        run: npx playwright install chromium --with-deps
+
+      - name: Run smoke tests
+        working-directory: content-authoring-eval
+        run: npm run test:smoke
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test-results
+          path: |
+            content-authoring-eval/test-results/
+            content-authoring-eval/playwright-report/
+          retention-days: 7
+
+      - name: Upload flaky test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flaky-tests-smoke
+          path: content-authoring-eval/test-results/flaky-tests.json
+          retention-days: 30
+
+  regression-tests:
+    name: Regression Tests (Deterministic Only)
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: content-authoring-eval/package-lock.json
+
+      - name: Install dependencies
+        working-directory: content-authoring-eval
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: content-authoring-eval
+        run: npx playwright install chromium --with-deps
+
+      - name: Run regression tests
+        working-directory: content-authoring-eval
+        run: npm run test:regression
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regression-test-results
+          path: |
+            content-authoring-eval/test-results/
+            content-authoring-eval/playwright-report/
+          retention-days: 14
+
+      - name: Upload flaky test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flaky-tests-regression
+          path: content-authoring-eval/test-results/flaky-tests.json
+          retention-days: 30
+
+  nightly-full-suite:
+    name: Full Suite (Nightly - Includes Agentic)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: content-authoring-eval/package-lock.json
+
+      - name: Install dependencies
+        working-directory: content-authoring-eval
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: content-authoring-eval
+        run: npx playwright install chromium --with-deps
+
+      - name: Run full test suite
+        working-directory: content-authoring-eval
+        run: npm test
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-test-results
+          path: |
+            content-authoring-eval/test-results/
+            content-authoring-eval/playwright-report/
+          retention-days: 30
+
+      - name: Upload flaky test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flaky-tests-nightly
+          path: content-authoring-eval/test-results/flaky-tests.json
+          retention-days: 30
+
+      - name: Comment on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Nightly E2E Test Failure',
+              body: `Nightly test run failed on ${new Date().toISOString()}\n\nSee workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['test-failure', 'nightly']
+            })

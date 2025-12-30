@@ -137,3 +137,28 @@ export interface StructureAnalysisResult {
     toolUsage?: ToolUsageMetadata;
   };
 }
+
+/**
+ * Source type for structure comparison (Phase 36)
+ */
+export type StructureSourceType = 'html' | 'pdf' | 'none';
+
+/**
+ * PDF-extracted structure (subset of full HTML structure)
+ * Phase 36: PDF doesn't have semantic HTML, only headings and content
+ */
+export interface PDFStructure {
+  /** Headings extracted from PDF */
+  headings: string[];
+  /** Estimated heading levels (heuristic) */
+  headingLevels: Array<{ text: string; level: number }>;
+  /** Paragraph count */
+  paragraphCount: number;
+  /** Word count */
+  wordCount: number;
+  /** PDF metadata */
+  metadata?: {
+    title?: string;
+    author?: string;
+  };
+}
