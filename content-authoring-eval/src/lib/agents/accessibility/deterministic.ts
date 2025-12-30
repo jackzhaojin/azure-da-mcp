@@ -1,12 +1,16 @@
 /**
- * Deterministic Accessibility Agent
+ * PHASE 31: Deterministic Accessibility Agent (Stub for Pure MCP Architecture)
  *
- * Uses axe-core via Playwright to scan webpages for WCAG 2.2 AA violations.
+ * DEPRECATED: Direct Playwright browser launching removed to eliminate Docker bloat.
+ * Use the agentic agent (analyzeAccessibilityWithClaude) which uses Playwright MCP instead.
+ *
+ * This stub returns empty results to allow fallback to agentic-only mode.
  */
 
-import { chromium } from 'playwright';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+// PHASE 31: Removed direct playwright import
+// import { chromium } from 'playwright';
+// import { readFileSync } from 'fs';
+// import { join } from 'path';
 import { createLogger, Timer } from '@/lib/logger';
 import type {
   AccessibilityMetrics,
@@ -17,101 +21,33 @@ import type {
 const logger = createLogger('deterministic');
 
 /**
- * Run axe-core accessibility scan on URL
+ * PHASE 31: Stub function - returns empty axe results
+ *
+ * Rationale: Removing direct chromium.launch() to allow Docker to use ONLY @playwright/mcp browsers.
+ * The agentic agent will perform accessibility analysis via MCP snapshot + WCAG knowledge.
  */
 export async function scanAccessibility(url: string): Promise<AxeResults> {
   const timer = new Timer();
-  logger.info('Starting accessibility scan', { url });
+  logger.warn('PHASE 31: Deterministic axe-core scan DISABLED - using agentic-only mode', { url });
+  logger.info('Returning empty accessibility results (agentic agent will handle analysis)', { url });
 
-  let browser;
-  try {
-    // Launch browser in headless mode
-    logger.debug('Launching Playwright browser');
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-    const context = await browser.newContext({
-      bypassCSP: true, // Allow axe-core to inject JavaScript
-    });
-    const page = await context.newPage();
+  // PHASE 31: Return empty results structure
+  // The agentic agent (analyzeAccessibilityWithClaude) will perform the actual analysis
+  logger.operationComplete('Accessibility scan (stub)', timer.elapsed(), {
+    violations: 0,
+    passes: 0,
+    incomplete: 0,
+    note: 'Deterministic scan disabled in Phase 31 - use agentic mode',
+  });
 
-    // Navigate to URL
-    logger.debug('Navigating to URL', { url });
-    await page.goto(url, { waitUntil: 'networkidle' });
-
-    // Inject axe-core into page
-    logger.debug('Injecting axe-core into page');
-    const axeSource = readFileSync(
-      join(process.cwd(), 'node_modules', 'axe-core', 'axe.min.js'),
-      'utf8'
-    );
-    await page.addScriptTag({
-      content: axeSource,
-    });
-
-    // Wait for axe-core to be available
-    await page.waitForFunction(() => {
-      return typeof (window as never)['axe'] !== 'undefined';
-    }, { timeout: 5000 });
-
-    // Run axe-core scan with WCAG 2.2 AA rules
-    logger.debug('Running axe-core scan');
-    const axeResults = await page.evaluate(() => {
-      // axe-core should be available as window.axe after script injection
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const axe = (window as any).axe;
-      if (!axe) {
-        throw new Error('axe-core not loaded in page');
-      }
-      return axe.run(document, {
-        runOnly: {
-          type: 'tag',
-          values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'],
-        },
-        resultTypes: ['violations', 'passes', 'incomplete', 'inapplicable'],
-      });
-    });
-
-    logger.operationComplete('Accessibility scan', timer.elapsed(), {
-      violations: axeResults.violations.length,
-      passes: axeResults.passes.length,
-      incomplete: axeResults.incomplete.length,
-    });
-
-    return {
-      url,
-      timestamp: new Date().toISOString(),
-      violations: axeResults.violations as AxeViolation[],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      passes: axeResults.passes.map((pass: any) => ({
-        id: pass.id,
-        description: pass.description,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        nodes: pass.nodes.map((node: any) => ({
-          html: node.html,
-          target: node.target,
-        })),
-      })),
-      incomplete: axeResults.incomplete as AxeViolation[],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      inapplicable: axeResults.inapplicable.map((rule: any) => ({
-        id: rule.id,
-        description: rule.description,
-      })),
-    };
-  } catch (error) {
-    logger.error('Accessibility scan failed', error as Error, {
-      url,
-      duration: timer.elapsed(),
-    });
-    throw error;
-  } finally {
-    if (browser) {
-      await browser.close();
-      logger.debug('Browser closed');
-    }
-  }
+  return {
+    url,
+    timestamp: new Date().toISOString(),
+    violations: [] as AxeViolation[],
+    passes: [],
+    incomplete: [],
+    inapplicable: [],
+  };
 }
 
 /**

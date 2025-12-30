@@ -1,11 +1,14 @@
 /**
- * Visual Correctness Agent - Deterministic Analysis
+ * PHASE 31: Visual Correctness Agent - Deterministic Analysis (Stub for Pure MCP Architecture)
  *
- * Captures webpage screenshots using Playwright and performs
- * pixel-level image comparison using pixelmatch.
+ * DEPRECATED: Direct Playwright browser launching removed to eliminate Docker bloat.
+ * Use the agentic agent (analyzeVisualWithClaude) which uses Playwright MCP for screenshots.
+ *
+ * This stub returns minimal results to allow fallback to agentic-only mode.
  */
 
-import { chromium } from 'playwright';
+// PHASE 31: Removed direct playwright import
+// import { chromium } from 'playwright';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import fs from 'fs';
@@ -20,85 +23,40 @@ import type {
 const logger = createLogger('visual');
 
 /**
- * Capture screenshot of a webpage
+ * PHASE 31: Stub function - returns placeholder screenshot result
+ *
+ * Rationale: Removing direct chromium.launch() to allow Docker to use ONLY @playwright/mcp browsers.
+ * The agentic agent will capture screenshots via MCP and perform visual analysis.
  */
 export async function captureScreenshot(
   url: string,
   viewport: { width: number; height: number } = { width: 1280, height: 720 }
 ): Promise<ScreenshotResult> {
   const timer = new Timer();
-  logger.info('Capturing screenshot', { url, viewport });
+  logger.warn('PHASE 31: Deterministic screenshot capture DISABLED - using agentic-only mode', { url, viewport });
+  logger.info('Returning placeholder screenshot result (agentic agent will handle capture)', { url });
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  // PHASE 31: Return placeholder result
+  // The agentic agent (analyzeVisualWithClaude) will capture the screenshot via MCP
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `screenshot-placeholder-${timestamp}.png`;
+  const relativePath = `screenshots/${filename}`;
+  const absolutePath = path.join(process.cwd(), 'public', relativePath);
+
+  logger.operationComplete('Screenshot capture (stub)', timer.elapsed(), {
+    note: 'Deterministic screenshot disabled in Phase 31 - use agentic mode',
   });
 
-  try {
-    const context = await browser.newContext({
-      viewport,
-      bypassCSP: true,
-    });
-
-    const page = await context.newPage();
-    logger.debug('Navigating to URL', { url });
-
-    await page.goto(url, { waitUntil: 'networkidle' });
-    logger.debug('Page loaded', { url });
-
-    // Generate unique filename based on URL and timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const urlHash = Buffer.from(url).toString('base64').slice(0, 10).replace(/[/+=]/g, '');
-    const filename = `screenshot-${urlHash}-${timestamp}.png`;
-    const relativePath = `screenshots/${filename}`;
-    const absolutePath = path.join(process.cwd(), 'public', relativePath);
-
-    // Ensure screenshots directory exists
-    const screenshotsDir = path.dirname(absolutePath);
-    if (!fs.existsSync(screenshotsDir)) {
-      fs.mkdirSync(screenshotsDir, { recursive: true });
-    }
-
-    // Capture full page screenshot
-    logger.debug('Taking screenshot', { fullPage: true });
-    await page.screenshot({
-      path: absolutePath,
-      fullPage: true,
-    });
-
-    // Get file stats
-    const stats = fs.statSync(absolutePath);
-
-    // Read PNG to get dimensions
-    const pngBuffer = fs.readFileSync(absolutePath);
-    const png = PNG.sync.read(pngBuffer);
-
-    const result: ScreenshotResult = {
-      path: relativePath,
-      absolutePath,
-      size: stats.size,
-      dimensions: {
-        width: png.width,
-        height: png.height,
-      },
-      capturedAt: new Date().toISOString(),
-    };
-
-    logger.operationComplete('Screenshot capture', timer.elapsed(), {
-      path: relativePath,
-      size: stats.size,
-      dimensions: result.dimensions,
-    });
-
-    await browser.close();
-    logger.debug('Browser closed');
-
-    return result;
-  } catch (error) {
-    await browser.close();
-    logger.error('Screenshot capture failed', error as Error, { url, duration: timer.elapsed() });
-    throw error;
-  }
+  return {
+    path: relativePath,
+    absolutePath,
+    size: 0, // Placeholder
+    dimensions: {
+      width: viewport.width,
+      height: viewport.height,
+    },
+    capturedAt: new Date().toISOString(),
+  };
 }
 
 /**
