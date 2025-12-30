@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -107,29 +107,31 @@ export function BatchEvaluationForm() {
     startEvaluation(batchData.batchId + '-retry', retryPages);
   };
 
-  // PHASE 32: Track when evaluation completes AND save to localStorage
-  if (isComplete && evaluationStartTime > 0 && evaluationEndTime === 0 && pageStates.size > 0 && !hasBeenSaved) {
-    const completionTime = Date.now();
-    setEvaluationEndTime(completionTime);
+  // PHASE 32: Save to localStorage when evaluation completes
+  useEffect(() => {
+    if (isComplete && evaluationStartTime > 0 && evaluationEndTime === 0 && pageStates.size > 0 && !hasBeenSaved) {
+      const completionTime = Date.now();
+      setEvaluationEndTime(completionTime);
 
-    // Only save if we have a batchId
-    if (batchData?.batchId) {
-      try {
-        const batchReport = convertToBatchReport(
-          batchData.batchId,
-          pageStates,
-          evaluationStartTime,
-          completionTime
-        );
+      // Only save if we have a batchId
+      if (batchData?.batchId) {
+        try {
+          const batchReport = convertToBatchReport(
+            batchData.batchId,
+            pageStates,
+            evaluationStartTime,
+            completionTime
+          );
 
-        addBatchEvaluation(batchReport);
-        setHasBeenSaved(true);
-        console.log('[BatchEvaluationForm] Batch saved to localStorage:', batchReport.id);
-      } catch (err) {
-        console.error('[BatchEvaluationForm] Failed to save batch:', err);
+          addBatchEvaluation(batchReport);
+          setHasBeenSaved(true);
+          console.log('[PHASE 32] ✅ Batch saved to localStorage:', batchReport.id);
+        } catch (err) {
+          console.error('[PHASE 32] ❌ Failed to save batch:', err);
+        }
       }
     }
-  }
+  }, [isComplete, evaluationStartTime, evaluationEndTime, pageStates, hasBeenSaved, batchData, addBatchEvaluation]);
 
   // Show stream error if any
   const displayError = error || streamError;
