@@ -1,8 +1,10 @@
 /**
  * PHASE 28-30: Batch Evaluation with SSE Streaming API Route
  *
- * POST /api/evaluate/batch-stream?batchId={batchId}
+ * GET /api/evaluate/batch-stream?batchId={batchId}
  * Start batch evaluation with Server-Sent Events (SSE) for real-time progress
+ *
+ * NOTE: EventSource API (used by client) only supports GET requests, so we use GET instead of POST
  *
  * PHASE 30 Enhancements:
  * - Timeout detection (5 min per page max)
@@ -391,38 +393,78 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/evaluate/batch-stream
- * Health check endpoint
+ * GET /api/evaluate/batch-stream?batchId={batchId}
+ * Start batch evaluation with SSE streaming (EventSource only supports GET)
  */
-export async function GET() {
-  return new Response(
-    JSON.stringify({
-      status: 'ok',
-      endpoint: '/api/evaluate/batch-stream',
-      method: 'POST',
-      description: 'Start batch evaluation with SSE streaming for real-time progress',
-      usage: {
-        request: {
-          method: 'POST',
-          url: '/api/evaluate/batch-stream?batchId={batchId}',
-          note: 'Batch must be imported first via /api/evaluate/import',
-        },
-        response: {
-          streamFormat: 'text/event-stream',
-          events: [
-            'page:queued',
-            'page:started',
-            'dimension:started',
-            'dimension:completed',
-            'page:completed',
-            'page:error',
-            'batch:completed',
-          ],
-        },
-      },
-    }),
-    {
-      headers: { 'Content-Type': 'application/json' },
+export async function GET(request: NextRequest) {
+  logger.requestStart('GET', '/api/evaluate/batch-stream');
+
+  try {
+    // Get batchId from query params
+    const { searchParams } = new URL(request.url);
+    const batchId = searchParams.get('batchId');
+
+    if (!batchId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing batchId query parameter',
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
-  );
+
+    // Check if batch exists
+    if (!batchStorage.hasBatch(batchId)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Batch not found',
+          message: `Batch with ID "${batchId}" not found. Please import a batch first.`,
+        }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    logger.info('Starting SSE batch evaluation', { batchId });
+
+    // Create SSE stream
+    const encoder = new TextEncoder();
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
+
+    // Start processing in background
+    processBatchWithStreaming(batchId, writer, encoder).catch((error) => {
+      logger.error('Batch streaming failed', error instanceof Error ? error : new Error(String(error)));
+    });
+
+    // Return SSE response
+    return new Response(stream.readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
+
+  } catch (error) {
+    logger.error('Batch stream failed', error instanceof Error ? error : new Error(String(error)));
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Batch stream failed',
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
 }
