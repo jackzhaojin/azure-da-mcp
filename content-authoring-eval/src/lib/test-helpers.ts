@@ -12,6 +12,7 @@ declare global {
     __TEST__: {
       importBatch: (batch: BatchEvaluationInput) => Promise<void>;
       startEvaluation: (batchId: string) => void;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getState: () => any;
       waitForCompletion: (timeout?: number) => Promise<void>;
     };
@@ -114,9 +115,6 @@ export function initTestHelpers() {
      */
     getState() {
       const hasError = !!document.querySelector('.bg-red-50');
-      const hasComplete = Array.from(document.querySelectorAll('*')).some(el =>
-        el.textContent?.includes('Complete') && !el.textContent?.includes('0 pages')
-      );
       const hasConnectionLost = Array.from(document.querySelectorAll('*')).some(el =>
         el.textContent?.includes('Connection lost')
       );

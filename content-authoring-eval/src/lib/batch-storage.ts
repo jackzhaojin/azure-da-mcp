@@ -91,6 +91,7 @@ class BatchStorage {
  * Singleton instance using globalThis to persist across hot reloads in dev mode
  */
 declare global {
+  // eslint-disable-next-line no-var
   var __batchStorage: BatchStorage | undefined;
 }
 

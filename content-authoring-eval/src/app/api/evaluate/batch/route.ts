@@ -161,6 +161,7 @@ export async function POST(request: NextRequest) {
         // Create error report
         const errorReport: EvaluationReport = {
           id: `eval-error-${Date.now()}-${i}`,
+          type: 'single', // PHASE 32: Discriminator for unified storage
           request: evalRequest,
           summary: {
             overallScore: 0,

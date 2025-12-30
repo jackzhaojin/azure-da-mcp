@@ -61,10 +61,11 @@ export interface EvaluationRequest {
 }
 
 /**
- * Complete evaluation report
+ * Complete evaluation report (single-page)
  */
 export interface EvaluationReport {
   id: string; // Unique ID (timestamp-based or UUID)
+  type: 'single'; // Discriminator for unified storage
   request: EvaluationRequest;
   summary: {
     overallScore: number; // 0-100 weighted average
@@ -88,10 +89,47 @@ export interface EvaluationReport {
 }
 
 /**
+ * PHASE 32: Batch Evaluation Report (for localStorage persistence)
+ */
+export interface BatchEvaluationReport {
+  id: string; // batchId or generated UUID
+  type: 'batch'; // Discriminator for unified storage
+  batchId: string;
+  title?: string; // User-provided or auto-generated
+  summary: {
+    totalPages: number;
+    successfulPages: number;
+    failedPages: number;
+    averageScore: number;
+    grade: 'excellent' | 'good' | 'acceptable' | 'needs-improvement' | 'critical';
+    scoreDistribution: {
+      excellent: number;
+      good: number;
+      acceptable: number;
+      needsImprovement: number;
+      critical: number;
+    };
+  };
+  results: BatchPageResult[]; // Full page results
+  metadata: {
+    createdAt: string;
+    completedAt: string;
+    durationMs: number;
+    version: string;
+  };
+}
+
+/**
+ * PHASE 32: Unified evaluation type for storage
+ * Uses discriminated union for type-safe handling
+ */
+export type AnyEvaluationReport = EvaluationReport | BatchEvaluationReport;
+
+/**
  * Stored evaluations in localStorage
  */
 export interface EvaluationStorage {
-  evaluations: EvaluationReport[];
+  evaluations: AnyEvaluationReport[];
   lastUpdated: string;
 }
 

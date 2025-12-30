@@ -12,6 +12,7 @@ export default function TestHooksPage() {
   const handleAddMockEvaluation = () => {
     const mockReport: EvaluationReport = {
       id: `test-${Date.now()}`,
+      type: 'single', // PHASE 32: Discriminator for unified storage
       request: {
         migratedUrl: 'https://example.com/migrated-page',
         pdfPath: 'https://example.com/original.pdf',
@@ -86,11 +87,22 @@ export default function TestHooksPage() {
                   <li key={evaluation.id} className="border-b pb-2">
                     <div className="font-mono text-sm">{evaluation.id}</div>
                     <div className="text-sm">
-                      Score: {evaluation.summary.overallScore} | Grade:{' '}
-                      {evaluation.summary.grade}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {evaluation.request.migratedUrl}
+                      {/* PHASE 32: Handle discriminated union */}
+                      {evaluation.type === 'single' ? (
+                        <>
+                          Score: {evaluation.summary.overallScore} | Grade: {evaluation.summary.grade}
+                          <div className="text-xs text-muted-foreground">
+                            {evaluation.request.migratedUrl}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          Batch: {evaluation.summary.averageScore} | Grade: {evaluation.summary.grade}
+                          <div className="text-xs text-muted-foreground">
+                            {evaluation.batchId} ({evaluation.summary.totalPages} pages)
+                          </div>
+                        </>
+                      )}
                     </div>
                   </li>
                 ))}

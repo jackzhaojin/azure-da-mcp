@@ -5,10 +5,13 @@ import { useState, useEffect } from 'react';
 /**
  * Generic localStorage hook with TypeScript support
  * Handles JSON serialization/deserialization automatically
+ * PHASE 32: Added optional migration function for backward compatibility
  */
 export function useLocalStorage<T>(
   key: string,
-  initialValue: T
+  initialValue: T,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  migrate?: (oldData: any) => T
 ): [T, (value: T | ((val: T) => T)) => void, () => void] {
   // State to store our value
   // Pass initial state function to useState so logic is only executed once
@@ -19,8 +22,22 @@ export function useLocalStorage<T>(
     try {
       // Get from local storage by key
       const item = window.localStorage.getItem(key);
-      // Parse stored json or if none return initialValue
-      return item ? JSON.parse(item) : initialValue;
+      if (!item) {
+        return initialValue;
+      }
+
+      // Parse stored json
+      const parsedData = JSON.parse(item);
+
+      // Apply migration if provided
+      if (migrate) {
+        const migratedData = migrate(parsedData);
+        // Save migrated data back to localStorage
+        window.localStorage.setItem(key, JSON.stringify(migratedData));
+        return migratedData;
+      }
+
+      return parsedData;
     } catch (error) {
       // If error also return initialValue
       console.error(`Error reading localStorage key "${key}":`, error);

@@ -40,6 +40,37 @@ export default function ResultsPage() {
     );
   }
 
+  // PHASE 32: Redirect to batch results page if this is a batch evaluation
+  if (evaluation.type === 'batch') {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Batch Evaluation</h1>
+            <p className="text-muted-foreground mt-2">
+              This is a batch evaluation. Redirecting...
+            </p>
+          </div>
+          <Link href="/">
+            <Button variant="outline">Back to Dashboard</Button>
+          </Link>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-muted-foreground mb-4">
+                This evaluation is part of a batch. Please view it in the batch results page.
+              </p>
+              <Link href={`/batch/results/${evaluation.batchId}`}>
+                <Button>View Batch Results</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">

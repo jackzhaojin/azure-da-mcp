@@ -519,6 +519,7 @@ export async function runEvaluation(
   // Build evaluation report
   const report: EvaluationReport = {
     id: `eval-${Date.now()}`,
+    type: 'single', // PHASE 32: Discriminator for unified storage
     request,
     summary: {
       overallScore,

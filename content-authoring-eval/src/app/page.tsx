@@ -50,7 +50,11 @@ export default function DashboardPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-lg">
-                          {evaluation.request.migratedUrl}
+                          {/* PHASE 32: Handle discriminated union */}
+                          {evaluation.type === 'single'
+                            ? evaluation.request.migratedUrl
+                            : `Batch: ${evaluation.batchId}`
+                          }
                         </CardTitle>
                         <CardDescription>
                           {new Date(evaluation.metadata.createdAt).toLocaleString()}
@@ -69,25 +73,57 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-6">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Overall Score</p>
-                          <p className="text-2xl font-bold">{evaluation.summary.overallScore}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Passed Dimensions</p>
-                          <p className="text-2xl font-bold">
-                            {evaluation.summary.passedDimensions}/{evaluation.summary.totalDimensions}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Findings</p>
-                          <p className="text-2xl font-bold">{evaluation.findings?.length || 0}</p>
-                        </div>
-                      </div>
-                      <Link href={`/results/${evaluation.id}`}>
-                        <Button variant="outline">View Details</Button>
-                      </Link>
+                      {evaluation.type === 'single' ? (
+                        <>
+                          {/* Single-page evaluation card */}
+                          <div className="flex items-center gap-6">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Overall Score</p>
+                              <p className="text-2xl font-bold">{evaluation.summary.overallScore}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Passed Dimensions</p>
+                              <p className="text-2xl font-bold">
+                                {evaluation.summary.passedDimensions}/{evaluation.summary.totalDimensions}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Total Findings</p>
+                              <p className="text-2xl font-bold">{evaluation.findings?.length || 0}</p>
+                            </div>
+                          </div>
+                          <Link href={`/results/${evaluation.id}`}>
+                            <Button variant="outline">View Details</Button>
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          {/* Batch evaluation card */}
+                          <div className="flex items-center gap-6">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Average Score</p>
+                              <p className="text-2xl font-bold">{evaluation.summary.averageScore.toFixed(0)}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Total Pages</p>
+                              <p className="text-2xl font-bold">{evaluation.summary.totalPages}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Successful</p>
+                              <p className="text-2xl font-bold text-green-600">{evaluation.summary.successfulPages}</p>
+                            </div>
+                            {evaluation.summary.failedPages > 0 && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Failed</p>
+                                <p className="text-2xl font-bold text-red-600">{evaluation.summary.failedPages}</p>
+                              </div>
+                            )}
+                          </div>
+                          <Link href={`/batch/results/${evaluation.batchId}`}>
+                            <Button variant="outline">View Batch</Button>
+                          </Link>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
