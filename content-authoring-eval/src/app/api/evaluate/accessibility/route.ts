@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
             agentic: {
               executedAt: result.timestamp,
               durationMs: agenticTimer.elapsed(),
-              model: 'claude-sonnet-4-5-20250929',
+              model: 'claude-haiku-4-5-20250929',
             },
           },
         };
