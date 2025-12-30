@@ -17,6 +17,7 @@ import {
 } from './types';
 import accessibilityPrompt from '@/lib/prompts/accessibility.json';
 import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
+import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
 
@@ -208,22 +209,13 @@ ${userPrompt}`;
     for await (const message of query({
       prompt: fullPrompt,
       options: {
-        model: 'claude-haiku-4-5-20250929',
+        model: 'claude-sonnet-4-5-20250929',
         maxTurns: 20, // Increased for multiple tool invocations
         // PHASE 25: Remove settingSources - use programmatic MCP config instead
         // settingSources: ['user', 'project'],
-        // PHASE 25: Configure MCP servers programmatically (bundled in container)
-        // Use direct paths to globally installed MCP servers to avoid npx HOME directory issues
-        mcpServers: {
-          "playwright": {
-            command: "/usr/local/bin/mcp-server-playwright",
-            args: []
-          },
-          "filesystem": {
-            command: "/usr/local/bin/mcp-server-filesystem",
-            args: [process.cwd()]
-          }
-        },
+        // PHASE 25: Configure MCP servers programmatically (environment-aware paths)
+        // Use getMCPServersConfig() to get correct paths for Docker vs local development
+        mcpServers: getMCPServersConfig(),
         allowedTools: ['Read', 'Write', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot', 'mcp__playwright__browser_click'],
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,

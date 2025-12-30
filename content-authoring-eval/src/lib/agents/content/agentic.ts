@@ -10,6 +10,7 @@ import { createLogger, Timer } from '@/lib/logger';
 import type { ContentMetrics, AgenticAnalysisResult, ContentAnalysisResult, ContentFinding } from './types';
 import contentPrompt from '@/lib/prompts/content.json';
 import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
+import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
 
@@ -208,12 +209,7 @@ ${userPrompt}`;
         // settingSources: ['user', 'project'],
         // PHASE 25: Configure MCP servers programmatically (bundled in container)
         // Use direct paths to globally installed MCP servers to avoid npx HOME directory issues
-        mcpServers: {
-          "filesystem": {
-            command: "/usr/local/bin/mcp-server-filesystem",
-            args: [process.cwd()]
-          }
-        },
+        mcpServers: getMCPServersConfig(),
         allowedTools: ['Read', 'Write', 'Bash', 'WebFetch'],
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
