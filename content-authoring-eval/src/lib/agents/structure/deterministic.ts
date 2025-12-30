@@ -14,6 +14,7 @@ import type {
   ContentBlocks,
   StructureMetrics,
   StructureComparison,
+  PDFStructure,
 } from './types';
 
 const logger = createLogger('deterministic');
@@ -420,6 +421,87 @@ export function compareStructure(
     metaTagsDiff,
     headingDiff,
     structureDiff,
+    score,
+  };
+}
+
+/**
+ * Compare PDF structure with HTML structure
+ *
+ * Phase 36: Since PDF doesn't have semantic HTML, we compare:
+ * - Headings (text similarity)
+ * - Content volume (word count, paragraph count)
+ */
+export function comparePDFToHTML(
+  pdfStructure: PDFStructure,
+  htmlStructure: StructureMetrics
+): StructureComparison {
+  logger.info('Comparing PDF structure to HTML structure');
+
+  const pdfHeadings = pdfStructure.headings.map(h => h.toLowerCase());
+  const htmlHeadings = htmlStructure.headingHierarchy.headings.map(
+    h => h.text.toLowerCase()
+  );
+
+  // Find missing headings (in PDF but not in HTML)
+  const missingHeadings: string[] = [];
+  for (const pdfHeading of pdfStructure.headings) {
+    const found = htmlHeadings.some(h =>
+      h.includes(pdfHeading.toLowerCase()) ||
+      pdfHeading.toLowerCase().includes(h)
+    );
+    if (!found) {
+      missingHeadings.push(pdfHeading);
+    }
+  }
+
+  // Find extra headings (in HTML but not in PDF)
+  const extraHeadings: string[] = [];
+  for (const htmlHeading of htmlStructure.headingHierarchy.headings) {
+    const found = pdfHeadings.some(p =>
+      p.includes(htmlHeading.text.toLowerCase()) ||
+      htmlHeading.text.toLowerCase().includes(p)
+    );
+    if (!found) {
+      extraHeadings.push(`H${htmlHeading.level}: ${htmlHeading.text}`);
+    }
+  }
+
+  // Calculate score based on heading preservation
+  const totalHeadings = pdfStructure.headings.length;
+  const matchedHeadings = totalHeadings - missingHeadings.length;
+  const headingScore = totalHeadings > 0
+    ? Math.round((matchedHeadings / totalHeadings) * 100)
+    : 100;
+
+  // Content volume comparison (warning if significantly different)
+  const wordRatio = pdfStructure.wordCount > 0
+    ? htmlStructure.textContentLength / pdfStructure.wordCount
+    : 1;
+  const volumeScore = wordRatio >= 0.7 && wordRatio <= 1.3 ? 100 : 70;
+
+  // Final score (70% headings, 30% volume)
+  const score = Math.round(headingScore * 0.7 + volumeScore * 0.3);
+
+  logger.info('PDF to HTML comparison complete', {
+    score,
+    headingScore,
+    volumeScore,
+    missingHeadings: missingHeadings.length,
+    extraHeadings: extraHeadings.length,
+  });
+
+  return {
+    metaTagsDiff: { missing: [], extra: [], changed: [] }, // N/A for PDF
+    headingDiff: {
+      missingHeadings,
+      extraHeadings,
+      hierarchyChanged: missingHeadings.length > 0,
+    },
+    structureDiff: {
+      missingElements: [], // N/A for PDF
+      extraElements: [],
+    },
     score,
   };
 }

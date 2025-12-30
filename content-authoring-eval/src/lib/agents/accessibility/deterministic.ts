@@ -16,6 +16,8 @@ import type {
   AccessibilityMetrics,
   AxeViolation,
   AxeResults,
+  AccessibilityComparison,
+  PDFAccessibilityInfo,
 } from './types';
 
 const logger = createLogger('deterministic');
@@ -141,4 +143,108 @@ export async function analyzeAccessibility(
     });
     throw error;
   }
+}
+
+/**
+ * PHASE 37: Compare HTML source accessibility with migrated accessibility
+ */
+export function compareAccessibility(
+  source: AccessibilityMetrics,
+  migrated: AccessibilityMetrics
+): AccessibilityComparison {
+  logger.info('Comparing HTML accessibility: source vs migrated');
+
+  const sourceViolations = source.violationCounts;
+  const migratedViolations = migrated.violationCounts;
+
+  // Find resolved issues (in source but not in migrated)
+  const resolved: string[] = [];
+  const introduced: string[] = [];
+  const persisting: string[] = [];
+
+  const sourceRuleIds = new Set(source.violations.map(v => v.id));
+  const migratedRuleIds = new Set(migrated.violations.map(v => v.id));
+
+  // Resolved: in source but not in migrated
+  for (const v of source.violations) {
+    if (!migratedRuleIds.has(v.id)) {
+      resolved.push(`${v.id}: ${v.description}`);
+    }
+  }
+
+  // Introduced: in migrated but not in source
+  for (const v of migrated.violations) {
+    if (!sourceRuleIds.has(v.id)) {
+      introduced.push(`${v.id}: ${v.description}`);
+    }
+  }
+
+  // Persisting: in both
+  for (const v of source.violations) {
+    if (migratedRuleIds.has(v.id)) {
+      persisting.push(`${v.id}: ${v.description}`);
+    }
+  }
+
+  // Determine overall change
+  const scoreDelta = migrated.score - source.score;
+  let change: AccessibilityComparison['change'] = 'unchanged';
+  if (scoreDelta > 5) change = 'improved';
+  else if (scoreDelta < -5) change = 'degraded';
+
+  return {
+    sourceType: 'html',
+    sourceViolations,
+    migratedViolations,
+    resolved,
+    introduced,
+    persisting,
+    change,
+    scoreDelta,
+  };
+}
+
+/**
+ * PHASE 37: Compare PDF source with migrated HTML accessibility
+ *
+ * Since PDF has limited accessibility, this comparison focuses on
+ * noting that HTML migration is inherently an accessibility improvement.
+ */
+export function comparePDFToHTMLAccessibility(
+  pdfInfo: PDFAccessibilityInfo,
+  migrated: AccessibilityMetrics
+): AccessibilityComparison {
+  logger.info('Comparing PDF → HTML accessibility');
+
+  // PDF → HTML is inherently positive for accessibility
+  // We can't directly compare violation counts since PDF doesn't have the same testing
+
+  const migratedViolations = migrated.violationCounts;
+
+  // Note accessibility gains from HTML format
+  const gains: string[] = [
+    'Semantic HTML structure (headings, landmarks, lists)',
+    'Native keyboard navigation support',
+    'ARIA attribute support',
+    'Screen reader compatibility',
+    'Responsive text sizing',
+  ];
+
+  if (!pdfInfo.isTagged) {
+    gains.push('Tagged structure (PDF was untagged)');
+  }
+  if (!pdfInfo.hasOutline) {
+    gains.push('Navigation structure (PDF lacked bookmarks)');
+  }
+
+  return {
+    sourceType: 'pdf',
+    migratedViolations,
+    resolved: gains, // Treat HTML format gains as "resolved" issues
+    introduced: [], // Don't blame HTML for PDF's limitations
+    persisting: [], // N/A for PDF comparison
+    change: migrated.score >= 80 ? 'improved' : 'incomparable',
+    scoreDelta: 0, // Can't calculate meaningful delta
+    pdfToHtmlGain: true,
+  };
 }

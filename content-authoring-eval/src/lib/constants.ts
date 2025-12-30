@@ -71,6 +71,15 @@ export const AGENT_TIMEOUTS = {
 } as const;
 
 /**
+ * MCP server timeouts (milliseconds)
+ */
+export const MCP_TIMEOUTS = {
+  action: 10000,       // 10s per browser action
+  navigation: 30000,   // 30s for page loads
+  screenshot: 15000,   // 15s for screenshot capture
+} as const;
+
+/**
  * Default evaluation options
  */
 export const DEFAULT_EVALUATION_OPTIONS = {

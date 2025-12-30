@@ -80,14 +80,40 @@ export function getMCPServerPaths() {
 
 /**
  * Get MCP servers configuration for Agent SDK
+ *
+ * IMPORTANT: Always use headless mode to prevent browser popups
  */
 export function getMCPServersConfig() {
   const paths = getMCPServerPaths();
+  const docker = isDocker();
+  const forceHeaded = process.env.PLAYWRIGHT_HEADED === 'true';
+
+  // Playwright MCP flags for headless operation
+  const playwrightArgs: string[] = [];
+
+  // Headless by default, unless PLAYWRIGHT_HEADED=true
+  if (!forceHeaded) {
+    playwrightArgs.push('--headless');
+  }
+
+  playwrightArgs.push(
+    '--browser=chromium',          // Consistent browser choice
+    '--viewport-size=1280x720',    // Consistent viewport for screenshots
+    '--timeout-action=10000',      // 10s timeout per action
+  );
+
+  // Docker-specific optimizations
+  if (docker) {
+    playwrightArgs.push(
+      '--no-sandbox',              // Required in Docker
+      '--disable-gpu',             // No GPU in container
+    );
+  }
 
   return {
     playwright: {
       command: paths.playwright,
-      args: []
+      args: playwrightArgs
     },
     filesystem: {
       command: paths.filesystem,

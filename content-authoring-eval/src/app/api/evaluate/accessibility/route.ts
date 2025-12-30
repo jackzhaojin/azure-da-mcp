@@ -7,7 +7,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createLogger, Timer } from '@/lib/logger';
-import { analyzeAccessibility, analyzeAccessibilityWithClaude } from '@/lib/agents/accessibility';
+import {
+  analyzeAccessibility,
+  analyzeAccessibilityWithClaude,
+  compareAccessibility,
+  comparePDFToHTMLAccessibility,
+  fetchAndExtractPDFAccessibility,
+} from '@/lib/agents/accessibility';
+import type { AccessibilityComparison } from '@/lib/agents/accessibility';
 
 const logger = createLogger('api');
 
@@ -39,6 +46,8 @@ export async function GET() {
  * Request body:
  * {
  *   "migratedUrl": "https://example.com",
+ *   "sourceUrl": "https://source.example.com/original" (optional, HTML source),
+ *   "pdfUrl": "https://cdn.example.com/document.pdf" (optional, PDF source),
  *   "mode": "full" | "deterministic" (optional, default: "full" if OAuth token present)
  * }
  */
@@ -87,6 +96,24 @@ export async function POST(request: NextRequest) {
       violations: metrics.violationCounts.total,
     });
 
+    // PHASE 37: Determine source type and compare
+    let sourceComparison: AccessibilityComparison | null = null;
+    let sourceType: 'html' | 'pdf' | 'none' = 'none';
+
+    if (body.sourceUrl) {
+      // HTML source comparison
+      sourceType = 'html';
+      logger.info('Running HTML source accessibility comparison', { sourceUrl: body.sourceUrl });
+      const sourceMetrics = await analyzeAccessibility(body.sourceUrl);
+      sourceComparison = compareAccessibility(sourceMetrics, metrics);
+    } else if (body.pdfUrl) {
+      // PDF source comparison
+      sourceType = 'pdf';
+      logger.info('Running PDF → HTML accessibility comparison', { pdfUrl: body.pdfUrl });
+      const pdfInfo = await fetchAndExtractPDFAccessibility(body.pdfUrl);
+      sourceComparison = comparePDFToHTMLAccessibility(pdfInfo, metrics);
+    }
+
     // If full mode, run agentic analysis
     if (mode === 'full') {
       try {
@@ -107,6 +134,8 @@ export async function POST(request: NextRequest) {
         const response = {
           ...result,
           mode: 'full',
+          sourceType, // PHASE 37
+          sourceComparison, // PHASE 37
           metadata: {
             deterministic: {
               executedAt: metrics.timestamp,
@@ -143,6 +172,8 @@ export async function POST(request: NextRequest) {
       score: metrics.score,
       wcagLevel: metrics.wcagLevel,
       mode: 'deterministic',
+      sourceType, // PHASE 37
+      sourceComparison, // PHASE 37
       metadata: {
         executedAt: metrics.timestamp,
         durationMs: timer.elapsed(),

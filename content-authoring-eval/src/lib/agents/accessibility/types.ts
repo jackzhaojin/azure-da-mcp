@@ -118,3 +118,71 @@ export interface AccessibilityAnalysisResult {
     toolUsage?: ToolUsageMetadata;
   };
 }
+
+/**
+ * PHASE 37: Source type for accessibility comparison
+ */
+export type AccessibilitySourceType = 'html' | 'pdf' | 'none';
+
+/**
+ * PHASE 37: Source information for accessibility comparison
+ */
+export interface AccessibilitySourceInfo {
+  type: AccessibilitySourceType;
+  url?: string;      // For HTML source
+  pdfPath?: string;  // For PDF source
+}
+
+/**
+ * PHASE 37: PDF accessibility metadata (limited)
+ */
+export interface PDFAccessibilityInfo {
+  /** Whether PDF has tagged structure */
+  isTagged: boolean;
+  /** PDF/UA compliance (if detectable) */
+  pdfUACompliant: boolean;
+  /** Language specified */
+  language?: string;
+  /** Has table of contents / bookmarks */
+  hasOutline: boolean;
+  /** Alt text on images (count) */
+  imageAltTextCount: number;
+  /** Note: PDF accessibility is inherently limited vs HTML */
+  note: string;
+}
+
+/**
+ * PHASE 37: Comparison result between source and migrated accessibility
+ */
+export interface AccessibilityComparison {
+  /** Source type */
+  sourceType: AccessibilitySourceType;
+  /** Source violations (if HTML) */
+  sourceViolations?: {
+    critical: number;
+    serious: number;
+    moderate: number;
+    minor: number;
+    total: number;
+  };
+  /** Migrated violations */
+  migratedViolations: {
+    critical: number;
+    serious: number;
+    moderate: number;
+    minor: number;
+    total: number;
+  };
+  /** Issues resolved in migration */
+  resolved: string[];
+  /** Issues introduced in migration */
+  introduced: string[];
+  /** Issues persisting from source */
+  persisting: string[];
+  /** Overall accessibility change */
+  change: 'improved' | 'degraded' | 'unchanged' | 'incomparable';
+  /** Score delta (migrated - source, positive = improved) */
+  scoreDelta: number;
+  /** PDF-specific: accessibility inherently improved by HTML */
+  pdfToHtmlGain?: boolean;
+}

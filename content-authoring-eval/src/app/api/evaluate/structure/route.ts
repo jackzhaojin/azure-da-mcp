@@ -8,7 +8,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeStructure, compareStructure, analyzeStructureWithClaude } from '@/lib/agents/structure';
+import {
+  analyzeStructure,
+  compareStructure,
+  analyzeStructureWithClaude,
+  fetchAndExtractPDFStructure,
+  comparePDFToHTML,
+} from '@/lib/agents/structure';
+import type { StructureSourceType } from '@/lib/agents/structure';
 import { createLogger, Timer } from '@/lib/logger';
 
 const logger = createLogger('api');
@@ -28,9 +35,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { migratedUrl, expectedUrl, mode = 'full' } = body;
+    const { migratedUrl, expectedUrl, sourceUrl, pdfUrl, mode = 'full' } = body;
 
-    logger.debug('Structure analysis request', { migratedUrl, expectedUrl, mode });
+    logger.debug('Structure analysis request', { migratedUrl, expectedUrl, sourceUrl, pdfUrl, mode });
 
     // Validate required fields
     if (!migratedUrl) {
@@ -49,6 +56,30 @@ export async function POST(request: NextRequest) {
       hasMain: migratedStructure.documentStructure.hasMain,
     });
 
+    // Phase 36: Determine source type and run source comparison
+    let sourceComparison = null;
+    let sourceType: StructureSourceType = 'none';
+
+    if (sourceUrl) {
+      // HTML source comparison
+      sourceType = 'html';
+      logger.info('Running HTML source comparison', { sourceUrl });
+      const sourceStructure = await analyzeStructure(sourceUrl);
+      sourceComparison = compareStructure(sourceStructure, migratedStructure);
+      logger.operationComplete('HTML source comparison', timer.elapsed(), {
+        score: sourceComparison.score,
+      });
+    } else if (pdfUrl) {
+      // PDF source comparison
+      sourceType = 'pdf';
+      logger.info('Running PDF source comparison', { pdfUrl });
+      const pdfStructure = await fetchAndExtractPDFStructure(pdfUrl);
+      sourceComparison = comparePDFToHTML(pdfStructure, migratedStructure);
+      logger.operationComplete('PDF source comparison', timer.elapsed(), {
+        score: sourceComparison.score,
+      });
+    }
+
     // Deterministic-only mode (for testing)
     if (mode === 'deterministic') {
       let comparison = null;
@@ -64,6 +95,8 @@ export async function POST(request: NextRequest) {
         mode: 'deterministic',
         migratedUrl,
         expectedUrl: expectedUrl || null,
+        sourceType,
+        sourceComparison,
         structure: migratedStructure,
         comparison,
         timestamp: new Date().toISOString(),
@@ -81,6 +114,8 @@ export async function POST(request: NextRequest) {
     logger.requestComplete('POST', '/api/evaluate/structure', 200, timer.elapsed());
     return NextResponse.json({
       mode: 'full',
+      sourceType,
+      sourceComparison,
       ...fullAnalysis,
     });
   } catch (error) {

@@ -6,3 +6,4 @@
 export * from './types';
 export * from './deterministic';
 export * from './agentic';
+export * from './pdf-structure';
