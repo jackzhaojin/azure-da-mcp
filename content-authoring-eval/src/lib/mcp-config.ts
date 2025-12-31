@@ -80,7 +80,11 @@ export function getMCPServerPaths() {
 /**
  * Get MCP servers configuration for Agent SDK
  *
- * IMPORTANT: Always use headless mode to prevent browser popups
+ * CRITICAL - HEADLESS MODE ENFORCEMENT:
+ * - ALL Playwright browser operations MUST run headless (no visible windows)
+ * - Default: headless mode enforced via --headless flag
+ * - Debug mode: Set PLAYWRIGHT_HEADED=true to see browser windows
+ * - Production: NEVER set PLAYWRIGHT_HEADED=true
  */
 export function getMCPServersConfig() {
   const paths = getMCPServerPaths();
@@ -90,7 +94,8 @@ export function getMCPServersConfig() {
   // Playwright MCP flags for headless operation
   const playwrightArgs: string[] = [];
 
-  // Headless by default, unless PLAYWRIGHT_HEADED=true
+  // CRITICAL: Headless by default (ZERO visible browser windows)
+  // Only disable headless for local debugging with PLAYWRIGHT_HEADED=true
   if (!forceHeaded) {
     playwrightArgs.push('--headless');
   }
