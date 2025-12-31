@@ -253,7 +253,16 @@ export function JsonBatchImport({ onImportSuccess, onError }: JsonBatchImportPro
         {/* Sample File Link */}
         <div className="text-sm text-gray-600">
           <p className="mb-2">Don&apos;t have a batch file? Download a sample:</p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => window.open('/samples/demo-mixed-sources.json', '_blank')}
+            >
+              <FileJson className="h-4 w-4 mr-1" />
+              3 pages (mixed)
+            </Button>
             <Button
               type="button"
               variant="outline"
