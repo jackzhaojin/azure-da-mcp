@@ -1,0 +1,140 @@
+name: Deploy Only - Content Authoring Eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy (e.g., latest, main-abc123, v1.0.0)'
+        required: true
+        default: 'latest'
+        type: string
+      action_type:
+        description: 'Deployment action'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - restart
+          - rollback
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/content-authoring-eval
+
+jobs:
+  restart-only:
+    name: Restart Container
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action_type == 'restart'
+
+    steps:
+      - name: Restart container on Oracle VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            echo "🔄 Restarting content-authoring-eval container..."
+            cd ~/jack-dev-server-configs/server/oracle-arm4-free-vm/deploy
+            docker compose restart app
+            echo "✅ Container restarted successfully"
+
+            # Show status
+            docker compose ps
+            docker compose logs --tail=20 app
+
+  deploy-version:
+    name: Deploy Specific Version
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action_type == 'deploy' || github.event.inputs.action_type == 'rollback'
+
+    steps:
+      - name: Deploy to Oracle VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            echo "📦 Deploying image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}"
+
+            # Navigate to deployment directory
+            cd ~/jack-dev-server-configs/server/oracle-arm4-free-vm/deploy || exit 1
+
+            # Pull specific image tag
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}
+
+            # Tag it as latest for docker-compose
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }} \
+                       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+            # Stop and remove old container
+            docker compose down || true
+
+            # Start new container
+            docker compose up -d
+
+            echo "✅ Deployment complete!"
+            echo ""
+            echo "📊 Container Status:"
+            docker compose ps
+
+            # Wait a moment for startup
+            sleep 5
+
+            echo ""
+            echo "📋 Recent Logs:"
+            docker compose logs --tail=30 app
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            echo "⏳ Waiting for container to be healthy..."
+            cd ~/jack-dev-server-configs/server/oracle-arm4-free-vm/deploy
+
+            for i in {1..30}; do
+              HEALTH=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q app) 2>/dev/null || echo "starting")
+              echo "Health check attempt $i/30: $HEALTH"
+
+              if [ "$HEALTH" = "healthy" ]; then
+                echo "✅ Container is healthy!"
+                echo ""
+                echo "🌐 Application is accessible at:"
+                echo "   http://${{ secrets.ORACLE_HOST }}:3000"
+                echo "   http://${{ secrets.ORACLE_HOST }}:3000/api/evaluate"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "❌ Container failed to become healthy within 60 seconds"
+            echo ""
+            echo "📋 Container Logs:"
+            docker compose logs --tail=100 app
+            exit 1
+
+      - name: Deployment summary
+        if: success()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            echo "========================================="
+            echo "✅ Deployment Summary"
+            echo "========================================="
+            echo "Image Tag: ${{ github.event.inputs.image_tag }}"
+            echo "Action: ${{ github.event.inputs.action_type }}"
+            echo "Host: ${{ secrets.ORACLE_HOST }}"
+            echo ""
+            echo "🔗 Access URLs:"
+            echo "   Web UI: http://${{ secrets.ORACLE_HOST }}:3000"
+            echo "   API: http://${{ secrets.ORACLE_HOST }}:3000/api/evaluate"
+            echo "========================================="
