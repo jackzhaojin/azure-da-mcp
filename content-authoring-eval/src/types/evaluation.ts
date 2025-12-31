@@ -160,7 +160,8 @@ export interface EvaluationStatus {
 export interface BatchPage {
   id: string; // Unique identifier (e.g., "page-001")
   title: string; // Human-readable page title
-  pdfUrl: string; // URL to PDF reference
+  sourceUrl: string; // URL to source (PDF or HTML)
+  sourceType: 'pdf' | 'html'; // Type of source for comparison
   webUrl: string; // URL of migrated webpage
 }
 

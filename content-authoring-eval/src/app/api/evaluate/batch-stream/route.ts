@@ -57,7 +57,7 @@ function sleep(ms: number): Promise<void> {
  * Run evaluation with timeout
  */
 async function runEvaluationWithTimeout(
-  request: { pdfPath?: string; migratedUrl: string },
+  request: { pdfPath?: string; expectedUrl?: string; migratedUrl: string },
   onProgress: ProgressCallback,
   timeoutMs: number
 ): Promise<EvaluationReport> {
@@ -73,7 +73,7 @@ async function runEvaluationWithTimeout(
  * Run evaluation with retry logic and exponential backoff
  */
 async function runEvaluationWithRetry(
-  request: { pdfPath?: string; migratedUrl: string },
+  request: { pdfPath?: string; expectedUrl?: string; migratedUrl: string },
   onProgress: ProgressCallback,
   maxRetries: number = MAX_RETRIES
 ): Promise<EvaluationReport> {
@@ -158,7 +158,8 @@ async function processBatchWithStreaming(
 
         // Run evaluation for this page with retry and timeout
         const evaluationRequest = {
-          pdfPath: page.pdfUrl,
+          pdfPath: page.sourceType === 'pdf' ? page.sourceUrl : undefined,
+          expectedUrl: page.sourceType === 'html' ? page.sourceUrl : undefined,
           migratedUrl: page.webUrl,
         };
 
