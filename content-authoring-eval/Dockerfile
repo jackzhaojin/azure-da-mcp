@@ -124,18 +124,32 @@ RUN mkdir -p /home/appuser/.claude && \
 COPY --from=builder --chown=appuser:appuser /app/.next/standalone ./
 COPY --from=builder --chown=appuser:appuser /app/.next/static ./.next/static
 
-# Copy production node_modules from separate stage
-COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
-
-# PHASE 31: Pre-install Playwright browsers for @playwright/mcp
+# PHASE 31: Pre-install Playwright browsers for BOTH @playwright/mcp AND app scripts
 # Use chromium (not chrome) for ARM64 compatibility
 # Chrome is not available on ARM64/aarch64 - chromium is the ARM64 equivalent
+# Install for BOTH Playwright versions to avoid version mismatch issues
 WORKDIR /app
-RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium --with-deps && \
-    mkdir -p /home/appuser/.cache/ms-playwright && \
+
+# Strategy: Install app's Playwright browsers from deps stage, then install @playwright/mcp's version
+# This ensures both chromium-1200 (app) and chromium-1205 (@playwright/mcp) are available
+
+# First: Install app's Playwright version (1.57.0 = chromium-1200) using npx from deps
+COPY --from=deps /app/node_modules ./temp_node_modules
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+RUN cd temp_node_modules && npx playwright install chromium --with-deps
+
+# Second: Install @playwright/mcp's version (chromium-1205)
+RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium --with-deps
+
+# Third: Copy all installed browsers to appuser directory and cleanup temp files
+RUN mkdir -p /home/appuser/.cache/ms-playwright && \
     cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ && \
     chown -R appuser:appuser /home/appuser/.cache && \
-    rm -rf /root/.cache/ms-playwright
+    rm -rf /root/.cache/ms-playwright && \
+    rm -rf ./temp_node_modules
+
+# Copy production node_modules from separate stage (after browser installation)
+COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
 
 # Create directory for screenshots
 RUN mkdir -p /app/public/screenshots && chown -R appuser:appuser /app/public
@@ -155,7 +169,7 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV HOME=/home/appuser
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
