@@ -87,19 +87,16 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             # Navigate to application directory
-            cd ~/content-authoring-eval || exit 1
+            cd ~/jack-dev-server-configs/server/oracle-arm4-free-vm/deploy || exit 1
 
-            # Log in to GitHub Container Registry
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Pull latest image
+            # Pull latest image (public, no login needed)
             docker pull ghcr.io/${{ github.repository }}/content-authoring-eval:latest
 
             # Stop and remove old container
-            docker-compose down || true
+            docker compose down || true
 
             # Start new container
-            docker-compose up -d
+            docker compose up -d
 
             # Clean up old images
             docker image prune -af --filter "until=24h"
@@ -108,7 +105,7 @@ jobs:
             docker ps
 
             # Show container logs (last 50 lines)
-            docker-compose logs --tail=50
+            docker compose logs --tail=50
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
@@ -118,9 +115,10 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             # Wait for container to be healthy
+            cd ~/jack-dev-server-configs/server/oracle-arm4-free-vm/deploy
             echo "Waiting for container to be healthy..."
             for i in {1..30}; do
-              HEALTH=$(docker inspect --format='{{.State.Health.Status}}' content-authoring-eval 2>/dev/null || echo "starting")
+              HEALTH=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q app) 2>/dev/null || echo "starting")
               echo "Health check attempt $i: $HEALTH"
               if [ "$HEALTH" = "healthy" ]; then
                 echo "Container is healthy!"
@@ -129,5 +127,5 @@ jobs:
               sleep 2
             done
             echo "Container failed to become healthy"
-            docker logs content-authoring-eval --tail=100
+            docker compose logs --tail=100 app
             exit 1
