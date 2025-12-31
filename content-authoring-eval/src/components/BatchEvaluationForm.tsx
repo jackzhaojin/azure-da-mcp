@@ -227,12 +227,12 @@ export function BatchEvaluationForm() {
                           <td className="px-4 py-2">{page.title}</td>
                           <td className="px-4 py-2 font-mono text-xs">
                             <a
-                              href={page.pdfUrl}
+                              href={page.sourceUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline truncate block max-w-xs"
                             >
-                              {page.pdfUrl}
+                              {page.sourceUrl}
                             </a>
                           </td>
                           <td className="px-4 py-2 font-mono text-xs">
