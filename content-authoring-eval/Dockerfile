@@ -127,11 +127,11 @@ COPY --from=builder --chown=appuser:appuser /app/.next/static ./.next/static
 # Copy production node_modules from separate stage
 COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
 
-# PHASE 31: Pre-install Playwright chromium browsers for @playwright/mcp ONLY
-# No symlinks needed - playwright package removed from dependencies
-# Only @playwright/mcp uses browsers now (chromium-1205)
+# PHASE 31: Pre-install Playwright browsers for @playwright/mcp
+# Use chromium (not chrome) for ARM64 compatibility
+# Chrome is not available on ARM64/aarch64 - chromium is the ARM64 equivalent
 WORKDIR /app
-RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium && \
+RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium --with-deps && \
     mkdir -p /home/appuser/.cache/ms-playwright && \
     cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ && \
     chown -R appuser:appuser /home/appuser/.cache && \
