@@ -13,7 +13,7 @@ export const batchPageSchema = z.object({
   id: z.string().min(1, 'Page ID is required').regex(/^[a-zA-Z0-9_-]+$/, 'Page ID must contain only alphanumeric characters, hyphens, and underscores'),
   title: z.string().min(1, 'Page title is required').max(200, 'Page title must be 200 characters or less'),
   sourceUrl: z.string().url('Source URL must be a valid URL'),
-  sourceType: z.enum(['pdf', 'html'], { errorMap: () => ({ message: 'Source type must be either "pdf" or "html"' }) }),
+  sourceType: z.enum(['pdf', 'html'], { message: 'Source type must be either "pdf" or "html"' }),
   webUrl: z.string().url('Web URL must be a valid URL'),
 });
 
