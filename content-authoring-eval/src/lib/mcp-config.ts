@@ -7,7 +7,6 @@
  */
 
 import * as fs from 'fs';
-import * as path from 'path';
 
 /**
  * Detect if running in Docker container

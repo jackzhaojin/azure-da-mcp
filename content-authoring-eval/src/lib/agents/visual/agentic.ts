@@ -6,6 +6,7 @@
  */
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import type { TextBlockParam, ImageBlockParam, DocumentBlockParam } from '@anthropic-ai/sdk/resources/messages.mjs';
 import fs from 'fs';
 import { createLogger, Timer } from '@/lib/logger';
 import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './types';
@@ -275,7 +276,7 @@ export async function analyzeVisualWithClaude(
 
     // PHASE 36: Build multimodal content with Claude native capabilities
     // Support: PDF documents (native), multiple images (baseline + migrated)
-    const content: Array<{ type: 'text' | 'image' | 'document'; [key: string]: unknown }> = [
+    const content: Array<TextBlockParam | ImageBlockParam | DocumentBlockParam> = [
       {
         type: 'text' as const,
         text: `${prompts.system}\n\n${prompts.user}`,
@@ -283,7 +284,7 @@ export async function analyzeVisualWithClaude(
     ];
 
     // Add baseline comparison based on source type
-    if (metrics.source?.type === 'html' && metrics.baselineScreenshot?.size > 0) {
+    if (metrics.source?.type === 'html' && metrics.baselineScreenshot && metrics.baselineScreenshot.size > 0) {
       // HTML source: Add baseline screenshot
       const baselineBuffer = fs.readFileSync(metrics.baselineScreenshot.absolutePath);
       const baselineBase64 = baselineBuffer.toString('base64');
@@ -352,7 +353,7 @@ export async function analyzeVisualWithClaude(
 
     logger.info('Multimodal content prepared', {
       totalItems: content.length,
-      hasBaseline: metrics.source?.type === 'html' && metrics.baselineScreenshot?.size > 0,
+      hasBaseline: metrics.source?.type === 'html' && metrics.baselineScreenshot && metrics.baselineScreenshot.size > 0,
       hasPDF: metrics.source?.type === 'pdf',
     });
 

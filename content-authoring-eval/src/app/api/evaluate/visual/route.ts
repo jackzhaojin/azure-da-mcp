@@ -97,11 +97,10 @@ export async function POST(request: NextRequest) {
     });
 
     const deterministicTimer = new Timer();
-    const deterministic = await analyzeVisual(
-      body.migratedUrl,
-      body.baselineImagePath,
-      viewport
-    );
+    const deterministic = await analyzeVisual(body.migratedUrl, {
+      baselineImagePath: body.baselineImagePath,
+      viewport,
+    });
     logger.operationComplete('Deterministic visual analysis', deterministicTimer.elapsed(), {
       score: deterministic.score,
       screenshotPath: deterministic.screenshot.path,

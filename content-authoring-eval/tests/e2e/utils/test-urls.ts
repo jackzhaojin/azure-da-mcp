@@ -3,11 +3,11 @@
  */
 
 export const TEST_URLS = {
-  // A real migrated webpage (Adobe uses EDS)
-  migratedHtml: 'https://www.adobe.com/acrobat/online/pdf-to-word.html',
+  // Simple stable page for testing (Adobe URL has HTTP/2 protocol issues with Playwright)
+  migratedHtml: 'https://example.com',
 
   // Simple stable source for comparison
-  sourceHtml: 'https://example.com',
+  sourceHtml: 'https://www.w3.org/',
 
   // Real public PDF (use a direct link that won't redirect)
   sourcePdf: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
