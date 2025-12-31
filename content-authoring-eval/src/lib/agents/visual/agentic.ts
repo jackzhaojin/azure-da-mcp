@@ -10,7 +10,7 @@ import type { TextBlockParam, ImageBlockParam, DocumentBlockParam } from '@anthr
 import fs from 'fs';
 import { createLogger, Timer } from '@/lib/logger';
 import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './types';
-import visualPrompt from '@/lib/prompts/visual.json';
+import visualNoSourcePrompt from '@/lib/prompts/visual-no-source.json';
 import visualHtmlSourcePrompt from '@/lib/prompts/visual-html-source.json';
 import visualPdfSourcePrompt from '@/lib/prompts/visual-pdf-source.json';
 import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
@@ -37,7 +37,7 @@ export function formatVisualForPrompt(metrics: VisualMetrics): { system: string;
   const sourceType = source?.type || 'none';
   const promptTemplate = sourceType === 'html' ? visualHtmlSourcePrompt :
                         sourceType === 'pdf' ? visualPdfSourcePrompt :
-                        visualPrompt;
+                        visualNoSourcePrompt;
 
   logger.debug('Selected visual prompt template', {
     sourceType,
