@@ -65,7 +65,6 @@ export async function extractPDFAccessibility(buffer: Buffer): Promise<PDFAccess
  * Fetch PDF and extract accessibility info
  */
 export async function fetchAndExtractPDFAccessibility(pdfUrl: string): Promise<PDFAccessibilityInfo> {
-  const timer = new Timer();
   logger.info('Fetching PDF for accessibility extraction', { pdfUrl });
 
   const response = await fetch(pdfUrl);

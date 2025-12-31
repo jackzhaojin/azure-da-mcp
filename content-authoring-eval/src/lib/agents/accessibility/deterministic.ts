@@ -1,20 +1,16 @@
 /**
- * PHASE 31: Deterministic Accessibility Agent (Stub for Pure MCP Architecture)
+ * Deterministic Accessibility Agent - Restored Implementation
  *
- * DEPRECATED: Direct Playwright browser launching removed to eliminate Docker bloat.
- * Use the agentic agent (analyzeAccessibilityWithClaude) which uses Playwright MCP instead.
- *
- * This stub returns empty results to allow fallback to agentic-only mode.
+ * Uses headless Playwright + axe-core script for WCAG compliance scanning.
+ * The agentic agent then interprets these results with user-impact prioritization.
  */
 
-// PHASE 31: Removed direct playwright import
-// import { chromium } from 'playwright';
-// import { readFileSync } from 'fs';
-// import { join } from 'path';
+import { execSync } from 'child_process';
+import { join } from 'path';
+import { readFileSync, unlinkSync } from 'fs';
 import { createLogger, Timer } from '@/lib/logger';
 import type {
   AccessibilityMetrics,
-  AxeViolation,
   AxeResults,
   AccessibilityComparison,
   PDFAccessibilityInfo,
@@ -23,33 +19,56 @@ import type {
 const logger = createLogger('deterministic');
 
 /**
- * PHASE 31: Stub function - returns empty axe results
+ * Scan accessibility using headless Playwright + axe-core
  *
- * Rationale: Removing direct chromium.launch() to allow Docker to use ONLY @playwright/mcp browsers.
- * The agentic agent will perform accessibility analysis via MCP snapshot + WCAG knowledge.
+ * This runs the scan-accessibility.js script which:
+ * 1. Launches headless Chromium
+ * 2. Navigates to the URL
+ * 3. Injects and runs axe-core
+ * 4. Returns violations, passes, incomplete, and inapplicable results
  */
 export async function scanAccessibility(url: string): Promise<AxeResults> {
   const timer = new Timer();
-  logger.warn('PHASE 31: Deterministic axe-core scan DISABLED - using agentic-only mode', { url });
-  logger.info('Returning empty accessibility results (agentic agent will handle analysis)', { url });
+  logger.info('Running deterministic accessibility scan', { url });
 
-  // PHASE 31: Return empty results structure
-  // The agentic agent (analyzeAccessibilityWithClaude) will perform the actual analysis
-  logger.operationComplete('Accessibility scan (stub)', timer.elapsed(), {
-    violations: 0,
-    passes: 0,
-    incomplete: 0,
-    note: 'Deterministic scan disabled in Phase 31 - use agentic mode',
-  });
+  const tempFile = join(process.cwd(), '.tmp', `axe-results-${Date.now()}.json`);
 
-  return {
-    url,
-    timestamp: new Date().toISOString(),
-    violations: [] as AxeViolation[],
-    passes: [],
-    incomplete: [],
-    inapplicable: [],
-  };
+  try {
+    const scriptPath = join(process.cwd(), 'scripts', 'scan-accessibility.js');
+
+    // Run the scan script and write output to temp file
+    // This avoids execSync buffer limitations
+    execSync(`node "${scriptPath}" "${url}" > "${tempFile}"`, {
+      timeout: 60000, // 60 second timeout
+    });
+
+    // Read the JSON from the file
+    const output = readFileSync(tempFile, 'utf-8');
+    const results: AxeResults = JSON.parse(output);
+
+    // Clean up temp file
+    unlinkSync(tempFile);
+
+    logger.operationComplete('Accessibility scan', timer.elapsed(), {
+      url,
+      violations: results.violations.length,
+      passes: results.passes.length,
+      incomplete: results.incomplete.length,
+    });
+
+    return results;
+  } catch (error) {
+    // Clean up temp file if it exists
+    try {
+      unlinkSync(tempFile);
+    } catch {}
+
+    logger.error('Accessibility scan failed', error as Error, {
+      url,
+      duration: timer.elapsed(),
+    });
+    throw new Error(`Failed to scan accessibility for ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 /**
