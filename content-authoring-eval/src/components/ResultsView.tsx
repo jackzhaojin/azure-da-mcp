@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { EvaluationReport, Severity } from '@/types/evaluation';
+import { StrengthsCard } from '@/components/StrengthsCard';
 
 // Register Chart.js components
 ChartJS.register(
@@ -57,7 +58,7 @@ function SeverityBadge({ severity }: { severity: Severity }) {
     serious: { className: 'bg-orange-100 text-orange-800 border-orange-200', label: 'SERIOUS' },
     moderate: { className: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'MODERATE' },
     minor: { className: 'bg-blue-100 text-blue-800 border-blue-200', label: 'MINOR' },
-    info: { className: 'bg-gray-100 text-gray-800 border-gray-200', label: 'INFO' },
+    info: { className: 'bg-green-100 text-green-800 border-green-200', label: 'STRENGTH' },
   };
 
   const variant = variants[severity];
@@ -122,7 +123,7 @@ export function ResultsView({ report }: ResultsViewProps) {
   }, [report]);
 
   /**
-   * Bar chart data for severity distribution
+   * Bar chart data for severity distribution (issues only, excludes strengths)
    */
   const severityChartData = useMemo(() => {
     const severityCounts: Record<Severity, number> = {
@@ -133,35 +134,33 @@ export function ResultsView({ report }: ResultsViewProps) {
       info: 0,
     };
 
-    report.findings.forEach((finding) => {
+    // Only count non-info findings (issues)
+    report.findings.filter(f => f.severity !== 'info').forEach((finding) => {
       severityCounts[finding.severity]++;
     });
 
     return {
-      labels: ['Critical', 'Serious', 'Moderate', 'Minor', 'Info'],
+      labels: ['Critical', 'Serious', 'Moderate', 'Minor'],
       datasets: [
         {
-          label: 'Findings Count',
+          label: 'Issues Count',
           data: [
             severityCounts.critical,
             severityCounts.serious,
             severityCounts.moderate,
             severityCounts.minor,
-            severityCounts.info,
           ],
           backgroundColor: [
             'rgba(239, 68, 68, 0.8)', // red-500
             'rgba(249, 115, 22, 0.8)', // orange-500
             'rgba(234, 179, 8, 0.8)', // yellow-500
             'rgba(59, 130, 246, 0.8)', // blue-500
-            'rgba(107, 114, 128, 0.8)', // gray-500
           ],
           borderColor: [
             'rgba(239, 68, 68, 1)',
             'rgba(249, 115, 22, 1)',
             'rgba(234, 179, 8, 1)',
             'rgba(59, 130, 246, 1)',
-            'rgba(107, 114, 128, 1)',
           ],
           borderWidth: 1,
         },
@@ -170,14 +169,25 @@ export function ResultsView({ report }: ResultsViewProps) {
   }, [report]);
 
   /**
-   * Filtered findings based on severity
+   * Split findings into issues and strengths
+   */
+  const issues = useMemo(() => {
+    return report.findings.filter((f) => f.severity !== 'info');
+  }, [report.findings]);
+
+  const strengths = useMemo(() => {
+    return report.findings.filter((f) => f.severity === 'info');
+  }, [report.findings]);
+
+  /**
+   * Filtered issues based on severity (excludes strengths)
    */
   const filteredFindings = useMemo(() => {
     if (severityFilter === 'all') {
-      return report.findings;
+      return issues;
     }
-    return report.findings.filter((f) => f.severity === severityFilter);
-  }, [report.findings, severityFilter]);
+    return issues.filter((f) => f.severity === severityFilter);
+  }, [issues, severityFilter]);
 
   /**
    * Recommendations derived from findings
@@ -348,32 +358,29 @@ export function ResultsView({ report }: ResultsViewProps) {
         </Card>
       </div>
 
-      {/* Findings Table with Severity Filtering */}
+      {/* Issues Table with Severity Filtering (excludes strengths) */}
       <Card>
         <CardHeader>
-          <CardTitle>Findings</CardTitle>
+          <CardTitle>🎯 Issues</CardTitle>
           <CardDescription>
-            Issues discovered during evaluation ({filteredFindings.length} of {report.findings.length})
+            Issues discovered during evaluation ({filteredFindings.length} of {issues.length})
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={severityFilter} onValueChange={(v) => setSeverityFilter(v as Severity | 'all')}>
             <TabsList className="mb-4">
-              <TabsTrigger value="all">All ({report.findings.length})</TabsTrigger>
+              <TabsTrigger value="all">All ({issues.length})</TabsTrigger>
               <TabsTrigger value="critical">
-                Critical ({report.findings.filter((f) => f.severity === 'critical').length})
+                Critical ({issues.filter((f) => f.severity === 'critical').length})
               </TabsTrigger>
               <TabsTrigger value="serious">
-                Serious ({report.findings.filter((f) => f.severity === 'serious').length})
+                Serious ({issues.filter((f) => f.severity === 'serious').length})
               </TabsTrigger>
               <TabsTrigger value="moderate">
-                Moderate ({report.findings.filter((f) => f.severity === 'moderate').length})
+                Moderate ({issues.filter((f) => f.severity === 'moderate').length})
               </TabsTrigger>
               <TabsTrigger value="minor">
-                Minor ({report.findings.filter((f) => f.severity === 'minor').length})
-              </TabsTrigger>
-              <TabsTrigger value="info">
-                Info ({report.findings.filter((f) => f.severity === 'info').length})
+                Minor ({issues.filter((f) => f.severity === 'minor').length})
               </TabsTrigger>
             </TabsList>
 
@@ -418,6 +425,15 @@ export function ResultsView({ report }: ResultsViewProps) {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Strengths Section */}
+      {strengths.length > 0 && (
+        <StrengthsCard
+          strengths={strengths}
+          collapsible
+          defaultExpanded={strengths.length <= 10}
+        />
+      )}
 
       {/* Recommendations List */}
       {recommendations.length > 0 && (

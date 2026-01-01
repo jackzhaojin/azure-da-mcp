@@ -64,10 +64,23 @@ async function runAgent(
         // Try agentic if OAuth token available
         try {
           const fullResult = await analyzeStructureWithClaude(request.migratedUrl, deterministic);
+
+          // Combine findings and strengths
+          const combinedFindings = [
+            ...fullResult.agentic.findings,
+            // Add strengths as positive findings
+            ...(fullResult.agentic.strengths || []).map(strength => ({
+              dimension: 'structure' as const,
+              severity: 'info' as const,
+              issue: `✨ ${strength}`,
+              recommendation: 'This is a positive aspect - maintain this quality',
+            })),
+          ];
+
           result = {
             dimension: 'structure',
             score: fullResult.finalScore,
-            findings: fullResult.agentic.findings,
+            findings: combinedFindings,
             metadata: {
               deterministic: {
                 executedAt: fullResult.timestamp,
@@ -106,16 +119,29 @@ async function runAgent(
         // Try agentic if OAuth token available
         try {
           const fullResult = await analyzeAccessibilityWithClaude(request.migratedUrl, deterministic);
-          result = {
-            dimension: 'accessibility',
-            score: fullResult.finalScore,
-            findings: fullResult.agentic.findings.map(f => ({
+
+          // Combine findings and strengths
+          const combinedFindings = [
+            ...fullResult.agentic.findings.map(f => ({
               dimension: 'accessibility' as const,
               severity: f.severity,
               issue: f.issue,
               recommendation: f.recommendation,
               details: { impact: f.impact, priority: f.priority, ruleId: f.ruleId },
             })),
+            // Add strengths as positive findings
+            ...(fullResult.agentic.strengths || []).map(strength => ({
+              dimension: 'accessibility' as const,
+              severity: 'info' as const,
+              issue: `✨ ${strength}`,
+              recommendation: 'This is a positive aspect - maintain this quality',
+            })),
+          ];
+
+          result = {
+            dimension: 'accessibility',
+            score: fullResult.finalScore,
+            findings: combinedFindings,
             metadata: {
               deterministic: {
                 executedAt: fullResult.timestamp,
@@ -154,17 +180,20 @@ async function runAgent(
       }
 
       case 'content': {
-        // Skip if no PDF reference provided
-        if (!request.pdfPath) {
-          logger.warn('Content agent skipped: No PDF reference provided');
+        // Determine source URL (PDF or HTML)
+        const sourceUrl = request.pdfPath || request.expectedUrl;
+
+        // Skip if no source reference provided
+        if (!sourceUrl) {
+          logger.warn('Content agent skipped: No source reference provided');
           result = {
             dimension: 'content',
             score: 0,
             findings: [{
               dimension: 'content',
               severity: 'info',
-              issue: 'No PDF reference provided for content comparison',
-              recommendation: 'Provide a PDF URL to enable content fidelity analysis',
+              issue: 'No source reference provided for content comparison',
+              recommendation: 'Provide a PDF URL or HTML source URL to enable content fidelity analysis',
             }],
             metadata: {
               deterministic: {
@@ -177,23 +206,40 @@ async function runAgent(
           break;
         }
 
+        // Auto-detect source type (PDF vs HTML)
+        const sourceType = sourceUrl.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html';
+        logger.info('Content agent source type detected', { sourceType, sourceUrl });
+
         // Try to run content analysis
         try {
-          const deterministic = await analyzeContent(request.pdfPath, request.migratedUrl);
+          const deterministic = await analyzeContent(sourceUrl, request.migratedUrl);
 
           // Try agentic if OAuth token available
           try {
-            const fullResult = await analyzeContentWithClaude(request.pdfPath, request.migratedUrl, deterministic);
-            result = {
-              dimension: 'content',
-              score: fullResult.finalScore,
-              findings: (fullResult.agentic?.findings || []).map(f => ({
+            const fullResult = await analyzeContentWithClaude(sourceUrl, request.migratedUrl, deterministic, sourceType);
+
+            // Combine findings and strengths
+            const combinedFindings = [
+              ...(fullResult.agentic?.findings || []).map(f => ({
                 dimension: 'content' as const,
                 severity: f.severity,
                 issue: f.issue,
                 recommendation: f.recommendation,
                 details: { type: f.type, snippet: f.snippet },
               })),
+              // Add strengths as positive findings
+              ...(fullResult.agentic?.strengths || []).map(strength => ({
+                dimension: 'content' as const,
+                severity: 'info' as const,
+                issue: `✨ ${strength}`,
+                recommendation: 'This is a positive aspect - maintain this quality',
+              })),
+            ];
+
+            result = {
+              dimension: 'content',
+              score: fullResult.finalScore,
+              findings: combinedFindings,
               metadata: {
                 deterministic: {
                   executedAt: fullResult.timestamp,
@@ -267,16 +313,28 @@ async function runAgent(
           const { calculateFinalScore } = await import('@/lib/agents/visual/agentic');
           const finalScore = calculateFinalScore(agenticResult.score, deterministic.score);
 
-          result = {
-            dimension: 'visual',
-            score: finalScore,
-            findings: agenticResult.findings.map((f) => ({
+          // Combine findings and strengths
+          const combinedFindings = [
+            ...agenticResult.findings.map((f) => ({
               dimension: 'visual' as const,
               severity: f.severity,
               issue: f.issue,
               recommendation: f.recommendation,
               details: { type: f.type, location: f.location },
             })),
+            // Add strengths as positive findings
+            ...(agenticResult.strengths || []).map(strength => ({
+              dimension: 'visual' as const,
+              severity: 'info' as const,
+              issue: `✨ ${strength}`,
+              recommendation: 'This is a positive aspect - maintain this quality',
+            })),
+          ];
+
+          result = {
+            dimension: 'visual',
+            score: finalScore,
+            findings: combinedFindings,
             metadata: {
               deterministic: {
                 executedAt: deterministic.metadata.executedAt,
