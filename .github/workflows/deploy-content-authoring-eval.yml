@@ -85,9 +85,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=raw,value=latest
+            type=sha,prefix=sha-
 
       - name: Build and push Docker image
         if: steps.version_check.outputs.version_changed == 'true'
