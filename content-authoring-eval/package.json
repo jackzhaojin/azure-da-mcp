@@ -12,6 +12,8 @@
     "test:regression": "playwright test --grep '@smoke|@regression'",
     "test:expensive": "playwright test --grep @expensive",
     "test:all": "playwright test",
+    "test:phase40": "playwright test --project=ui tests/e2e/ui/strengths-display.test.ts",
+    "test:strengths": "playwright test --project=ui",
     "test:report": "playwright show-report playwright-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"
