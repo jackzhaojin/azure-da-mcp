@@ -25,6 +25,9 @@ Each agent combines **deterministic analysis** (Cheerio, axe-core, unpdf, Playwr
 # Install dependencies
 npm install
 
+# Install Playwright browsers
+npx playwright install
+
 # Copy environment template
 cp .env.local.example .env.local
 
