@@ -432,6 +432,7 @@ export function ResultsView({ report }: ResultsViewProps) {
           strengths={strengths}
           collapsible
           defaultExpanded={strengths.length <= 10}
+          groupByDimension
         />
       )}
 
