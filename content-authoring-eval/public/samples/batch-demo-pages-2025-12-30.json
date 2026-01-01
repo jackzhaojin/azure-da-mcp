@@ -1,0 +1,75 @@
+{
+  "batchId": "demo-10-pages-postal-migration",
+  "pages": [
+    {
+      "id": "ai-powered-package-tracking",
+      "title": "AI-Powered Package Tracking",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/ai-powered-package-tracking",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/ai-powered-package-tracking-2025.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "blockchain-supply-chain-transparency",
+      "title": "Blockchain Supply Chain Transparency",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/blockchain-supply-chain-transparency",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/blockchain-supply-chain-transparency.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "customer-experience-digital-postal",
+      "title": "Customer Experience Digital Postal",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/customer-experience-digital-postal",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/customer-experience-digital-postal.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "drone-delivery-b2b-vs-b2c",
+      "title": "Drone Delivery B2B vs B2C",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/drone-delivery-b2b-vs-b2c",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/drone-delivery-b2b-vs-b2c.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "iot-temperature-controlled-delivery",
+      "title": "IoT Temperature Controlled Delivery",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/iot-temperature-controlled-delivery",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/iot-temperature-controlled-delivery.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "machine-learning-demand-forecasting",
+      "title": "Machine Learning Demand Forecasting",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/machine-learning-demand-forecasting",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/machine-learning-demand-forecasting.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "real-time-route-optimization",
+      "title": "Real-Time Route Optimization",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/real-time-route-optimization",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/real-time-route-optimization.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "robotics-warehouse-automation",
+      "title": "Robotics Warehouse Automation",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/robotics-warehouse-automation",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/robotics-warehouse-automation.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "smart-lockers-future-parcel-collection",
+      "title": "Smart Lockers Future Parcel Collection",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/smart-lockers-future-parcel-collection",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/smart-lockers-future-parcel-collection.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "sustainable-last-mile-delivery",
+      "title": "Sustainable Last Mile Delivery",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/sustainable-last-mile-delivery",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/sustainable-last-mile-delivery.pdf",
+      "sourceType": "pdf"
+    }
+  ]
+}

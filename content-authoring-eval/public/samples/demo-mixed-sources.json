@@ -1,0 +1,27 @@
+{
+  "batchId": "demo-mixed-sources-2025-12-30",
+  "description": "Demo batch with both PDF and HTML source types for comparison",
+  "pages": [
+    {
+      "id": "pdf-source-example",
+      "title": "AI-Powered Package Tracking (PDF Source)",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/ai-powered-package-tracking-2025.pdf",
+      "sourceType": "pdf",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/ai-powered-package-tracking"
+    },
+    {
+      "id": "html-source-example",
+      "title": "W3C Homepage (HTML Source)",
+      "sourceUrl": "https://www.w3.org/",
+      "sourceType": "html",
+      "webUrl": "https://example.com"
+    },
+    {
+      "id": "pdf-source-example-2",
+      "title": "Blockchain Supply Chain Transparency (PDF Source)",
+      "sourceUrl": "https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/blockchain-supply-chain-transparency.pdf",
+      "sourceType": "pdf",
+      "webUrl": "https://main--da-live-postal-2025-07--jackzhaojin.aem.page/migration-batch-2025-12-13/blockchain-supply-chain-transparency"
+    }
+  ]
+}
