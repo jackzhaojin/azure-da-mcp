@@ -34,6 +34,7 @@ import {
 import { PageEvaluationState } from '@/hooks/useBatchEvaluationStream';
 import { Loader2, CheckCircle, XCircle, Clock, ChevronDown, AlertTriangle } from 'lucide-react';
 import { Dimension, Finding } from '@/types/evaluation';
+import { StrengthsCard } from '@/components/StrengthsCard';
 
 interface BatchEvaluationTableProps {
   pageStates: Map<string, PageEvaluationState>;
@@ -112,9 +113,17 @@ function getGradeBadge(score: number): JSX.Element {
 }
 
 /**
- * Get severity badge
+ * Get severity badge (supports showing strengths with green styling)
  */
-function getSeverityBadge(severity: string): JSX.Element {
+function getSeverityBadge(severity: string, asStrength = false): JSX.Element {
+  if (asStrength && severity === 'info') {
+    return (
+      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+        Strength
+      </Badge>
+    );
+  }
+
   switch (severity) {
     case 'critical':
       return <Badge variant="destructive" className="text-xs">Critical</Badge>;
@@ -152,7 +161,8 @@ function DimensionCell({ status, score, findings }: {
   if (status === 'completed' && score !== undefined) {
     const gradeText = getGradeText(score);
     const gradeDesc = getGradeDescription(score);
-    const findingCount = findings.length;
+    const issueCount = findings.filter(f => f.severity !== 'info').length;
+    const strengthCount = findings.filter(f => f.severity === 'info').length;
 
     return (
       <TooltipProvider>
@@ -166,9 +176,9 @@ function DimensionCell({ status, score, findings }: {
             <div className="space-y-1">
               <p className="font-semibold">{score} - {gradeText}</p>
               <p className="text-xs">{gradeDesc}</p>
-              {findingCount > 0 && (
+              {(issueCount > 0 || strengthCount > 0) && (
                 <p className="text-xs text-gray-400 mt-1">
-                  {findingCount} finding{findingCount > 1 ? 's' : ''} - click row to expand
+                  {issueCount} issue{issueCount !== 1 ? 's' : ''}, {strengthCount} strength{strengthCount !== 1 ? 's' : ''} - click row to expand
                 </p>
               )}
             </div>
@@ -303,35 +313,44 @@ function OverallScoreCell({ status, score }: { status: string; score?: number })
 }
 
 /**
- * Render findings list for a dimension
+ * Render findings list for a dimension (supports showing strengths)
  */
-function FindingsList({ findings, dimension }: { findings: Finding[]; dimension: string }) {
+function FindingsList({ findings, dimension, showAsStrengths = false }: { findings: Finding[]; dimension: string; showAsStrengths?: boolean }) {
   if (findings.length === 0) {
     return (
       <div className="text-sm text-gray-500 italic">
-        No findings for {dimension}
+        No {showAsStrengths ? 'strengths' : 'findings'} for {dimension}
       </div>
     );
   }
 
+  const Icon = showAsStrengths ? CheckCircle : AlertTriangle;
+  const iconColor = showAsStrengths ? 'text-green-600' : 'text-gray-400';
+  const borderColor = showAsStrengths ? 'border-green-200' : 'border-gray-200';
+
   return (
     <div className="space-y-3">
-      {findings.map((finding, index) => (
-        <div key={index} className="border-l-2 border-gray-200 pl-3 space-y-1">
-          <div className="flex items-start gap-2">
-            {getSeverityBadge(finding.severity)}
-            <AlertTriangle className="h-4 w-4 text-gray-400 mt-0.5" />
-            <p className="text-sm font-medium text-gray-900 flex-1">{finding.issue}</p>
+      {findings.map((finding, index) => {
+        // Remove ✨ emoji prefix if present in strength issue text
+        const issueText = showAsStrengths ? finding.issue.replace(/^✨\s*/, '') : finding.issue;
+
+        return (
+          <div key={index} className={`border-l-2 ${borderColor} pl-3 space-y-1`}>
+            <div className="flex items-start gap-2">
+              {getSeverityBadge(finding.severity, showAsStrengths)}
+              <Icon className={`h-4 w-4 ${iconColor} mt-0.5`} />
+              <p className="text-sm font-medium text-gray-900 flex-1">{issueText}</p>
+            </div>
+            <p className="text-sm text-gray-600 ml-6">{finding.recommendation}</p>
           </div>
-          <p className="text-sm text-gray-600 ml-6">{finding.recommendation}</p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 /**
- * Expandable row details showing all findings
+ * Expandable row details showing all findings (split into issues and strengths)
  */
 function ExpandableRowDetails({ page }: { page: PageEvaluationState }) {
   const allFindings = [
@@ -339,6 +358,28 @@ function ExpandableRowDetails({ page }: { page: PageEvaluationState }) {
     ...page.findings.accessibility,
     ...page.findings.content,
     ...page.findings.visual,
+  ];
+
+  // Split findings by type
+  const issuesByDimension = {
+    structure: page.findings.structure.filter(f => f.severity !== 'info'),
+    accessibility: page.findings.accessibility.filter(f => f.severity !== 'info'),
+    content: page.findings.content.filter(f => f.severity !== 'info'),
+    visual: page.findings.visual.filter(f => f.severity !== 'info'),
+  };
+
+  const allStrengths = [
+    ...page.findings.structure.filter(f => f.severity === 'info'),
+    ...page.findings.accessibility.filter(f => f.severity === 'info'),
+    ...page.findings.content.filter(f => f.severity === 'info'),
+    ...page.findings.visual.filter(f => f.severity === 'info'),
+  ];
+
+  const allIssues = [
+    ...issuesByDimension.structure,
+    ...issuesByDimension.accessibility,
+    ...issuesByDimension.content,
+    ...issuesByDimension.visual,
   ];
 
   if (page.status !== 'done' || allFindings.length === 0) {
@@ -353,43 +394,62 @@ function ExpandableRowDetails({ page }: { page: PageEvaluationState }) {
             <AccordionTrigger className="px-6 py-3 hover:no-underline hover:bg-gray-100">
               <div className="flex items-center gap-2">
                 <ChevronDown className="h-4 w-4" />
-                <span className="text-sm font-medium">View All Findings ({allFindings.length})</span>
+                <span className="text-sm font-medium">
+                  View All Findings ({allIssues.length} issue{allIssues.length !== 1 ? 's' : ''}, {allStrengths.length} strength{allStrengths.length !== 1 ? 's' : ''})
+                </span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Structure Findings */}
-                <div>
-                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
-                    Structure {page.scores.structure && `(${page.scores.structure})`}
-                  </h4>
-                  <FindingsList findings={page.findings.structure} dimension="structure" />
-                </div>
+              {/* Issues by Dimension - 2x2 Grid */}
+              {allIssues.length > 0 && (
+                <>
+                  <h3 className="font-semibold text-sm mb-3 text-gray-800">🎯 Issues by Dimension</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    {/* Structure Issues */}
+                    <div>
+                      <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                        Structure {page.scores.structure && `(${page.scores.structure})`}
+                      </h4>
+                      <FindingsList findings={issuesByDimension.structure} dimension="structure" />
+                    </div>
 
-                {/* Accessibility Findings */}
-                <div>
-                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
-                    Accessibility {page.scores.accessibility && `(${page.scores.accessibility})`}
-                  </h4>
-                  <FindingsList findings={page.findings.accessibility} dimension="accessibility" />
-                </div>
+                    {/* Accessibility Issues */}
+                    <div>
+                      <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                        Accessibility {page.scores.accessibility && `(${page.scores.accessibility})`}
+                      </h4>
+                      <FindingsList findings={issuesByDimension.accessibility} dimension="accessibility" />
+                    </div>
 
-                {/* Content Findings */}
-                <div>
-                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
-                    Content {page.scores.content && `(${page.scores.content})`}
-                  </h4>
-                  <FindingsList findings={page.findings.content} dimension="content" />
-                </div>
+                    {/* Content Issues */}
+                    <div>
+                      <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                        Content {page.scores.content && `(${page.scores.content})`}
+                      </h4>
+                      <FindingsList findings={issuesByDimension.content} dimension="content" />
+                    </div>
 
-                {/* Visual Findings */}
-                <div>
-                  <h4 className="font-semibold text-sm mb-3 text-gray-700">
-                    Visual {page.scores.visual && `(${page.scores.visual})`}
-                  </h4>
-                  <FindingsList findings={page.findings.visual} dimension="visual" />
+                    {/* Visual Issues */}
+                    <div>
+                      <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                        Visual {page.scores.visual && `(${page.scores.visual})`}
+                      </h4>
+                      <FindingsList findings={issuesByDimension.visual} dimension="visual" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Strengths Section */}
+              {allStrengths.length > 0 && (
+                <div className="mt-6">
+                  <StrengthsCard
+                    strengths={allStrengths}
+                    collapsible
+                    defaultExpanded
+                  />
                 </div>
-              </div>
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
