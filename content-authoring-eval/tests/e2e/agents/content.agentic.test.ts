@@ -1,7 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { EvalAPIClient } from '../utils/api-client';
-import { TEST_URLS } from '../utils/test-urls';
+import { TEST_CASES } from '../utils/test-urls';
+import { formatTestResult } from '../utils/test-reporter';
 
+/**
+ * Content Agent Tests
+ *
+ * Note: Content agent is specifically designed for PDF→HTML content fidelity.
+ * HTML→HTML content comparison doesn't make sense here - use Visual and
+ * Accessibility agents for HTML→HTML comparisons instead.
+ */
 test.describe('Content Agent - Agentic Mode', () => {
   let client: EvalAPIClient;
 
@@ -14,15 +22,16 @@ test.describe('Content Agent - Agentic Mode', () => {
   });
 
   test('PDF source → HTML migrated (agentic)', { tag: '@expensive' }, async () => {
+    const testCase = TEST_CASES.pdfToHtml1;
     const result = await client.evaluateContent({
-      migratedUrl: TEST_URLS.migratedHtml,
-      pdfUrl: TEST_URLS.sourcePdf,
+      migratedUrl: testCase.webUrl,
+      pdfUrl: testCase.sourceUrl,
       mode: 'full',
     });
 
     expect(result.agentic).toBeDefined();
     expect(result.finalScore).toBeDefined();
 
-    console.log(`✅ Content (agentic, PDF→HTML): Score ${result.finalScore}, Duration ${result.duration}ms`);
+    console.log(formatTestResult('Content', 'PDF→HTML', result));
   });
 });

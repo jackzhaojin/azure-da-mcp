@@ -132,6 +132,8 @@ export interface AgenticAnalysisResult {
   score: number;
   /** Summary of visual quality */
   summary: string;
+  /** Positive aspects - what works well */
+  strengths: string[];
   /** Critical visual issues */
   criticalIssues: string[];
   /** Minor visual improvements */

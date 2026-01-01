@@ -114,6 +114,8 @@ export interface AgenticAnalysisResult {
   score: number;
   /** Summary of content fidelity assessment */
   summary: string;
+  /** Positive aspects - what was preserved well */
+  strengths: string[];
   /** Critical content gaps identified */
   criticalGaps: string[];
   /** Minor improvements suggested */

@@ -14,7 +14,7 @@ import {
   type AgenticAnalysisResult,
   type StructureAnalysisResult,
 } from './types';
-import structurePrompt from '@/lib/prompts/structure.json';
+import structurePrompt from '@/lib/prompts/structure-no-source.json';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
@@ -123,6 +123,7 @@ function parseClaudeResponse(responseText: string): AgenticAnalysisResult {
       }),
       score: Math.max(0, Math.min(100, parsed.score)),
       summary: parsed.summary,
+    strengths: (parsed.strengths as string[]) || [],
     };
 
     logger.info('Claude response parsed successfully', {

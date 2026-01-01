@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { EvalAPIClient } from '../utils/api-client';
-import { TEST_URLS } from '../utils/test-urls';
+import { TEST_CASES } from '../utils/test-urls';
+import { formatTestResult } from '../utils/test-reporter';
 
 test.describe('Accessibility Agent - Agentic Mode', () => {
   let client: EvalAPIClient;
@@ -14,27 +15,29 @@ test.describe('Accessibility Agent - Agentic Mode', () => {
   });
 
   test('HTML source → HTML migrated (agentic)', { tag: '@expensive' }, async () => {
+    const testCase = TEST_CASES.htmlToHtml;
     const result = await client.evaluateAccessibility({
-      migratedUrl: TEST_URLS.migratedHtml,
-      sourceUrl: TEST_URLS.sourceHtml,
+      migratedUrl: testCase.webUrl,
+      sourceUrl: testCase.sourceUrl,
       mode: 'full',
     });
 
     expect(result.agentic).toBeDefined();
     expect(result.agentic?.findings).toBeDefined();
 
-    console.log(`✅ Accessibility (agentic, HTML→HTML): Score ${result.finalScore}, Findings: ${result.agentic?.findings.length}, Duration ${result.duration}ms`);
+    console.log(formatTestResult('Accessibility', 'HTML→HTML', result));
   });
 
   test('PDF source → HTML migrated (agentic)', { tag: '@expensive' }, async () => {
+    const testCase = TEST_CASES.pdfToHtml1;
     const result = await client.evaluateAccessibility({
-      migratedUrl: TEST_URLS.migratedHtml,
-      pdfUrl: TEST_URLS.sourcePdf,
+      migratedUrl: testCase.webUrl,
+      pdfUrl: testCase.sourceUrl,
       mode: 'full',
     });
 
     expect(result.agentic).toBeDefined();
 
-    console.log(`✅ Accessibility (agentic, PDF→HTML): Score ${result.finalScore}, Duration ${result.duration}ms`);
+    console.log(formatTestResult('Accessibility', 'PDF→HTML', result));
   });
 });
