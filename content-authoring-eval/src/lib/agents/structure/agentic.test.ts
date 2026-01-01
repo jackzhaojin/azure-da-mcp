@@ -97,6 +97,10 @@ export const mockClaudeResponse: AgenticAnalysisResult = {
   ],
   score: 45,
   summary: 'Structure has critical issues: missing semantic HTML5 elements (main, header, footer) and incomplete meta tags. Heading hierarchy is correct but overall SEO and accessibility need significant improvement.',
+  strengths: [
+    'Valid HTML5 doctype present',
+    'Proper heading hierarchy with single H1',
+  ],
 };
 
 /**

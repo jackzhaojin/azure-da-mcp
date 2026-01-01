@@ -29,27 +29,19 @@ function formatContentForPrompt(
   // Select prompt template based on source type
   const promptTemplate = sourceType === 'html' ? contentHtmlSourcePrompt : contentPdfSourcePrompt;
 
-  // Format PDF metadata
-  const pdfMetadata = pdfContent.metadata
-    ? `Title: ${pdfContent.metadata.title || 'N/A'}
-Author: ${pdfContent.metadata.author || 'N/A'}
-Subject: ${pdfContent.metadata.subject || 'N/A'}
-Created: ${pdfContent.metadata.creationDate || 'N/A'}`
-    : 'No metadata available';
-
-  // Format PDF headings
-  const pdfHeadings = pdfContent.headings.length > 0
+  // Format source headings
+  const sourceHeadings = pdfContent.headings.length > 0
     ? pdfContent.headings.slice(0, 20).map((h, i) => `${i + 1}. ${h}`).join('\n')
     : 'No headings extracted';
 
-  // Format webpage headings
-  const webpageHeadings = webpageContent.headings.length > 0
+  // Format migrated/webpage headings
+  const migratedHeadings = webpageContent.headings.length > 0
     ? webpageContent.headings.slice(0, 20).map((h, i) => `${i + 1}. ${h}`).join('\n')
     : 'No headings found';
 
   // Truncate text samples
-  const pdfTextSample = pdfContent.text.substring(0, 2000);
-  const webpageTextSample = webpageContent.text.substring(0, 2000);
+  const sourceTextSample = pdfContent.text.substring(0, 2000);
+  const migratedTextSample = webpageContent.text.substring(0, 2000);
 
   // Format missing content examples
   const missingExamples = diff.missing.length > 0
@@ -64,23 +56,50 @@ Created: ${pdfContent.metadata.creationDate || 'N/A'}`
   // Build full prompt using template
   let userPrompt = promptTemplate.user_template;
 
-  // Replace template variables
-  userPrompt = userPrompt
-    .replace('{{pdf_metadata}}', pdfMetadata)
-    .replace('{{pdf_headings}}', pdfHeadings)
-    .replace('{{pdf_text_sample}}', pdfTextSample)
-    .replace('{{pdf_pages}}', pdfContent.numPages.toString())
-    .replace('{{pdf_words}}', pdfContent.wordCount.toString())
-    .replace('{{pdf_headings_count}}', pdfContent.headings.length.toString())
-    .replace('{{webpage_headings}}', webpageHeadings)
-    .replace('{{webpage_text_sample}}', webpageTextSample)
-    .replace('{{webpage_words}}', webpageContent.wordCount.toString())
-    .replace('{{webpage_headings_count}}', webpageContent.headings.length.toString())
-    .replace('{{similarity_score}}', diff.similarityScore.toString())
-    .replace('{{missing_count}}', diff.missing.length.toString())
-    .replace('{{extra_count}}', diff.extra.length.toString())
-    .replace('{{missing_examples}}', missingExamples)
-    .replace('{{extra_examples}}', extraExamples);
+  if (sourceType === 'html') {
+    // HTML→HTML template variables
+    userPrompt = userPrompt
+      .replace('{{source_url}}', metrics.pdfUrl) // pdfUrl field holds source URL for both types
+      .replace('{{migrated_url}}', metrics.migratedUrl)
+      .replace('{{source_headings}}', sourceHeadings)
+      .replace('{{source_text_sample}}', sourceTextSample)
+      .replace('{{source_words}}', pdfContent.wordCount.toString())
+      .replace('{{source_headings_count}}', pdfContent.headings.length.toString())
+      .replace('{{migrated_headings}}', migratedHeadings)
+      .replace('{{migrated_text_sample}}', migratedTextSample)
+      .replace('{{migrated_words}}', webpageContent.wordCount.toString())
+      .replace('{{migrated_headings_count}}', webpageContent.headings.length.toString())
+      .replace('{{similarity_score}}', diff.similarityScore.toString())
+      .replace('{{missing_count}}', diff.missing.length.toString())
+      .replace('{{extra_count}}', diff.extra.length.toString())
+      .replace('{{missing_examples}}', missingExamples)
+      .replace('{{extra_examples}}', extraExamples);
+  } else {
+    // PDF→HTML template variables (original)
+    const pdfMetadata = pdfContent.metadata
+      ? `Title: ${pdfContent.metadata.title || 'N/A'}
+Author: ${pdfContent.metadata.author || 'N/A'}
+Subject: ${pdfContent.metadata.subject || 'N/A'}
+Created: ${pdfContent.metadata.creationDate || 'N/A'}`
+      : 'No metadata available';
+
+    userPrompt = userPrompt
+      .replace('{{pdf_metadata}}', pdfMetadata)
+      .replace('{{pdf_headings}}', sourceHeadings)
+      .replace('{{pdf_text_sample}}', sourceTextSample)
+      .replace('{{pdf_pages}}', pdfContent.numPages.toString())
+      .replace('{{pdf_words}}', pdfContent.wordCount.toString())
+      .replace('{{pdf_headings_count}}', pdfContent.headings.length.toString())
+      .replace('{{webpage_headings}}', migratedHeadings)
+      .replace('{{webpage_text_sample}}', migratedTextSample)
+      .replace('{{webpage_words}}', webpageContent.wordCount.toString())
+      .replace('{{webpage_headings_count}}', webpageContent.headings.length.toString())
+      .replace('{{similarity_score}}', diff.similarityScore.toString())
+      .replace('{{missing_count}}', diff.missing.length.toString())
+      .replace('{{extra_count}}', diff.extra.length.toString())
+      .replace('{{missing_examples}}', missingExamples)
+      .replace('{{extra_examples}}', extraExamples);
+  }
 
   return {
     systemPrompt: promptTemplate.system,
@@ -119,6 +138,7 @@ function parseClaudeResponse(responseText: string): AgenticAnalysisResult {
       }>;
       score: number;
       summary: string;
+      strengths?: string[];
       criticalGaps: string[];
       minorImprovements: string[];
     };
