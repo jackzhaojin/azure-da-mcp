@@ -4,7 +4,6 @@ name: Deploy Content Authoring Eval to Oracle VM
 # Deploys when:
 # 1. A version tag (v1.0.0, v1.0.1, etc.) is pushed
 # 2. Tag includes changes to content-authoring-eval/** or this workflow file
-# 3. Version field in package.json has changed (checked in workflow)
 on:
   push:
     tags:
@@ -25,37 +24,12 @@ jobs:
     permissions:
       contents: read
       packages: write
-    outputs:
-      version_changed: ${{ steps.version_check.outputs.version_changed }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2  # Need previous commit to compare version
-
-      - name: Check if version changed
-        id: version_check
-        run: |
-          # Get version from current commit
-          CURRENT_VERSION=$(jq -r '.version' content-authoring-eval/package.json)
-
-          # Get version from previous commit (if exists)
-          PREVIOUS_VERSION=$(git show HEAD~1:content-authoring-eval/package.json 2>/dev/null | jq -r '.version' || echo "0.0.0")
-
-          echo "Current version: $CURRENT_VERSION"
-          echo "Previous version: $PREVIOUS_VERSION"
-
-          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
-            echo "version_changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "Version unchanged at $CURRENT_VERSION - skipping deployment"
-            echo "version_changed=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Free Disk Space (Ubuntu)
-        if: steps.version_check.outputs.version_changed == 'true'
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: true
@@ -67,11 +41,9 @@ jobs:
           swap-storage: false
 
       - name: Set up Docker Buildx
-        if: steps.version_check.outputs.version_changed == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        if: steps.version_check.outputs.version_changed == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -79,7 +51,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
-        if: steps.version_check.outputs.version_changed == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -90,7 +61,6 @@ jobs:
             type=sha,prefix=sha-
 
       - name: Build and push Docker image
-        if: steps.version_check.outputs.version_changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./content-authoring-eval
@@ -108,9 +78,7 @@ jobs:
     name: Deploy to Oracle VM
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: |
-      needs.build-and-push.outputs.version_changed == 'true' &&
-      startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
       - name: Deploy to Oracle VM via SSH
