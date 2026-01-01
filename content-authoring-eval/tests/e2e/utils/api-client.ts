@@ -24,9 +24,12 @@ export interface EvaluationResponse {
     score: number;
     findings?: Array<{
       severity: string;
-      title: string;
-      description: string;
+      issue: string;
+      recommendation: string;
+      dimension?: string;
+      details?: Record<string, unknown>;
     }>;
+    strengths?: string[];
   };
   error?: string;
   duration?: number;

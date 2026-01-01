@@ -40,6 +40,11 @@ export default defineConfig({
       testMatch: '**/*.agentic.test.ts',
       timeout: 180000, // 3 minutes for agentic
     },
+    {
+      name: 'ui',
+      testMatch: '**/ui/**/*.test.ts',
+      timeout: 180000, // 3 minutes for UI tests (includes agentic API calls)
+    },
   ],
   webServer: {
     command: 'npm run dev',
