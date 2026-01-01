@@ -102,8 +102,7 @@ export function getMCPServersConfig() {
 
   playwrightArgs.push(
     '--browser=chromium',          // Consistent browser choice
-    '--viewport-size=1280x720',    // Consistent viewport for screenshots
-    '--timeout-action=10000',      // 10s timeout per action
+    // NOTE: No timeout flags - playwright MCP doesn't support --timeout-action
   );
 
   // Docker-specific optimizations

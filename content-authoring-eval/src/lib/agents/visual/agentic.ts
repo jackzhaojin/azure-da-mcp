@@ -13,7 +13,6 @@ import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './type
 import visualNoSourcePrompt from '@/lib/prompts/visual-no-source.json';
 import visualHtmlSourcePrompt from '@/lib/prompts/visual-html-source.json';
 import visualPdfSourcePrompt from '@/lib/prompts/visual-pdf-source.json';
-import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
@@ -263,8 +262,8 @@ export async function analyzeVisualWithClaude(
       metrics.screenshot.path.endsWith('.webp') ? 'image/webp' :
       'image/jpeg';
 
-    // Create tool logging plugin to track tool usage
-    const toolLogger = createToolLoggingPlugin();
+    // Track tool usage
+    let toolCallCount = 0;
 
     // PHASE 22: Invoke Claude Agent SDK with multimodal vision support
     logger.info('Invoking Claude Agent SDK with Vision API (multimodal)', {
@@ -384,45 +383,45 @@ export async function analyzeVisualWithClaude(
         // PHASE 25: Configure MCP servers programmatically (environment-aware paths)
         // Use getMCPServersConfig() to get correct paths for Docker vs local development
         mcpServers: getMCPServersConfig(),
-        allowedTools: ['Read', 'Write', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
         cwd: process.cwd(),
-        plugins: [toolLogger], // PHASE 20: Add tool logging plugin
       },
     })) {
-      // Collect assistant text responses
-      if (message.type === 'assistant' && message.message?.content) {
+      // Collect assistant responses and count tool usage
+      if (message.type === 'assistant' && 'message' in message && message.message?.content) {
         for (const block of message.message.content) {
           if (block.type === 'text' && block.text) {
             messages.push(block.text);
-            logger.debug('Received text block from Claude Vision', { length: block.text.length });
+          }
+          if (block.type === 'tool_use') {
+            toolCallCount++;
           }
         }
       }
     }
 
-    logger.info('Claude Agent SDK stream completed', {
+    // Create tool stats for metadata
+    const toolStats = {
+      totalInvocations: toolCallCount,
+      toolCounts: {},
+    };
+
+    const verification = {
+      passed: toolCallCount > 0,
+      summary: `Total invocations: ${toolCallCount}`,
+      warnings: toolCallCount === 0 ? ['❌ CRITICAL: No tools invoked'] : [],
+    };
+
+    logger.info('Agent SDK stream completed', {
       messagesCollected: messages.length,
+      toolCalls: toolCallCount,
+      toolsUsed: verification.passed
     });
 
-    // PHASE 20-21: Verify and enforce tool usage
-    const toolStats = toolLogger.getStats();
-    const verification = verifyToolUsage(toolStats);
-
-    logger.info('Tool usage verification', {
-      passed: verification.passed,
-      summary: verification.summary,
-      warnings: verification.warnings,
-    });
-
-    // Log detailed tool usage stats
-    logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
-
-    // PHASE 21: Enforce tool usage - log critical warnings if no tools used
     if (!verification.passed) {
-      logger.warn('⚠️  PHASE 21 WARNING: Agent completed without using tools - may be "fake agentic"', {
-        totalInvocations: toolStats.totalInvocations,
+      logger.warn('⚠️ Agent completed without using tools', {
+        totalInvocations: toolCallCount,
         expectedTools: 'Playwright (browser_navigate, browser_take_screenshot) OR Read (screenshot file)',
         fallbackMode: 'Continuing with deterministic-metrics-only analysis',
       });

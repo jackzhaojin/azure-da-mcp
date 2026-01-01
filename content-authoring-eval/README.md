@@ -218,6 +218,17 @@ npm run lint
 
 ## Testing
 
+### Test Directory Structure
+
+```
+tests/
+├── adhoc/          # Ad hoc tests for quick experiments
+└── e2e/            # E2E agent Playwright test suite
+```
+
+- **Ad hoc tests** (`tests/adhoc/`): Quick validation scripts and manual experiments
+- **E2E tests** (`tests/e2e/`): Automated Playwright tests for agent evaluation regression
+
 ### Manual Testing
 ```bash
 # Start dev server
@@ -230,6 +241,21 @@ open http://localhost:3000
 curl -X POST http://localhost:3000/api/evaluate \
   -H "Content-Type: application/json" \
   -d '{"pdfUrl": "https://example.com/doc.pdf", "migratedUrl": "https://example.com"}'
+```
+
+### Automated Testing
+```bash
+# Run smoke tests (fast, critical paths)
+npm run test:smoke
+
+# Run full E2E suite
+npm run test
+
+# Run with UI for debugging
+npm run test:ui
+
+# Show test report
+npm run test:report
 ```
 
 ### Health Check
