@@ -38,10 +38,10 @@ export async function captureScreenshot(
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const filename = `screenshot-${timestamp}.png`;
   const relativePath = `screenshots/${filename}`;
-  const absolutePath = path.join(process.cwd(), 'public', relativePath);
+  const absolutePath = path.join(process.cwd(), 'output', relativePath);
 
   // Ensure screenshots directory exists
-  const screenshotsDir = path.join(process.cwd(), 'public', 'screenshots');
+  const screenshotsDir = path.join(process.cwd(), 'output', 'screenshots');
   if (!fs.existsSync(screenshotsDir)) {
     fs.mkdirSync(screenshotsDir, { recursive: true });
   }
@@ -160,7 +160,7 @@ export async function compareImages(
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const diffFilename = `diff-${timestamp}.png`;
     const diffRelativePath = `screenshots/${diffFilename}`;
-    const diffAbsolutePath = path.join(process.cwd(), 'public', diffRelativePath);
+    const diffAbsolutePath = path.join(process.cwd(), 'output', diffRelativePath);
 
     logger.debug('Saving diff image', { path: diffRelativePath });
     fs.writeFileSync(diffAbsolutePath, PNG.sync.write(diff));

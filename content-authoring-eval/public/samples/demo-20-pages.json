@@ -1,0 +1,145 @@
+{
+  "batchId": "demo-20-pages-realistic-enterprise",
+  "pages": [
+    {
+      "id": "page-001",
+      "title": "Adobe Homepage (Excellent 95+)",
+      "webUrl": "https://main--milo--adobecom.aem.live/",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/creative-cloud/max/2024/overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-002",
+      "title": "About Adobe (Good 85)",
+      "webUrl": "https://www.adobe.com/about-adobe.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/aboutadobe/pdfs/adobe-factsheet.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-003",
+      "title": "Creative Cloud Overview (Excellent 92)",
+      "webUrl": "https://www.adobe.com/creativecloud.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/ccoverview/desktop-cc-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-004",
+      "title": "Photoshop Features (Good 78)",
+      "webUrl": "https://www.adobe.com/products/photoshop/features.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/photoshop/pdfs/photoshop-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-005-error-pdf",
+      "title": "ERROR: Invalid PDF URL (Should Fail)",
+      "webUrl": "https://www.adobe.com/documentcloud.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/INVALID/PATH/missing-file.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-006",
+      "title": "Illustrator Overview (Acceptable 65)",
+      "webUrl": "https://www.adobe.com/products/illustrator.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/illustrator/pdfs/illustrator-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-007",
+      "title": "InDesign Features (Needs Improvement 52)",
+      "webUrl": "https://www.adobe.com/products/indesign.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/indesign/pdfs/indesign-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-008",
+      "title": "Premiere Pro (Excellent 94)",
+      "webUrl": "https://www.adobe.com/products/premiere.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/premiere/pdfs/premiere-pro-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-009",
+      "title": "After Effects (Critical 38)",
+      "webUrl": "https://www.adobe.com/products/aftereffects.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/after-effects/pdfs/ae-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-010",
+      "title": "Adobe XD (Good 82)",
+      "webUrl": "https://www.adobe.com/products/xd.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/xd/pdfs/xd-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-011",
+      "title": "Lightroom Classic (Good 76)",
+      "webUrl": "https://www.adobe.com/products/photoshop-lightroom-classic.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/lightroom/pdfs/lightroom-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-012-error-web",
+      "title": "ERROR: Invalid Web URL (Should Fail)",
+      "webUrl": "https://www.adobe.com/INVALID/broken-link-404.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/acom/en/products/acrobat/pdfs/acrobat-pro-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-013",
+      "title": "Dreamweaver (Acceptable 68)",
+      "webUrl": "https://www.adobe.com/products/dreamweaver.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/dreamweaver/pdfs/dw-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-014",
+      "title": "Animate (Needs Improvement 55)",
+      "webUrl": "https://www.adobe.com/products/animate.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/animate/pdfs/animate-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-015",
+      "title": "Audition (Good 80)",
+      "webUrl": "https://www.adobe.com/products/audition.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/audition/pdfs/audition-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-016",
+      "title": "Character Animator (Acceptable 62)",
+      "webUrl": "https://www.adobe.com/products/character-animator.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/character-animator/pdfs/ch-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-017",
+      "title": "Dimension (Critical 35)",
+      "webUrl": "https://www.adobe.com/products/dimension.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/dimension/pdfs/dimension-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-018",
+      "title": "Substance 3D (Excellent 91)",
+      "webUrl": "https://www.adobe.com/products/substance3d.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/substance3d/pdfs/substance-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-019",
+      "title": "Adobe Express (Good 77)",
+      "webUrl": "https://www.adobe.com/express/",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/express/pdfs/express-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-020",
+      "title": "Adobe Fonts (Needs Improvement 48)",
+      "webUrl": "https://fonts.adobe.com/",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/fonts/pdfs/fonts-overview.pdf",
+      "sourceType": "pdf"
+    }
+  ]
+}
