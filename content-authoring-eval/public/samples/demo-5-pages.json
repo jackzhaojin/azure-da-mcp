@@ -1,0 +1,40 @@
+{
+  "batchId": "demo-5-pages-quick-test",
+  "pages": [
+    {
+      "id": "page-001-excellent",
+      "title": "Adobe Homepage (Expected: Excellent)",
+      "webUrl": "https://main--milo--adobecom.aem.live/",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/creative-cloud/max/2024/overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-002-good",
+      "title": "Creative Cloud Overview (Expected: Good)",
+      "webUrl": "https://www.adobe.com/creativecloud.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/ccoverview/desktop-cc-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-003-acceptable",
+      "title": "Photoshop Features (Expected: Acceptable)",
+      "webUrl": "https://www.adobe.com/products/photoshop/features.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/photoshop/pdfs/photoshop-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-004-needs-improvement",
+      "title": "Document Cloud (Expected: Needs Improvement)",
+      "webUrl": "https://www.adobe.com/documentcloud.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/acom/en/products/document-cloud/pdfs/dc-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-005-critical",
+      "title": "Adobe Fonts (Expected: Critical/Low Score)",
+      "webUrl": "https://fonts.adobe.com/",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/fonts/pdfs/fonts-overview.pdf",
+      "sourceType": "pdf"
+    }
+  ]
+}

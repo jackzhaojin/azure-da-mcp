@@ -1,0 +1,45 @@
+# Sample PDF Source Reference
+
+This is a placeholder file indicating where a real PDF source would be stored.
+
+## Real PDF Sources for Testing
+
+The batch evaluation uses actual PDFs hosted on Azure Blob Storage:
+
+1. **AI-Powered Package Tracking**
+   - URL: https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/ai-powered-package-tracking-2025.pdf
+   - Size: ~500KB
+   - Pages: 8
+
+2. **Blockchain Supply Chain Transparency**
+   - URL: https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/blockchain-supply-chain-transparency.pdf
+   - Size: ~450KB
+   - Pages: 6
+
+## How PDFs Are Used
+
+The content evaluation agent:
+1. Fetches PDF using `fetch()`
+2. Extracts text using `unpdf` library
+3. Compares extracted text with migrated web page content
+4. Calculates similarity score using sentence-level diff
+
+## Generating Test PDFs
+
+To create your own test PDFs:
+
+```bash
+# Using pandoc (if installed)
+pandoc sample-original-source.html -o sample-original-source.pdf
+
+# Or upload to Azure Blob Storage
+az storage blob upload \
+  --account-name dalivemcprg94e3 \
+  --container-name contentsource \
+  --name pdf-test/sample.pdf \
+  --file ./sample.pdf
+```
+
+---
+
+*Note: This .txt file is a placeholder. For actual batch evaluation, use the real PDF URLs from Azure Blob Storage.*

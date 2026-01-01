@@ -1,0 +1,75 @@
+{
+  "batchId": "demo-10-pages-mixed-scenarios",
+  "pages": [
+    {
+      "id": "page-001-excellent",
+      "title": "Adobe Homepage (Excellent)",
+      "webUrl": "https://main--milo--adobecom.aem.live/",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/creative-cloud/max/2024/overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-002-good",
+      "title": "About Adobe (Good)",
+      "webUrl": "https://www.adobe.com/about-adobe.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/aboutadobe/pdfs/adobe-factsheet.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-003-error-invalid-pdf",
+      "title": "Invalid PDF Test (Should Error)",
+      "webUrl": "https://www.adobe.com/creativecloud.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/INVALID/PATH/does-not-exist.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-004-acceptable",
+      "title": "Photoshop Features (Acceptable)",
+      "webUrl": "https://www.adobe.com/products/photoshop/features.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/photoshop/pdfs/photoshop-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-005-good",
+      "title": "Document Cloud (Good)",
+      "webUrl": "https://www.adobe.com/documentcloud.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/acom/en/products/document-cloud/pdfs/dc-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-006-error-invalid-web",
+      "title": "Invalid Web URL Test (Should Error)",
+      "webUrl": "https://www.adobe.com/INVALID/PATH/does-not-exist.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/illustrator/pdfs/illustrator-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-007-needs-improvement",
+      "title": "InDesign Features (Needs Improvement)",
+      "webUrl": "https://www.adobe.com/products/indesign.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/indesign/pdfs/indesign-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-008-excellent",
+      "title": "Premiere Pro (Excellent)",
+      "webUrl": "https://www.adobe.com/products/premiere.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/premiere/pdfs/premiere-pro-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-009-critical",
+      "title": "After Effects (Critical)",
+      "webUrl": "https://www.adobe.com/products/aftereffects.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/after-effects/pdfs/ae-overview.pdf",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "page-010-good",
+      "title": "Adobe XD (Good)",
+      "webUrl": "https://www.adobe.com/products/xd.html",
+      "sourceUrl": "https://www.adobe.com/content/dam/cc/us/en/products/xd/pdfs/xd-overview.pdf",
+      "sourceType": "pdf"
+    }
+  ]
+}
