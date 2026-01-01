@@ -90,6 +90,7 @@ export interface AgenticAnalysisResult {
   findings: AccessibilityFinding[];
   score: number; // 0-100 agentic score
   summary: string;
+  strengths: string[]; // Positive aspects
   quickWins: string[]; // Easy fixes
   majorIssues: string[]; // Complex fixes
 }

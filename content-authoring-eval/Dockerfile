@@ -151,8 +151,8 @@ RUN mkdir -p /home/appuser/.cache/ms-playwright && \
 # Copy production node_modules from separate stage (after browser installation)
 COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
 
-# Create directory for screenshots
-RUN mkdir -p /app/public/screenshots && chown -R appuser:appuser /app/public
+# Create directories for screenshots and temporary files
+RUN mkdir -p /app/public/screenshots /app/.tmp && chown -R appuser:appuser /app/public /app/.tmp
 
 # Copy entrypoint script (generates .claude.json from env vars at runtime)
 COPY --chown=appuser:appuser docker-entrypoint.sh /usr/local/bin/

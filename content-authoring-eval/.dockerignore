@@ -12,6 +12,7 @@ out/
 
 # Testing
 coverage
+tests/
 
 # Misc
 .DS_Store

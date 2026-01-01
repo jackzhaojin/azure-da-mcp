@@ -117,10 +117,23 @@ export async function POST(request: NextRequest) {
     // If full mode, run agentic analysis
     if (mode === 'full') {
       try {
-        logger.info('Starting agentic accessibility analysis', { url: body.migratedUrl });
+        logger.info('Starting agentic accessibility analysis', { url: body.migratedUrl, sourceType });
         const agenticTimer = new Timer();
 
-        const result = await analyzeAccessibilityWithClaude(body.migratedUrl, metrics);
+        // Pass source information to agentic analysis
+        let result;
+        if (sourceType === 'html' && sourceComparison) {
+          // HTML source comparison - need source metrics
+          const sourceMetrics = await analyzeAccessibility(body.sourceUrl);
+          result = await analyzeAccessibilityWithClaude(body.migratedUrl, metrics, 'html', sourceMetrics);
+        } else if (sourceType === 'pdf' && body.pdfUrl) {
+          // PDF source context
+          const pdfInfo = { path: body.pdfUrl, pages: 1 }; // Simplified - would need actual PDF metadata
+          result = await analyzeAccessibilityWithClaude(body.migratedUrl, metrics, 'pdf', undefined, pdfInfo);
+        } else {
+          // No source
+          result = await analyzeAccessibilityWithClaude(body.migratedUrl, metrics);
+        }
 
         logger.operationComplete('Agentic accessibility analysis', agenticTimer.elapsed(), {
           finalScore: result.finalScore,

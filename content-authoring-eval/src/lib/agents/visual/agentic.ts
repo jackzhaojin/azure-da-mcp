@@ -137,6 +137,7 @@ export function parseClaudeResponse(response: string): AgenticAnalysisResult {
       score: parsed.score,
       summary: parsed.summary,
       criticalIssues: parsed.criticalIssues,
+    strengths: (parsed.strengths as string[]) || [],
       minorImprovements: parsed.minorImprovements,
     };
   } catch (error) {

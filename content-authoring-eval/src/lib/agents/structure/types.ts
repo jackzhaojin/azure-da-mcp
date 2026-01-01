@@ -111,6 +111,7 @@ export interface AgenticAnalysisResult {
   findings: StructureFinding[];
   score: number; // 0-100
   summary: string;
+  strengths: string[];
 }
 
 /**

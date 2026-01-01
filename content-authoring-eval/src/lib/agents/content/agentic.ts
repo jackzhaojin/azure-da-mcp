@@ -8,16 +8,26 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { createLogger, Timer } from '@/lib/logger';
 import type { ContentMetrics, AgenticAnalysisResult, ContentAnalysisResult, ContentFinding } from './types';
-import contentPrompt from '@/lib/prompts/content.json';
+import contentPdfSourcePrompt from '@/lib/prompts/content-pdf-source.json';
+import contentHtmlSourcePrompt from '@/lib/prompts/content-html-source.json';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
 
 /**
  * Format content metrics for Claude prompt
+ *
+ * @param metrics - Content metrics for both source and migrated content
+ * @param sourceType - Type of source ('pdf' or 'html')
  */
-function formatContentForPrompt(metrics: ContentMetrics): string {
+function formatContentForPrompt(
+  metrics: ContentMetrics,
+  sourceType: 'pdf' | 'html' = 'pdf'
+): { systemPrompt: string; userPrompt: string } {
   const { pdfContent, webpageContent, diff } = metrics;
+
+  // Select prompt template based on source type
+  const promptTemplate = sourceType === 'html' ? contentHtmlSourcePrompt : contentPdfSourcePrompt;
 
   // Format PDF metadata
   const pdfMetadata = pdfContent.metadata
@@ -52,7 +62,7 @@ Created: ${pdfContent.metadata.creationDate || 'N/A'}`
     : 'No extra content detected';
 
   // Build full prompt using template
-  let userPrompt = contentPrompt.user_template;
+  let userPrompt = promptTemplate.user_template;
 
   // Replace template variables
   userPrompt = userPrompt
@@ -72,7 +82,10 @@ Created: ${pdfContent.metadata.creationDate || 'N/A'}`
     .replace('{{missing_examples}}', missingExamples)
     .replace('{{extra_examples}}', extraExamples);
 
-  return userPrompt;
+  return {
+    systemPrompt: promptTemplate.system,
+    userPrompt,
+  };
 }
 
 /**
@@ -134,6 +147,7 @@ function parseClaudeResponse(responseText: string): AgenticAnalysisResult {
       findings,
       score: Math.max(0, Math.min(100, parsed.score)), // Clamp to 0-100
       summary: parsed.summary,
+      strengths: (parsed.strengths as string[] | undefined) || [],
       criticalGaps: parsed.criticalGaps || [],
       minorImprovements: parsed.minorImprovements || [],
     };
@@ -165,14 +179,20 @@ function calculateGrade(score: number): ContentAnalysisResult['grade'] {
 
 /**
  * Analyze content fidelity with Claude Agent SDK
+ *
+ * @param sourceUrl - URL or path of the source content (PDF URL or HTML URL)
+ * @param migratedUrl - URL of the migrated webpage
+ * @param deterministicMetrics - Deterministic content metrics
+ * @param sourceType - Type of source ('pdf' or 'html')
  */
 export async function analyzeContentWithClaude(
-  pdfUrl: string,
+  sourceUrl: string,
   migratedUrl: string,
-  deterministicMetrics: ContentMetrics
+  deterministicMetrics: ContentMetrics,
+  sourceType: 'pdf' | 'html' = 'pdf'
 ): Promise<ContentAnalysisResult> {
   const timer = new Timer();
-  logger.info('Starting agentic content analysis', { pdfUrl, migratedUrl });
+  logger.info('Starting agentic content analysis', { sourceUrl, migratedUrl, sourceType });
 
   try {
     // Validate OAuth token
@@ -181,8 +201,9 @@ export async function analyzeContentWithClaude(
     }
 
     // Format metrics for Claude
-    const userPrompt = formatContentForPrompt(deterministicMetrics);
-    const systemPromptText = contentPrompt.system;
+    const prompts = formatContentForPrompt(deterministicMetrics, sourceType);
+    const userPrompt = prompts.userPrompt;
+    const systemPromptText = prompts.systemPrompt;
 
     logger.debug('Formatted prompts', {
       userPromptLength: userPrompt.length,
@@ -273,7 +294,7 @@ export async function analyzeContentWithClaude(
     });
 
     const result: ContentAnalysisResult = {
-      pdfUrl,
+      pdfUrl: sourceUrl, // Keep field name for backward compatibility
       migratedUrl,
       deterministic: deterministicMetrics,
       agentic: agenticResult,
@@ -307,7 +328,7 @@ export async function analyzeContentWithClaude(
 
     return result;
   } catch (error) {
-    logger.error('Agentic content analysis failed', error as Error, { pdfUrl, migratedUrl, duration: timer.elapsed() });
+    logger.error('Agentic content analysis failed', error as Error, { sourceUrl, migratedUrl, duration: timer.elapsed() });
     throw error;
   }
 }

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { EvalAPIClient } from '../utils/api-client';
-import { TEST_URLS } from '../utils/test-urls';
+import { TEST_CASES } from '../utils/test-urls';
+import { formatTestResult } from '../utils/test-reporter';
 
 test.describe('Visual Agent - Agentic Mode', () => {
   let client: EvalAPIClient;
@@ -14,8 +15,10 @@ test.describe('Visual Agent - Agentic Mode', () => {
   });
 
   test('HTML source → HTML migrated (agentic)', { tag: '@expensive' }, async () => {
+    const testCase = TEST_CASES.htmlToHtml;
     const result = await client.evaluateVisual({
-      migratedUrl: TEST_URLS.simple, // Use simpler page to reduce test time
+      migratedUrl: testCase.webUrl,
+      sourceUrl: testCase.sourceUrl,
       mode: 'full',
     });
 
@@ -27,15 +30,17 @@ test.describe('Visual Agent - Agentic Mode', () => {
     if (result.mode === 'full') {
       expect(result.agentic).toBeDefined();
       expect(result.agentic?.findings).toBeDefined();
-      console.log(`✅ Visual (agentic, HTML): Score ${result.finalScore}, Findings: ${result.agentic?.findings?.length}, Duration ${result.duration}ms`);
+      console.log(formatTestResult('Visual', 'HTML→HTML', result));
     } else {
-      console.log(`⚠️  Visual (fallback, HTML): Score ${result.finalScore}, Mode: ${result.mode}, Duration ${result.duration}ms`);
+      console.log(`⚠️  Visual (fallback, HTML→HTML): Score ${result.finalScore}, Mode: ${result.mode}, Duration ${result.duration}ms`);
     }
   });
 
   test('PDF source → HTML migrated (agentic)', { tag: '@expensive' }, async () => {
+    const testCase = TEST_CASES.pdfToHtml1;
     const result = await client.evaluateVisual({
-      migratedUrl: TEST_URLS.simple,
+      migratedUrl: testCase.webUrl,
+      pdfUrl: testCase.sourceUrl,
       mode: 'full',
     });
 
@@ -46,7 +51,7 @@ test.describe('Visual Agent - Agentic Mode', () => {
     expect(result.duration).toBeGreaterThan(500); // > 500ms minimum
 
     if (result.mode === 'full' && result.agentic) {
-      console.log(`✅ Visual (agentic, PDF→HTML): Score ${result.finalScore}, Duration ${result.duration}ms`);
+      console.log(formatTestResult('Visual', 'PDF→HTML', result));
     } else {
       console.log(`⚠️  Visual (fallback, PDF→HTML): Score ${result.finalScore}, Mode: ${result.mode}, Duration ${result.duration}ms`);
     }

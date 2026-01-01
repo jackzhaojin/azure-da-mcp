@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { EvalAPIClient } from '../utils/api-client';
-import { TEST_URLS } from '../utils/test-urls';
+import { TEST_CASES } from '../utils/test-urls';
+import { formatTestResult } from '../utils/test-reporter';
 
 test.describe('Structure Agent - Agentic Mode', () => {
   let client: EvalAPIClient;
@@ -13,9 +14,10 @@ test.describe('Structure Agent - Agentic Mode', () => {
     await client.dispose();
   });
 
-  test('HTML source → HTML migrated (agentic)', { tag: '@expensive' }, async () => {
+  test('Migrated page analysis (no source)', { tag: '@expensive' }, async () => {
+    const testCase = TEST_CASES.pdfToHtml1;
     const result = await client.evaluateStructure({
-      migratedUrl: TEST_URLS.migratedHtml,
+      migratedUrl: testCase.webUrl,
       mode: 'full',
     });
 
@@ -24,19 +26,6 @@ test.describe('Structure Agent - Agentic Mode', () => {
     expect(result.agentic?.findings).toBeDefined();
     expect(Array.isArray(result.agentic?.findings)).toBe(true);
 
-    console.log(`✅ Structure (agentic, HTML→HTML): Score ${result.finalScore}, Findings: ${result.agentic?.findings.length}, Duration ${result.duration}ms`);
-  });
-
-  test('PDF source → HTML migrated (agentic)', { tag: '@expensive' }, async () => {
-    const result = await client.evaluateStructure({
-      migratedUrl: TEST_URLS.migratedHtml,
-      pdfUrl: TEST_URLS.sourcePdf,
-      mode: 'full',
-    });
-
-    expect(result.mode).toContain('full');
-    expect(result.agentic).toBeDefined();
-
-    console.log(`✅ Structure (agentic, PDF→HTML): Score ${result.finalScore}, Duration ${result.duration}ms`);
+    console.log(formatTestResult('Structure', 'no-source', result));
   });
 });

@@ -18,6 +18,7 @@ export default defineConfig({
     ['json', { outputFile: 'test-results/results.json' }],
     ['list'], // Console output
     ['./tests/e2e/utils/flaky-reporter.ts'], // Flaky test detection
+    ['./tests/e2e/utils/detailed-reporter.ts'], // Detailed evaluation metrics
   ],
   use: {
     baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',

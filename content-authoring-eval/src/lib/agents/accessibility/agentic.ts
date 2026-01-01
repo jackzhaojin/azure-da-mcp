@@ -15,15 +15,33 @@ import {
   type AccessibilityAnalysisResult,
   type AccessibilityFinding,
 } from './types';
-import accessibilityPrompt from '@/lib/prompts/accessibility.json';
+import accessibilityNoSourcePrompt from '@/lib/prompts/accessibility-no-source.json';
+import accessibilityHtmlSourcePrompt from '@/lib/prompts/accessibility-html-source.json';
+import accessibilityPdfSourcePrompt from '@/lib/prompts/accessibility-pdf-source.json';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
 
 /**
  * Format accessibility metrics as text for Claude analysis
+ *
+ * @param url - The URL being analyzed
+ * @param metrics - Accessibility metrics for the migrated page
+ * @param sourceType - Type of source comparison ('html', 'pdf', or 'none')
+ * @param sourceMetrics - Optional source page metrics (for HTML comparison)
+ * @param pdfInfo - Optional PDF information (for PDF comparison)
  */
-function formatAccessibilityForPrompt(url: string, metrics: AccessibilityMetrics): string {
+function formatAccessibilityForPrompt(
+  url: string,
+  metrics: AccessibilityMetrics,
+  sourceType: 'html' | 'pdf' | 'none' = 'none',
+  sourceMetrics?: AccessibilityMetrics,
+  pdfInfo?: { path: string; pages: number; }
+): { systemPrompt: string; userPrompt: string; } {
+  // Select prompt template based on source type
+  const promptTemplate = sourceType === 'html' ? accessibilityHtmlSourcePrompt :
+                        sourceType === 'pdf' ? accessibilityPdfSourcePrompt :
+                        accessibilityNoSourcePrompt;
   const summary = `
 URL: ${metrics.url}
 Scan Date: ${metrics.timestamp}
@@ -73,11 +91,71 @@ ${violation.nodes.slice(0, 3).map((node, idx) => {
 `;
   }).join('\n---\n');
 
-  return accessibilityPrompt.user_template
-    .replace('{{url}}', url)
-    .replace('{{summary}}', summary)
-    .replace('{{violations_by_impact}}', violationsByImpact)
-    .replace('{{detailed_violations}}', detailedViolations || '(No violations found)');
+  let userPrompt = promptTemplate.user_template;
+
+  // Format based on source type
+  if (sourceType === 'html' && sourceMetrics) {
+    // HTML source comparison - need both source and migrated data
+    const sourceSummary = `
+URL: ${sourceMetrics.url}
+Scan Date: ${sourceMetrics.timestamp}
+Overall Score: ${sourceMetrics.score}/100
+WCAG Level: ${sourceMetrics.wcagLevel}
+
+Total Violations: ${sourceMetrics.violationCounts.total}
+- Critical: ${sourceMetrics.violationCounts.critical}
+- Serious: ${sourceMetrics.violationCounts.serious}
+- Moderate: ${sourceMetrics.violationCounts.moderate}
+- Minor: ${sourceMetrics.violationCounts.minor}`;
+
+    const sourceViolationsByImpact = `
+Critical (${sourceMetrics.violationCounts.critical}):
+${sourceMetrics.violations.filter(v => v.nodes.some(n => n.impact === 'critical')).map(v => `  - ${v.id}: ${v.description}`).join('\\n') || '  (none)'}
+
+Serious (${sourceMetrics.violationCounts.serious}):
+${sourceMetrics.violations.filter(v => v.nodes.some(n => n.impact === 'serious')).map(v => `  - ${v.id}: ${v.description}`).join('\\n') || '  (none)'}
+
+Moderate (${sourceMetrics.violationCounts.moderate}):
+${sourceMetrics.violations.filter(v => v.nodes.some(n => n.impact === 'moderate')).map(v => `  - ${v.id}: ${v.description}`).join('\\n') || '  (none)'}
+
+Minor (${sourceMetrics.violationCounts.minor}):
+${sourceMetrics.violations.filter(v => v.nodes.some(n => n.impact === 'minor')).map(v => `  - ${v.id}: ${v.description}`).join('\\n') || '  (none)'}`;
+
+    // Simplified regression summary
+    const regressionSummary = `New Regressions: ${metrics.violationCounts.total - sourceMetrics.violationCounts.total} violations (focus on these)\nFixed Issues: Check for violations in source that are resolved in migrated`;
+
+    userPrompt = userPrompt
+      .replace('{{source_url}}', sourceMetrics.url)
+      .replace('{{migrated_url}}', url)
+      .replace('{{source_summary}}', sourceSummary)
+      .replace('{{source_violations_by_impact}}', sourceViolationsByImpact)
+      .replace('{{migrated_summary}}', summary)
+      .replace('{{migrated_violations_by_impact}}', violationsByImpact)
+      .replace('{{regression_summary}}', regressionSummary);
+  } else if (sourceType === 'pdf' && pdfInfo) {
+    // PDF source context
+    const pdfInfoText = `PDF Path: ${pdfInfo.path}\nPages: ${pdfInfo.pages}`;
+
+    userPrompt = userPrompt
+      .replace('{{pdf_path}}', pdfInfo.path)
+      .replace('{{url}}', url)
+      .replace('{{pdf_info}}', pdfInfoText)
+      .replace('{{summary}}', summary)
+      .replace('{{violations_by_impact}}', violationsByImpact)
+      .replace('{{detailed_violations}}', detailedViolations || '(No violations found)');
+  } else {
+    // No source (fallback)
+    userPrompt = userPrompt
+      .replace('{{url}}', url)
+      .replace('{{summary}}', summary)
+      .replace('{{violations_by_impact}}', violationsByImpact)
+      .replace('{{detailed_violations}}', detailedViolations || '(No violations found)');
+  }
+
+  return {
+    systemPrompt: promptTemplate.system,
+    userPrompt,
+  };
 }
 
 /**
@@ -125,6 +203,7 @@ function parseClaudeResponse(responseText: string): AgenticAnalysisResult {
       }),
       score: Math.max(0, Math.min(100, parsed.score)),
       summary: parsed.summary,
+      strengths: (parsed.strengths as string[]) || [],
       quickWins: parsed.quickWins as string[],
       majorIssues: parsed.majorIssues as string[],
     };
@@ -172,10 +251,19 @@ function calculateGrade(score: number): 'excellent' | 'good' | 'acceptable' | 'n
 
 /**
  * Perform agentic accessibility analysis using Claude Agent SDK
+ *
+ * @param url - The URL being analyzed
+ * @param deterministicMetrics - Deterministic accessibility metrics for migrated page
+ * @param sourceType - Type of source comparison ('html', 'pdf', or 'none')
+ * @param sourceMetrics - Optional source page metrics (for HTML comparison)
+ * @param pdfInfo - Optional PDF information (for PDF comparison)
  */
 export async function analyzeAccessibilityWithClaude(
   url: string,
-  deterministicMetrics: AccessibilityMetrics
+  deterministicMetrics: AccessibilityMetrics,
+  sourceType: 'html' | 'pdf' | 'none' = 'none',
+  sourceMetrics?: AccessibilityMetrics,
+  pdfInfo?: { path: string; pages: number; }
 ): Promise<AccessibilityAnalysisResult> {
   const timer = new Timer();
   logger.info('Starting agentic accessibility analysis', { url });
@@ -187,8 +275,9 @@ export async function analyzeAccessibilityWithClaude(
   }
 
   // Format prompt with accessibility data
-  const userPrompt = formatAccessibilityForPrompt(url, deterministicMetrics);
-  const systemPromptText = accessibilityPrompt.system;
+  const prompts = formatAccessibilityForPrompt(url, deterministicMetrics, sourceType, sourceMetrics, pdfInfo);
+  const userPrompt = prompts.userPrompt;
+  const systemPromptText = prompts.systemPrompt;
 
   logger.debug('Formatted prompts', {
     userPromptLength: userPrompt.length,
