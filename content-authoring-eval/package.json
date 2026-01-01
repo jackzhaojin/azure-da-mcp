@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "postinstall": "playwright install",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
