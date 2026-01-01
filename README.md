@@ -128,8 +128,27 @@ azure-da-mcp/
 ├── bruno/                     # API testing collections (Bruno)
 ├── specs/                     # Feature specs and planning docs
 ├── ai-docs/                   # Implementation insights and learnings
+├── RELEASES.md                # Release strategy and versioning guide
 └── README.md                  # This file
 ```
+
+## Releases & Versioning
+
+This monorepo uses **lockstep versioning** with a shared SemVer version across all projects:
+
+- **Current Version**: `v1.0.0`
+- **Active Release Branch**: `release/1.0`
+- **Versioning Strategy**: Lockstep (single version for entire repo)
+- **Deployment**: Automated via GitHub Actions on version changes
+
+**Release workflow**:
+1. Create release branch: `release/<MAJOR>.<MINOR>`
+2. Stabilize with bug fixes only
+3. Bump version in `package.json` files
+4. Tag release: `v<MAJOR>.<MINOR>.<PATCH>`
+5. Automated deployment triggers on tag push
+
+For complete release procedures, branching model, and hotfix workflows, see **[RELEASES.md](./RELEASES.md)**.
 
 ## Common Dependencies
 
