@@ -12,7 +12,7 @@ interface AgenticResult {
 }
 
 interface EvalResult {
-  finalScore: number;
+  finalScore?: number;
   grade?: string;
   duration?: number;
   agentic?: AgenticResult;
@@ -32,9 +32,11 @@ export function formatTestResult(
   parts.push(`✅ ${agentName} (${testCase}):`);
 
   // Score and grade
-  parts.push(`Score ${result.finalScore}/${100}`);
-  if (result.grade) {
-    parts.push(`(${result.grade})`);
+  if (result.finalScore !== undefined) {
+    parts.push(`Score ${result.finalScore}/${100}`);
+    if (result.grade) {
+      parts.push(`(${result.grade})`);
+    }
   }
 
   // Findings breakdown

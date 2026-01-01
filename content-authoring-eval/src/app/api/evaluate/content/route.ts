@@ -45,11 +45,12 @@ export async function GET() {
 
 /**
  * POST /api/evaluate/content
- * Analyze content fidelity between PDF and webpage
+ * Analyze content fidelity between source (PDF or HTML) and migrated webpage
  *
  * Request body:
  * {
- *   "pdfUrl": "https://example.com/document.pdf",
+ *   "pdfUrl": "https://example.com/document.pdf" (for PDF→HTML),
+ *   "sourceUrl": "https://example.com/original" (for HTML→HTML),
  *   "migratedUrl": "https://example.com/page"
  * }
  */
@@ -59,20 +60,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    logger.debug('Request body parsed', { pdfUrl: body.pdfUrl, migratedUrl: body.migratedUrl });
+    logger.debug('Request body parsed', {
+      pdfUrl: body.pdfUrl,
+      sourceUrl: body.sourceUrl,
+      migratedUrl: body.migratedUrl
+    });
 
-    // Validate required fields
-    if (!body.pdfUrl || !body.migratedUrl) {
+    // Validate required fields - need either pdfUrl OR sourceUrl
+    const sourceUrl = body.pdfUrl || body.sourceUrl;
+    if (!sourceUrl || !body.migratedUrl) {
       logger.warn('Validation failed: missing required fields');
       return NextResponse.json(
-        { error: 'Missing required fields: pdfUrl and migratedUrl' },
+        { error: 'Missing required fields: (pdfUrl OR sourceUrl) and migratedUrl' },
         { status: 400 }
       );
     }
 
     // Validate URLs
     try {
-      new URL(body.pdfUrl);
+      new URL(sourceUrl);
       new URL(body.migratedUrl);
     } catch (error) {
       logger.warn('Validation failed: invalid URLs', { error });
@@ -82,14 +88,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate PDF URL ends with .pdf
-    if (!body.pdfUrl.toLowerCase().endsWith('.pdf')) {
-      logger.warn('Validation failed: pdfUrl must be a PDF file');
-      return NextResponse.json(
-        { error: 'pdfUrl must point to a PDF file (.pdf extension)' },
-        { status: 400 }
-      );
-    }
+    // Determine source type based on URL
+    const isPDF = sourceUrl.toLowerCase().endsWith('.pdf');
+    const sourceType: 'pdf' | 'html' = isPDF ? 'pdf' : 'html';
+    logger.info('Source type detected', { sourceType, sourceUrl });
 
     // Detect mode based on OAuth token and query parameter
     const mode = body.mode || (process.env.CLAUDE_CODE_OAUTH_TOKEN ? 'full' : 'deterministic');
@@ -97,12 +99,13 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Perform deterministic content analysis
     const deterministicTimer = new Timer();
-    logger.info('Starting deterministic content analysis', {
-      pdfUrl: body.pdfUrl,
+    logger.info(`Starting deterministic content analysis (${sourceType.toUpperCase()}→HTML)`, {
+      sourceUrl,
       migratedUrl: body.migratedUrl,
+      sourceType,
     });
 
-    const deterministicMetrics = await analyzeContent(body.pdfUrl, body.migratedUrl);
+    const deterministicMetrics = await analyzeContent(sourceUrl, body.migratedUrl);
 
     logger.operationComplete('Deterministic content analysis', deterministicTimer.elapsed(), {
       score: deterministicMetrics.score,
@@ -116,9 +119,10 @@ export async function POST(request: NextRequest) {
 
       try {
         const fullResult = await analyzeContentWithClaude(
-          body.pdfUrl,
+          sourceUrl,
           body.migratedUrl,
-          deterministicMetrics
+          deterministicMetrics,
+          sourceType
         );
 
         logger.operationComplete('Agentic content analysis', agenticTimer.elapsed(), {
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
 
         // Return deterministic result with fallback mode flag
         const fallbackResult = {
-          pdfUrl: body.pdfUrl,
+          pdfUrl: sourceUrl, // Keep field name for backward compatibility
           migratedUrl: body.migratedUrl,
           deterministic: deterministicMetrics,
           finalScore: deterministicMetrics.score,
@@ -161,7 +165,7 @@ export async function POST(request: NextRequest) {
     logger.info('Using deterministic-only mode');
 
     const result = {
-      pdfUrl: body.pdfUrl,
+      pdfUrl: sourceUrl, // Keep field name for backward compatibility
       migratedUrl: body.migratedUrl,
       deterministic: deterministicMetrics,
       finalScore: deterministicMetrics.score,

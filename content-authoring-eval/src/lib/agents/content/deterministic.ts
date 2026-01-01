@@ -322,51 +322,194 @@ function calculateContentScore(diff: TextDiff, pdfContent: PDFContent, webpageCo
 }
 
 /**
- * Analyze content fidelity between PDF and webpage
+ * Perform text diff analysis for HTML→HTML comparison
  */
-export async function analyzeContent(pdfUrl: string, migratedUrl: string): Promise<ContentMetrics> {
+function performTextDiffHTML(sourceContent: WebpageContent, migratedContent: WebpageContent): TextDiff {
   const timer = new Timer();
-  logger.info('Starting deterministic content analysis', { pdfUrl, migratedUrl });
+  logger.info('Calculating HTML→HTML text diff', {
+    sourceWords: sourceContent.wordCount,
+    migratedWords: migratedContent.wordCount,
+  });
 
   try {
-    // Fetch and extract PDF content
-    const pdfBuffer = await fetchPDF(pdfUrl);
-    const pdfContent = await extractPDFContent(pdfBuffer);
+    // Split into sentences for diff analysis
+    const sourceSentences = sourceContent.text
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 10);
 
-    // Fetch and extract webpage content
-    const html = await fetchHTML(migratedUrl);
-    const webpageContent = extractWebpageContent(html);
+    const migratedSentences = migratedContent.text
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 10);
 
-    // Perform text diff analysis
-    const diff = performTextDiff(pdfContent, webpageContent);
+    // Normalize for comparison (lowercase, remove extra whitespace)
+    const normalizeSentence = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
-    // Calculate content fidelity score
-    const score = calculateContentScore(diff, pdfContent, webpageContent);
+    const sourceNormalized = sourceSentences.map(normalizeSentence);
+    const migratedNormalized = migratedSentences.map(normalizeSentence);
+
+    // Find missing content (in source but not in migrated)
+    const missing = sourceSentences.filter((sentence, index) =>
+      !migratedNormalized.includes(sourceNormalized[index])
+    );
+
+    // Find extra content (in migrated but not in source)
+    const extra = migratedSentences.filter((sentence, index) =>
+      !sourceNormalized.includes(migratedNormalized[index])
+    );
+
+    // Find common content
+    const common = sourceSentences.filter((sentence, index) =>
+      migratedNormalized.includes(sourceNormalized[index])
+    );
+
+    // Calculate similarity score
+    const similarityScore = calculateSimilarity(sourceContent.text, migratedContent.text);
+
+    const diff: TextDiff = {
+      missing: missing.slice(0, 20), // Limit to top 20 for response size
+      extra: extra.slice(0, 20),
+      common: common.slice(0, 20),
+      similarityScore,
+    };
+
+    logger.operationComplete('HTML→HTML text diff calculation', timer.elapsed(), {
+      missing: missing.length,
+      extra: extra.length,
+      common: common.length,
+      similarity: similarityScore,
+    });
+
+    return diff;
+  } catch (error) {
+    logger.error('Failed to calculate HTML→HTML text diff', error as Error, { duration: timer.elapsed() });
+    throw error;
+  }
+}
+
+/**
+ * Calculate content fidelity score for HTML→HTML comparison
+ */
+function calculateContentScoreHTML(diff: TextDiff, sourceContent: WebpageContent, migratedContent: WebpageContent): number {
+  const { similarityScore } = diff;
+
+  // Adjust score based on word count difference
+  const wordCountDiff = Math.abs(sourceContent.wordCount - migratedContent.wordCount);
+  const wordCountPenalty = Math.min((wordCountDiff / sourceContent.wordCount) * 20, 15);
+
+  // Adjust score based on heading match
+  const sourceHeadingSet = new Set(sourceContent.headings.map((h: string) => h.toLowerCase()));
+  const migratedHeadingSet = new Set(migratedContent.headings.map((h: string) => h.toLowerCase()));
+  const sourceHeadingsArray = Array.from(sourceHeadingSet);
+  const headingMatch = sourceHeadingsArray.filter((h: string) => migratedHeadingSet.has(h)).length;
+  const headingPenalty = Math.max(0, (sourceContent.headings.length - headingMatch) * 2);
+
+  const finalScore = Math.max(0, Math.round(similarityScore - wordCountPenalty - headingPenalty));
+
+  logger.debug('HTML→HTML content score calculated', {
+    similarityScore,
+    wordCountPenalty,
+    headingPenalty,
+    finalScore,
+  });
+
+  return finalScore;
+}
+
+/**
+ * Analyze content fidelity between source (PDF or HTML) and migrated webpage
+ *
+ * @param sourceUrlOrPdf - Either a PDF URL (.pdf) or HTML URL (source page)
+ * @param migratedUrl - The migrated webpage URL
+ * @returns ContentMetrics with comparison results
+ */
+export async function analyzeContent(sourceUrlOrPdf: string, migratedUrl: string): Promise<ContentMetrics> {
+  const timer = new Timer();
+  const isPDF = sourceUrlOrPdf.toLowerCase().endsWith('.pdf');
+  const sourceType = isPDF ? 'PDF' : 'HTML';
+
+  logger.info(`Starting deterministic content analysis (${sourceType}→HTML)`, {
+    sourceUrl: sourceUrlOrPdf,
+    migratedUrl,
+    sourceType,
+  });
+
+  try {
+    let pdfContent: PDFContent | undefined;
+    let sourceContent: WebpageContent;
+    let webpageContent: WebpageContent;
+    let diff: TextDiff;
+    let score: number;
+
+    if (isPDF) {
+      // PDF→HTML comparison (existing logic)
+      const pdfBuffer = await fetchPDF(sourceUrlOrPdf);
+      pdfContent = await extractPDFContent(pdfBuffer);
+
+      const html = await fetchHTML(migratedUrl);
+      webpageContent = extractWebpageContent(html);
+
+      diff = performTextDiff(pdfContent, webpageContent);
+      score = calculateContentScore(diff, pdfContent, webpageContent);
+    } else {
+      // HTML→HTML comparison (new logic)
+      const sourceHtml = await fetchHTML(sourceUrlOrPdf);
+      sourceContent = extractWebpageContent(sourceHtml);
+
+      const migratedHtml = await fetchHTML(migratedUrl);
+      webpageContent = extractWebpageContent(migratedHtml);
+
+      diff = performTextDiffHTML(sourceContent, webpageContent);
+      score = calculateContentScoreHTML(diff, sourceContent, webpageContent);
+
+      // Create PDF-like structure for compatibility
+      pdfContent = {
+        text: sourceContent.text,
+        headings: sourceContent.headings,
+        numPages: 1, // N/A for HTML
+        wordCount: sourceContent.wordCount,
+        charCount: sourceContent.charCount,
+        paragraphCount: sourceContent.paragraphCount,
+        metadata: {
+          title: 'HTML Source',
+          author: '',
+          subject: '',
+          creationDate: '',
+        },
+      };
+    }
 
     const metrics: ContentMetrics = {
-      pdfUrl,
+      pdfUrl: sourceUrlOrPdf, // Keep field name for backward compatibility
       migratedUrl,
       timestamp: new Date().toISOString(),
-      pdfContent,
+      pdfContent: pdfContent!,
       webpageContent,
       diff,
       score,
       metadata: {
         executedAt: new Date().toISOString(),
         durationMs: timer.elapsed(),
-        toolsUsed: ['unpdf', 'cheerio'],
+        toolsUsed: isPDF ? ['unpdf', 'cheerio'] : ['cheerio'],
       },
     };
 
-    logger.operationComplete('Deterministic content analysis', timer.elapsed(), {
-      pdfUrl,
+    logger.operationComplete(`Deterministic content analysis (${sourceType}→HTML)`, timer.elapsed(), {
+      sourceUrl: sourceUrlOrPdf,
       migratedUrl,
       score,
+      sourceType,
     });
 
     return metrics;
   } catch (error) {
-    logger.error('Content analysis failed', error as Error, { pdfUrl, migratedUrl, duration: timer.elapsed() });
+    logger.error('Content analysis failed', error as Error, {
+      sourceUrl: sourceUrlOrPdf,
+      migratedUrl,
+      sourceType,
+      duration: timer.elapsed(),
+    });
     throw error;
   }
 }

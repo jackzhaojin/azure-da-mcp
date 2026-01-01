@@ -151,16 +151,63 @@ docker-compose -f docker-compose.debug.yml up
 - **Agentic Tools**: Playwright MCP (browser automation), Bash (CLI tools), Read/Write (file I/O)
 - **Infrastructure**: Docker, GitHub Actions, Oracle Cloud VM
 
+### Hybrid Analysis: Deterministic + Agentic
+
+Each agent follows a **sequential pipeline** that combines fast deterministic analysis with intelligent interpretation:
+
+```
+Deterministic Analysis → Results Fed to Prompt → Agentic Analysis → Score Blending
+```
+
+#### Deterministic Layer (Fast, Objective)
+
+Runs first to extract raw metrics using specialized tools:
+
+| Agent | Tool | Output |
+|-------|------|--------|
+| **Structure** | Cheerio | Meta tags, heading counts, semantic HTML flags |
+| **Accessibility** | axe-core | WCAG violations, severity counts, rule IDs |
+| **Content** | unpdf | PDF text, word counts, similarity percentages |
+| **Visual** | Playwright + pixelmatch | Screenshots, pixel diff percentages |
+
+**Returns**: Numbers, booleans, arrays — no interpretation or recommendations.
+
+#### Agentic Layer (Intelligent, Contextual)
+
+Claude receives deterministic results in its prompt and provides:
+
+| Output | Source | Example |
+|--------|--------|---------|
+| `summary` | **Agentic only** | "Structure has critical SEO issues with missing H1" |
+| `strengths` | **Agentic only** | ["Proper heading hierarchy", "Complete OG tags"] |
+| `findings[].recommendation` | **Agentic only** | "Add exactly one H1 tag with the main page title" |
+| `findings[].impact` | **Agentic only** | "Screen readers use H1 for page context" |
+| `quickWins` | **Agentic only** | ["Add alt text to 3 images"] |
+| `majorIssues` | **Agentic only** | ["Color contrast fails WCAG AA"] |
+
+#### Score Blending Formula
+
+All agents use the same weighted combination:
+
+```typescript
+finalScore = (agenticScore × 0.7) + (deterministicScore × 0.3)
+```
+
+- **70% Agentic**: Claude's interpretation and prioritization
+- **30% Deterministic**: Objective metrics from automated tools
+
+This ensures scores are grounded in measurable data while benefiting from AI judgment.
+
 ### Agent Tool Access
 
 All agents configured with `bypassPermissions` mode for autonomous tool usage:
 
-| Agent | Tools | Use Cases |
-|-------|-------|-----------|
-| **Structure** | Read, Bash, Playwright MCP | Inspect live DOM, run Lighthouse SEO |
-| **Accessibility** | Read, Write, Bash, Playwright MCP | Test keyboard nav, run Lighthouse a11y |
-| **Content** | Read, Write, Bash, WebFetch | PDF processing, text diff, format conversion |
-| **Visual** | Read, Write, Bash, Playwright MCP | Screenshots, imagemagick diff, visual analysis |
+| Agent | Deterministic Tools | Agentic Tools | Use Cases |
+|-------|---------------------|---------------|-----------|
+| **Structure** | Cheerio | Read, Bash, Playwright MCP | Parse HTML, inspect live DOM, run Lighthouse SEO |
+| **Accessibility** | axe-core | Read, Write, Bash, Playwright MCP | WCAG scan, test keyboard nav, run Lighthouse a11y |
+| **Content** | unpdf | Read, Write, Bash, WebFetch | Extract PDF text, compare content, format conversion |
+| **Visual** | Playwright, pixelmatch | Read, Write, Bash, Playwright MCP | Capture screenshots, pixel diff, visual analysis |
 
 ## Project Structure
 
