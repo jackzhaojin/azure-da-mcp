@@ -15,7 +15,6 @@ import {
   type StructureAnalysisResult,
 } from './types';
 import structurePrompt from '@/lib/prompts/structure.json';
-import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
@@ -230,139 +229,70 @@ export async function analyzeStructureWithClaude(
 
   // Format prompt with structure data
   const userPrompt = formatStructureForPrompt(url, deterministicMetrics);
-  logger.debug('Prompt formatted', { promptLength: userPrompt.length });
+  const systemPromptText = structurePrompt.system;
 
-  // Build complete prompt with system and user messages
-  const fullPrompt = `${structurePrompt.system}
+  logger.debug('Formatted prompts', {
+    userPromptLength: userPrompt.length,
+    systemPromptLength: systemPromptText.length
+  });
 
-${userPrompt}`;
-
-  // Create tool logging plugin to track tool usage
-  const toolLogger = createToolLoggingPlugin();
-
-  // Collect streaming messages
+  // Collect streaming messages and track tool usage
   const messages: string[] = [];
+  let toolCallCount = 0;
 
-  logger.info('Invoking Claude Agent SDK with streaming + tool logging');
+  logger.info('Invoking Claude Agent SDK');
 
   try {
-    // PHASE 25.1: DEBUG - Check if MCP server binaries exist
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs');
-    const playwrightBinary = '/usr/local/bin/mcp-server-playwright';
-    const filesystemBinary = '/usr/local/bin/mcp-server-filesystem';
+    // Get environment-aware MCP server configuration
+    const mcpServers = getMCPServersConfig();
 
-    logger.info('🔍 PHASE 25.1 DEBUG: Checking MCP server binaries', {
-      playwright: {
-        path: playwrightBinary,
-        exists: fs.existsSync(playwrightBinary),
-      },
-      filesystem: {
-        path: filesystemBinary,
-        exists: fs.existsSync(filesystemBinary),
-      },
-    });
-
-    // PHASE 25.1: DEBUG - Log Agent SDK configuration
-    const agentConfig = {
-      model: 'claude-sonnet-4-5-20250929',
-      maxTurns: 20,
-      mcpServers: getMCPServersConfig(),
-      allowedTools: ['Read', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
-      permissionMode: 'bypassPermissions',
-      allowDangerouslySkipPermissions: true,
-      cwd: process.cwd(),
-    };
-
-    logger.info('⚙️  PHASE 25.1 DEBUG: Agent SDK configuration', agentConfig);
-
-    // PHASE 25: Use Agent SDK query() with programmatic MCP configuration
-    logger.info('🚀 PHASE 25.1 DEBUG: Starting Agent SDK query() stream...');
-
+    // Stream messages from Claude with tool access
     for await (const message of query({
-      prompt: fullPrompt,
+      prompt: userPrompt,
       options: {
         model: 'claude-sonnet-4-5-20250929',
-        maxTurns: 20, // Increased for multiple tool invocations
-        // PHASE 25.2: Pass OAuth token to spawned claude-code CLI process
-        env: {
-          ...process.env,
-          CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-        },
-        // PHASE 25: Remove settingSources - use programmatic MCP config instead
-        // settingSources: ['user', 'project'],
-        // PHASE 25: Configure MCP servers programmatically (bundled in container)
-        // Use direct paths to globally installed MCP servers to avoid npx HOME directory issues
-        mcpServers: {
-          "playwright": {
-            command: "/usr/local/bin/mcp-server-playwright",
-            args: []
-          },
-          "filesystem": {
-            command: "/usr/local/bin/mcp-server-filesystem",
-            args: [process.cwd()]
-          }
-        },
-        allowedTools: ['Read', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot'],
+        maxTurns: 20,
+        systemPrompt: systemPromptText,
+        mcpServers,
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
         cwd: process.cwd(),
-        plugins: [toolLogger], // PHASE 20: Add tool logging plugin
       }
     })) {
-      // PHASE 25.1: DEBUG - Log all message types
-      logger.info('📨 PHASE 25.1 DEBUG: Received message from Agent SDK', {
-        type: message.type,
-      });
-
-      // Collect assistant text responses
+      // Collect assistant responses and count tool usage
       if (message.type === 'assistant' && 'message' in message && message.message?.content) {
         for (const block of message.message.content) {
           if (block.type === 'text' && block.text) {
             messages.push(block.text);
-            logger.debug('Received text block from Claude', { length: block.text.length });
+          }
+          if (block.type === 'tool_use') {
+            toolCallCount++;
           }
         }
       }
-
-      // PHASE 25.1: DEBUG - Log stream events (may contain errors)
-      if (message.type === 'stream_event' && 'event' in message) {
-        logger.info('🌊 PHASE 25.1 DEBUG: Stream event received', {
-          event: JSON.stringify(message.event),
-        });
-      }
-
-      // PHASE 25.1: DEBUG - Log result messages
-      if (message.type === 'result') {
-        logger.info('🏁 PHASE 25.1 DEBUG: Result message received', {
-          subtype: message.subtype,
-          isError: message.is_error,
-          numTurns: message.num_turns,
-        });
-      }
     }
 
-    logger.info('✅ PHASE 25.1 DEBUG: Claude Agent SDK stream completed', { messagesCollected: messages.length });
+    // Create tool stats for metadata
+    const toolStats = {
+      totalInvocations: toolCallCount,
+      toolCounts: {},
+    };
 
-    // PHASE 20-21: Verify and enforce tool usage
-    const toolStats = toolLogger.getStats();
-    const verification = verifyToolUsage(toolStats);
+    const verification = {
+      passed: toolCallCount > 0,
+      summary: `Total invocations: ${toolCallCount}`,
+      warnings: toolCallCount === 0 ? ['❌ CRITICAL: No tools invoked'] : [],
+    };
 
-    logger.info('Tool usage verification', {
-      passed: verification.passed,
-      summary: verification.summary,
-      warnings: verification.warnings,
+    logger.info('Agent SDK stream completed', {
+      messagesCollected: messages.length,
+      toolCalls: toolCallCount,
+      toolsUsed: verification.passed
     });
 
-    // Log detailed tool usage stats
-    logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
-
-    // PHASE 21: Enforce tool usage - log critical warnings if no tools used
     if (!verification.passed) {
-      logger.warn('⚠️  PHASE 21 WARNING: Agent completed without using tools - may be "fake agentic"', {
-        totalInvocations: toolStats.totalInvocations,
-        expectedTools: 'Playwright (browser_navigate) OR Bash (lighthouse)',
-        fallbackMode: 'Continuing with text-only analysis',
+      logger.warn('⚠️ Agent completed without using tools', {
+        totalInvocations: toolCallCount,
       });
     }
 

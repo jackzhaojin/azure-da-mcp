@@ -391,16 +391,38 @@ docker-compose -f docker-compose.debug.yml up
 
 ## Testing Strategy
 
+### Test Directory Structure
+
+```
+tests/
+├── adhoc/          # Ad hoc tests for quick experiments and validation
+└── e2e/            # E2E agent Playwright test suite (automated regression tests)
+```
+
+**Ad Hoc Tests** (`tests/adhoc/`):
+- Quick validation scripts
+- Manual experiments
+- One-off debugging tools
+- Not part of CI/CD pipeline
+
+**E2E Tests** (`tests/e2e/`):
+- Playwright-based automated tests
+- Agent evaluation regression tests
+- Run via `npm run test` or `npm run test:smoke`
+- Integrated into CI/CD pipeline
+
 ### Manual Testing (Primary)
 1. Start dev server (`npm run dev`)
 2. Test via web UI or curl
 3. Validate agent output
 4. Iterate on prompts/code
 
-### Automated Testing (Future)
-- E2E tests with real URLs
+### Automated Testing
+- E2E tests with real URLs in `tests/e2e/`
 - Agent output validation
 - Regression tests for prompts
+- Smoke tests: `npm run test:smoke`
+- Full suite: `npm run test`
 
 **Philosophy**: Real tests with real URLs, no mocking.
 

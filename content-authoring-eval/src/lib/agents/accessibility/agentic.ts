@@ -16,7 +16,6 @@ import {
   type AccessibilityFinding,
 } from './types';
 import accessibilityPrompt from '@/lib/prompts/accessibility.json';
-import { createToolLoggingPlugin, verifyToolUsage, formatToolUsageStats } from '@/lib/tool-logging';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
@@ -189,72 +188,70 @@ export async function analyzeAccessibilityWithClaude(
 
   // Format prompt with accessibility data
   const userPrompt = formatAccessibilityForPrompt(url, deterministicMetrics);
-  logger.debug('Prompt formatted', { promptLength: userPrompt.length });
+  const systemPromptText = accessibilityPrompt.system;
 
-  // Build complete prompt with system and user messages
-  const fullPrompt = `${accessibilityPrompt.system}
+  logger.debug('Formatted prompts', {
+    userPromptLength: userPrompt.length,
+    systemPromptLength: systemPromptText.length
+  });
 
-${userPrompt}`;
-
-  // Create tool logging plugin to track tool usage
-  const toolLogger = createToolLoggingPlugin();
-
-  // Collect streaming messages
+  // Collect streaming messages and track tool usage
   const messages: string[] = [];
+  let toolCallCount = 0;
 
-  logger.info('Invoking Claude Agent SDK with streaming + tool logging');
+  logger.info('Invoking Claude Agent SDK');
 
   try {
-    // PHASE 25: Use Agent SDK query() with programmatic MCP configuration
+    // Get environment-aware MCP server configuration
+    const mcpServers = getMCPServersConfig();
+
+    // Stream messages from Claude with tool access
     for await (const message of query({
-      prompt: fullPrompt,
+      prompt: userPrompt,
       options: {
         model: 'claude-sonnet-4-5-20250929',
-        maxTurns: 20, // Increased for multiple tool invocations
-        // PHASE 25: Remove settingSources - use programmatic MCP config instead
-        // settingSources: ['user', 'project'],
-        // PHASE 25: Configure MCP servers programmatically (environment-aware paths)
-        // Use getMCPServersConfig() to get correct paths for Docker vs local development
-        mcpServers: getMCPServersConfig(),
-        allowedTools: ['Read', 'Write', 'Bash', 'mcp__playwright__browser_navigate', 'mcp__playwright__browser_snapshot', 'mcp__playwright__browser_take_screenshot', 'mcp__playwright__browser_click'],
+        maxTurns: 20,
+        systemPrompt: systemPromptText,
+        mcpServers,
         permissionMode: 'bypassPermissions' as const,
         allowDangerouslySkipPermissions: true,
         cwd: process.cwd(),
-        plugins: [toolLogger], // PHASE 20: Add tool logging plugin
       }
     })) {
-      // Collect assistant text responses
-      if (message.type === 'assistant' && message.message?.content) {
+      // Collect assistant responses and count tool usage
+      if (message.type === 'assistant' && 'message' in message && message.message?.content) {
         for (const block of message.message.content) {
           if (block.type === 'text' && block.text) {
             messages.push(block.text);
-            logger.debug('Received text block from Claude', { length: block.text.length });
+          }
+          if (block.type === 'tool_use') {
+            toolCallCount++;
           }
         }
       }
     }
 
-    logger.info('Claude Agent SDK stream completed', { messagesCollected: messages.length });
+    // Create tool stats for metadata
+    const toolStats = {
+      totalInvocations: toolCallCount,
+      toolCounts: {},
+    };
 
-    // PHASE 20-21: Verify and enforce tool usage
-    const toolStats = toolLogger.getStats();
-    const verification = verifyToolUsage(toolStats);
+    const verification = {
+      passed: toolCallCount > 0,
+      summary: `Total invocations: ${toolCallCount}`,
+      warnings: toolCallCount === 0 ? ['❌ CRITICAL: No tools invoked'] : [],
+    };
 
-    logger.info('Tool usage verification', {
-      passed: verification.passed,
-      summary: verification.summary,
-      warnings: verification.warnings,
+    logger.info('Agent SDK stream completed', {
+      messagesCollected: messages.length,
+      toolCalls: toolCallCount,
+      toolsUsed: verification.passed
     });
 
-    // Log detailed tool usage stats
-    logger.debug('Detailed tool usage:\n' + formatToolUsageStats(toolStats));
-
-    // PHASE 21: Enforce tool usage - log critical warnings if no tools used
     if (!verification.passed) {
-      logger.warn('⚠️  PHASE 21 WARNING: Agent completed without using tools - may be "fake agentic"', {
-        totalInvocations: toolStats.totalInvocations,
-        expectedTools: 'Playwright (browser_navigate, browser_click) OR Bash (lighthouse)',
-        fallbackMode: 'Continuing with axe-core-only analysis',
+      logger.warn('⚠️ Agent completed without using tools', {
+        totalInvocations: toolCallCount,
       });
     }
 
