@@ -447,6 +447,7 @@ function ExpandableRowDetails({ page }: { page: PageEvaluationState }) {
                     strengths={allStrengths}
                     collapsible
                     defaultExpanded
+                    groupByDimension
                   />
                 </div>
               )}
