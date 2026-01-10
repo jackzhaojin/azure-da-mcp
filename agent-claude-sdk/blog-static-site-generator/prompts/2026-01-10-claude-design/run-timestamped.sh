@@ -76,7 +76,7 @@ siteDescription: Insights, innovations, and announcements from Adobe Summit 2026
 
 ## Deployment
 storageAccount: dalivemcprg94e3
-resourceGroup: RESOURCE_GROUP_NAME
+resourceGroup: da-live-mcp-rg
 EOF
 
 echo ""

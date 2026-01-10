@@ -76,7 +76,12 @@ export async function generateBlogContents(
     for (const file of files) {
       if (file.endsWith('.json') && file.startsWith('blog-content-')) {
         const filePath = path.join(tempDir, file);
-        const fileContent = await fs.readFile(filePath, 'utf-8');
+        let fileContent = await fs.readFile(filePath, 'utf-8');
+
+        // Sanitize common JSON syntax errors from AI generation
+        // Replace ":=" with ":" (common AI mistake)
+        fileContent = fileContent.replace(/":\s*=/g, '":');
+
         const blogContent = JSON.parse(fileContent) as BlogContent;
         contents.push(blogContent);
       }
