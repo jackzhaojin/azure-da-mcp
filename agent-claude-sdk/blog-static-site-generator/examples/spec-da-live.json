@@ -20,7 +20,7 @@
     "siteDescription": "Insights and announcements from Adobe Summit 2026"
   },
   "deployment": {
-    "storageAccount": "summitblog2026",
-    "resourceGroup": "summit-rg"
+    "storageAccount": "dalivemcprg94e3",
+    "resourceGroup": "da-live-mcp-rg"
   }
 }

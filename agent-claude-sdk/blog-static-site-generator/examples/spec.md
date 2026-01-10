@@ -14,7 +14,7 @@ topics:
   - DA.Live Authoring
 
 ## Output
-directory: ./output
+directory: ./output/2026-01-10-153000
 includeLandingPage: true
 siteTitle: Adobe Summit 2026 Blog
 siteDescription: Insights and announcements from Adobe Summit 2026

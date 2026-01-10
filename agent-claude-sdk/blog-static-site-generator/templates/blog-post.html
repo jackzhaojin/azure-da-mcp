@@ -10,6 +10,25 @@
 </head>
 <body>
   <article class="blog-post">
+    {{#if HERO_IMAGE}}
+    <div class="hero">
+      <img src="{{HERO_IMAGE}}" alt="Hero image" class="hero-image">
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <h1>{{TITLE}}</h1>
+        {{#if TEASER}}
+        <p class="teaser">{{TEASER}}</p>
+        {{/if}}
+        <div class="metadata">
+          {{#if AUTHOR}}<span class="author">{{AUTHOR}}</span>{{/if}}
+          {{#if DATE}}<span class="date">{{DATE}}</span>{{/if}}
+          {{#if TAGS}}<span class="tags">{{TAGS}}</span>{{/if}}
+        </div>
+      </div>
+    </div>
+    {{/if}}
+
+    {{#if !HERO_IMAGE}}
     <header>
       <h1>{{TITLE}}</h1>
       <p class="teaser">{{TEASER}}</p>
@@ -19,6 +38,7 @@
         <span class="tags">{{TAGS}}</span>
       </div>
     </header>
+    {{/if}}
 
     <div class="content">
       {{CONTENT}}

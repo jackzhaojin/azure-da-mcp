@@ -172,6 +172,76 @@ function generateBlockStyles(_blocks: Record<string, any>): string {
   margin-top: 0;
 }
 
+/* Hero */
+.hero {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  margin-bottom: var(--spacing-2xl, 3rem);
+}
+
+.hero-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
+}
+
+.hero-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6));
+}
+
+.hero-content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  color: white;
+  padding: var(--spacing-xl, 2rem);
+  max-width: 800px;
+}
+
+.hero h1 {
+  font-size: 48px;
+  font-weight: 800;
+  margin-bottom: var(--spacing-md, 1rem);
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  line-height: 1.2;
+}
+
+.hero .teaser {
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1.6;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  margin-bottom: var(--spacing-md, 1rem);
+  color: white;
+}
+
+.hero .metadata {
+  font-size: 14px;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md, 1rem);
+}
+
 .teaser {
   font-size: var(--font-size-lg, 1.125rem);
   color: var(--color-text-secondary, #666);
@@ -218,6 +288,8 @@ function generateBlockStyles(_blocks: Record<string, any>): string {
 .image-block img {
   display: block;
   width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .image-block__caption {
