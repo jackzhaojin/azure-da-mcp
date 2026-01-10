@@ -1,45 +1,25 @@
 # Blog Static Site Generator
 
-AI-powered static blog site generator with brand-aware design and Azure deployment.
-
-## Overview
-
-**Input**: One spec file (markdown or JSON) containing design system path, content config, and output preferences
-
-**Output**: N blog HTML pages + optional landing page, deployable to Azure Blob Storage Static Website
+AI-powered static blog generator with brand-aware design systems and Azure deployment.
 
 ## Quick Start
 
-### 1. Install Dependencies
-
 ```bash
 npm install
+npm run generate examples/spec.md
 ```
 
-### 2. Configure Environment
+## Usage
 
-Create `.env` file:
-
-```env
-ANTHROPIC_API_KEY=your_api_key_here
-# or
-CLAUDE_CODE_OAUTH_TOKEN=your_token_here
-
-# Optional
-MODEL=claude-sonnet-4-5-20250929
-```
-
-### 3. Create Spec File
-
-Example `spec.md`:
+Create a spec file (markdown or JSON):
 
 ```markdown
 ## Design System
-path: ./design-system/adobe-summit-blog-design-system.md
+path: ./design-system/system.md
 format: consolidated
 
 ## Content
-count: 5
+count: 10
 theme: Adobe Summit 2026
 topics:
   - Edge Delivery Services
@@ -55,209 +35,55 @@ storageAccount: mystorage
 resourceGroup: my-rg
 ```
 
-### 4. Generate Site
-
+Generate:
 ```bash
 npm run generate spec.md
 ```
 
-## Spec File Format
+## Architecture
 
-### Markdown Format (Recommended)
+**Input**: Spec file + Design system
+**Output**: HTML blog pages + landing page + Azure deployment
 
-```markdown
-## Design System
-path: <path-to-design-files>
-format: consolidated|tokens
+**Pipeline**:
+1. Parse spec (markdown/JSON)
+2. Parse design system (tokens → CSS variables)
+3. Generate CSS from design tokens
+4. **AI content generation** (Claude Agent SDK)
+5. Render blog HTMLs from templates
+6. Generate landing page
+7. Deploy to Azure Blob Storage (`$web/YYYY-MM-DD-HHMMSS/`)
 
-## Content
-count: <number-of-blogs>
-theme: <main-theme>
-topics:
-  - Topic 1
-  - Topic 2
+**Design Systems**: Supports token-based directories or consolidated markdown files.
 
-## Output
-directory: <output-directory>
-includeLandingPage: true|false
-siteTitle: <site-title>
-siteDescription: <optional-description>
+**Deployment**: Automatic timestamped subdirectories. Root index auto-updates with all runs.
 
-## Deployment (optional)
-storageAccount: <azure-storage-account>
-resourceGroup: <azure-resource-group>
-containerName: <optional-container-name>
+## Environment
+
+Create `.env`:
+```env
+ANTHROPIC_API_KEY=sk-ant-...
 ```
-
-### JSON Format (Alternative)
-
-```json
-{
-  "designSystem": {
-    "path": "./design-system/adobe-summit-blog-design-system.md",
-    "format": "consolidated"
-  },
-  "content": {
-    "count": 5,
-    "theme": "Adobe Summit 2026",
-    "topics": ["Edge Delivery Services", "GenAI"]
-  },
-  "output": {
-    "directory": "./output",
-    "includeLandingPage": true,
-    "siteTitle": "Summit Blog"
-  },
-  "deployment": {
-    "storageAccount": "mystorage",
-    "resourceGroup": "my-rg"
-  }
-}
-```
-
-## Design System Formats
-
-### Format 1: Token-Based (Directory)
-
-```
-design-system/
-├── tokens/tokens.css          # CSS variables
-├── foundations/FOUNDATIONS.md # Typography/layout/color rules
-├── blocks/*.md                # Block specs
-└── pages/*.md                 # Page recipes
-```
-
-### Format 2: Consolidated (Single File)
-
-```
-design-system/
-└── adobe-summit-blog-design-system.md  # All tokens + blocks in one file
-```
-
-## Output Structure
-
-```
-output/
-├── index.html              # Landing page (if includeLandingPage: true)
-├── posts/
-│   ├── edge-delivery-101.html
-│   ├── genai-personalization.html
-│   └── ...
-└── assets/
-    ├── css/
-    │   └── styles.css      # Generated from design tokens
-    └── images/
-        └── ...             # Optimized images
-```
-
-## Available Block Types
-
-The generator supports these content blocks:
-
-| Block         | Purpose                 | Variants                            |
-| ------------- | ----------------------- | ----------------------------------- |
-| `prose`       | Body text               | -                                   |
-| `blockquote`  | Pull quotes             | default, large, centered            |
-| `image`       | Images with captions    | default, wide, full                 |
-| `video`       | YouTube embeds          | default, wide, full                 |
-| `code`        | Code snippets           | default, wide, no-line-numbers      |
-| `callout`     | Tips, warnings, notes   | tip, note, warning, danger, success |
-| `table`       | Data tables             | default, striped, wide              |
-| `stats`       | Key metrics display     | dark, light, brand                  |
-| `cta`         | Call-to-action banners  | brand, dark, light                  |
-| `toc`         | Table of contents       | -                                   |
-| `author-card` | Author bio              | default, centered                   |
 
 ## Azure Deployment
 
-### Prerequisites
+Requires:
+- `az login` (Azure AD authentication)
+- Storage account with static website enabled
 
-1. Install Azure CLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
-2. Login: `az login`
-3. Create storage account (if needed):
-
-```bash
-az storage account create \
-  --name <storage-account> \
-  --resource-group <resource-group> \
-  --location <location> \
-  --sku Standard_LRS \
-  --kind StorageV2
-```
-
-### Deployment
-
-The generator automatically deploys to Azure if deployment config is provided in spec:
-
-```markdown
-## Deployment
-storageAccount: mystorage
-resourceGroup: my-rg
-```
-
-Or skip deployment by omitting the Deployment section.
+Each run deploys to `https://<account>.z20.web.core.windows.net/YYYY-MM-DD-HHMMSS/`
 
 ## Scripts
 
-- `npm run build` - Build TypeScript to dist/
-- `npm run clean` - Remove dist and output directories
-- `npm run dev` - Run CLI with tsx (development)
-- `npm run generate <spec-file>` - Generate static site
+- `npm run build` - Build TypeScript
+- `npm run clean` - Remove dist/ and output/
+- `npm run generate <spec>` - Generate site
 
-## Architecture
+## Block Types
 
-**Deterministic HTML/CSS Generation** (fast, no tokens):
+Supports 11 block types: prose, blockquote, image, video, code, callout, table, stats, cta, toc, author-card.
 
-- Spec parsing (markdown/JSON)
-- Design system parsing (Format 1/2)
-- CSS generation from tokens
-- Blog HTML generation from templates
-
-**Agent SDK for AI Content** (creative, adaptive):
-
-- Content generation with Claude
-- Uses design system blocks
-- Generates realistic blog posts
-
-**Reused Tools** (from blog-pdf-generator):
-
-- Sharp image optimization (1200px max, 80% quality)
-- Template rendering ({{VAR}} substitution)
-- Prompt loading
-
-## Development
-
-### Adding New Block Types
-
-1. Create template: `templates/blocks/new-block.html`
-2. Add case to `src/utils/blockRenderer.ts`
-3. Update CSS: `src/tools/generateCss.ts`
-
-### Customizing CSS
-
-Edit `generateCss.ts` to modify:
-
-- CSS variable generation
-- Base styles
-- Block-specific styles
-
-## Troubleshooting
-
-**Error: "Missing API key"**
-
-- Set `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in `.env`
-
-**Error: "Azure CLI not installed"**
-
-- Install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
-
-**Error: "Not logged in to Azure CLI"**
-
-- Run: `az login`
-
-**Error: "Failed to parse design system"**
-
-- Verify design system path is correct
-- Check format matches actual file structure
+See `CLAUDE.md` for detailed architecture and implementation details.
 
 ## License
 
