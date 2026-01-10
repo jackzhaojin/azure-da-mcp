@@ -37,7 +37,7 @@ async function main() {
   if (args.length === 0) {
     console.log('Usage: npm run compare <input.json>');
     console.log('   or: npm run dev:compare <input.json>\n');
-    console.log('Example: npm run dev:compare examples/sample-blog-phase2.json\n');
+    console.log('Example: npm run dev:compare input/sample-blog-phase2.json\n');
     process.exit(0);
   }
 

@@ -1,0 +1,25 @@
+{
+  "designSystem": {
+    "path": "/Users/jackjin/Downloads/files 2/adobe-summit-blog-design-system.md",
+    "format": "consolidated"
+  },
+  "content": {
+    "count": 3,
+    "theme": "Adobe Summit 2026",
+    "topics": [
+      "Edge Delivery Services",
+      "GenAI in Digital Experience",
+      "Content Velocity"
+    ]
+  },
+  "output": {
+    "directory": "./output/2026-01-10-224855",
+    "includeLandingPage": true,
+    "siteTitle": "Adobe Summit 2026 Blog - Test Run",
+    "siteDescription": "Test end-to-end generation with refactored input/ directory"
+  },
+  "deployment": {
+    "storageAccount": "dalivemcprg94e3",
+    "resourceGroup": "da-live-mcp-rg"
+  }
+}

@@ -22,16 +22,38 @@ npm run clean        # Remove dist/ and output/
 npm run generate <spec-file>      # Generate site from spec
 npm run dev <spec-file>            # Same as generate (uses tsx)
 
-# Example
-npm run generate examples/spec.md
+# Example (using dated input folder)
+npm run generate input/2026-01-10-adobe-summit/spec.md
 ```
 
 ### Execution Script (Adobe Summit example)
 ```bash
-./prompts/2026-01-10-claude-design/run-timestamped.sh
+cd input/2026-01-10-adobe-summit
+./run-timestamped.sh
 ```
 
 This script auto-detects project root and creates timestamped runs.
+
+## Input Organization (IMPORTANT)
+
+**All inputs MUST be organized in dated folders**: `input/YYYY-MM-DD-<project-name>/`
+
+**Current pattern**:
+```
+input/
+├── 2026-01-10-adobe-summit/  ← Dated folder (REQUIRED)
+│   ├── adobe-summit-blog-design-system.md
+│   ├── spec.json
+│   └── run-timestamped.sh
+├── 2026-01-11-my-project/    ← Your new dated folder
+└── archive/                  ← Deprecated non-dated examples
+```
+
+**Why dated folders?**
+- Tracks when input was created
+- Allows multiple projects per day
+- Keeps history of design system versions
+- Matches output pattern (output/YYYY-MM-DD-HHMMSS/)
 
 ## Architecture Overview
 
@@ -130,7 +152,7 @@ resourceGroup: <azure-rg>
 containerName: <optional, default: $web>
 ```
 
-**Alternative**: JSON format with same structure (see `examples/spec.json`)
+**Alternative**: JSON format with same structure (see `input/2026-01-10-adobe-summit/spec.json` or archived examples in `input/archive/`)
 
 ## Block Types
 
@@ -208,7 +230,7 @@ MODEL=claude-sonnet-4-5-20250929  # Default model for Agent SDK
 
 There are no automated tests. Manual testing workflow:
 
-1. Run example spec: `npm run generate examples/spec.md`
+1. Run example spec: `npm run generate input/spec.md`
 2. Check output in `output/` directory
 3. Open `output/index.html` in browser
 4. Verify all blocks render correctly

@@ -6,7 +6,7 @@ AI-powered static blog generator with brand-aware design systems and Azure deplo
 
 ```bash
 npm install
-npm run generate examples/spec.md
+npm run generate input/spec.md
 ```
 
 ## Usage

@@ -18,7 +18,7 @@ async function main() {
 
   if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
     console.log('Usage: npm run generate <spec.json|spec.md>');
-    console.log('\nExample: npm run generate examples/spec.md');
+    console.log('\nExample: npm run generate input/spec.md');
     console.log('\nOptions:');
     console.log('  --help, -h    Show this help message');
     console.log('\nEnvironment Variables:');

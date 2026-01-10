@@ -36,7 +36,7 @@ async function main() {
   if (args.length === 0) {
     console.log('Usage: npm run agent <input.json>');
     console.log('   or: npm run dev:agent <input.json>\n');
-    console.log('Example: npm run dev:agent examples/sample-blog-phase2.json\n');
+    console.log('Example: npm run dev:agent input/sample-blog-phase2.json\n');
     process.exit(0);
   }
 

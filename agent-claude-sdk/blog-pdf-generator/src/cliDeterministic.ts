@@ -36,7 +36,7 @@ async function main() {
   if (args.length === 0) {
     console.log('Usage: npm run generate <input.json>');
     console.log('   or: npm run dev <input.json>\n');
-    console.log('Example: npm run dev examples/sample-blog.json\n');
+    console.log('Example: npm run dev input/sample-blog.json\n');
     process.exit(0);
   }
 

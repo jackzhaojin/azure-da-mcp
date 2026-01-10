@@ -74,8 +74,8 @@ npm run dev:agent output/specs/blog-01-abc.json
 # Compare both side-by-side (reads the first provided spec path)
 npm run dev:compare output/specs/blog-01-abc.json
 
-# Or use example specs
-npm run dev examples/sample-blog-phase2.json
+# Or use archived example specs (deprecated pattern)
+npm run dev input/archive/sample-blog-phase2.json
 
 # ========================================
 # Phase 4: Bulk PDF Generation + Deployment
@@ -93,9 +93,32 @@ npm run generate:bulk output/specs --output output/my-pdfs
 npm run generate:bulk output/specs --concurrency 10 --deploy
 ```
 
+## Input Organization (IMPORTANT)
+
+**All inputs MUST be organized in dated folders**: `input/YYYY-MM-DD-<project-name>/`
+
+**Current pattern**:
+```
+input/
+├── 2026-01-10-adobe-summit/  ← Dated folder (REQUIRED)
+│   ├── adobe-summit-2026-config.json
+│   ├── run-timestamped.sh
+│   └── README.md
+├── 2026-01-11-my-project/    ← Your new dated folder
+└── archive/                  ← Deprecated non-dated examples
+    ├── sample-blog.json
+    └── sample-blog-phase2.json
+```
+
+**Why dated folders?**
+- Tracks when input was created
+- Allows multiple projects per day
+- Keeps history of configs and specs
+- Matches output pattern (output/pdf-run-YYYY-MM-DD-HHMMSS/)
+
 ## Input Format
 
-Create a JSON file with your blog content:
+Create a JSON file with your blog content in a dated folder:
 
 ### Basic Example
 ```json
@@ -111,6 +134,8 @@ Create a JSON file with your blog content:
   }
 }
 ```
+
+See archived examples in `input/archive/sample-blog.json` and `input/archive/sample-blog-phase2.json`.
 
 ### Featured Example with Assets
 ```json
@@ -216,7 +241,7 @@ blog-pdf-generator/
 ├── templates/
 │   ├── basic.html                    # Simple single-column layout
 │   └── featured.html                 # Hero image with gradient overlay
-├── examples/
+├── input/
 │   ├── sample-blog.json              # Basic example
 │   └── sample-blog-phase2.json       # Featured with YouTube & images
 └── output/                           # Generated output (timestamped runs)
