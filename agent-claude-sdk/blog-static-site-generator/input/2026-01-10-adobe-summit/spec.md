@@ -1,0 +1,30 @@
+# Adobe Summit 2026 Blog Generation
+
+## Design System
+path: ./input/2026-01-10-adobe-summit/adobe-summit-blog-design-system.md
+format: consolidated
+
+## Content
+count: 10
+theme: Adobe Summit 2026
+topics:
+  - Edge Delivery Services
+  - GenAI in Digital Experience
+  - Content Velocity & Authoring
+  - DA.Live Authoring Platform
+  - Adobe Experience Manager
+  - Personalization & Analytics
+  - Developer Experience
+  - Marketing Innovation
+  - Customer Success Stories
+  - Future of Digital Experience
+
+## Output
+directory: ./output/2026-01-10-233000
+includeLandingPage: true
+siteTitle: Adobe Summit 2026 Blog
+siteDescription: Insights, innovations, and announcements from Adobe Summit 2026
+
+## Deployment
+storageAccount: dalivemcprg94e3
+resourceGroup: da-live-mcp-rg

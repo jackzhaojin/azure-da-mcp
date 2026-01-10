@@ -1,97 +1,74 @@
 # Blog PDF Generator
 
-AI-powered blog PDF generation with **timestamped runs and Azure deployment**: Spec Generation (Agent SDK) → PDF Generation (Deterministic) → Bulk Orchestration → Azure Upload.
+Generate professional blog PDFs from JSON specs with images, YouTube videos, and automatic Azure deployment.
+
+**Workflow**: Config → Spec Generation (Agent SDK) → Bulk PDF Generation (Deterministic) → Azure Upload
 
 ## What This Does
 
-**Phase 3: Generate blog specifications** (Agent SDK runs a scripted flow):
-- **AI Invocation**: Claude reads config and writes specs via Read/Write tools.
-- **Config-Driven**: Targets 1-50 specs; validation checks id/title/content/template basics.
-- **Default Theme**: Postal tech & logistics trends via `config/default-postal-tech.json`.
+Generate 1-50 blog PDFs in a single run:
 
-**Phases 1-2: Convert specs to PDFs** (Deterministic or Agent SDK wrapper):
-- **Templates**: Basic and Featured templates; hero image only used when template is `featured`.
-- **YouTube & Images**: Thumbnails with play icon; images optimized (1200px/80%) and embedded as base64.
-- **Asset Placement**: Position-based insertion at specified locations (`after-paragraph-3`, `after-section-2`).
-- **Asset Tracking**: Relative paths displayed below each asset for downstream reuse.
-- **Validation**: Basic checks (file exists, size limit, page count).
-- **Agent SDK wrapper**: Writes a small runner that calls the deterministic generator; does not expose custom tools.
+1. **Spec Generation** (Agent SDK): Claude reads your config and writes blog spec JSON files
+   - Config-driven: count, theme, topics, word count
+   - Generates Unsplash image URLs and YouTube video IDs
+   - Output: JSON files in `output/specs/`
 
-**Phase 4: Bulk PDF generation** (Deterministic orchestration):
-- **Concurrency Control**: Configurable worker pool (default: 5 parallel workers).
-- **Timestamped Output**: Creates `output/pdf-run-YYYY-MM-DD-HHMMSS/` directories.
-- **Progress Logging**: Console updates during bulk operations.
-- **Results Reporting**: JSON reports with success/failure details.
-- **Azure Deployment**: Optional `--deploy` flag uploads to Azure blob storage.
+2. **Bulk PDF Generation** (Deterministic): Fast parallel PDF creation from specs
+   - Downloads and optimizes images (1200px, 80% quality)
+   - Fetches YouTube thumbnails with play button overlay
+   - Inserts assets at specified positions (not appended at end)
+   - Displays asset paths for downstream reuse
+   - Output: Timestamped folder `output/pdf-run-YYYY-MM-DD-HHMMSS/`
 
-## Two Approaches
+3. **Azure Deployment** (Optional): One-command upload with gallery index
+   - Uploads PDFs + assets to Azure blob storage
+   - Generates card-based gallery index
+   - Updates root index with all runs
 
-### 1. Deterministic (Recommended for Production)
-Fast, reliable, hardcoded workflow. **Zero LLM usage, zero token cost.**
-- ✅ Predictable performance (~0.8s per PDF)
-- ✅ Fixed tool execution order
-- ✅ No token costs
-- ✅ Position-based asset insertion
-- ❌ Cannot adapt to edge cases
+## Typical Workflow (Recommended)
 
-### 2. Agent SDK (Experimental)
-Claude autonomously decides workflow and tool usage via Agent SDK.
-- ✅ Adaptive to content variations
-- ✅ Can handle edge cases intelligently
-- ✅ Uses Claude's reasoning capabilities
-- ❌ Slower (~15-30s estimated)
-- ❌ Token costs apply
+**For production use** - fast and cost-effective:
+
+```bash
+# 1. Generate specs from config (Agent SDK - writes JSON files)
+npm run generate:specs input/2026-01-10-adobe-summit/adobe-summit-2026-config.json
+
+# 2. Bulk generate PDFs and deploy (Deterministic - no LLM cost)
+npm run generate:bulk output/specs --deploy
+```
+
+**Result**: 10-20 PDFs generated in ~10 seconds, uploaded to Azure with gallery index
+
+**Why this works well**:
+- ✅ Agent SDK for spec generation (creative, adaptive content)
+- ✅ Deterministic for PDF generation (fast, zero token cost)
+- ✅ Parallel processing with configurable workers
+- ✅ Automatic Azure deployment with gallery pages
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install and setup
 npm install
+# Create .env with ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN
 
-# Make sure .env exists with ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN
-
-# ========================================
-# Phase 3: Generate Blog Specifications
-# ========================================
-# Uses config/default-postal-tech.json
-npm run generate:specs
-
-# Use custom config
-npm run generate:specs config/my-config.json
-
-# Generate and run lightweight validation
-npm run generate:specs:validate
-
-# ========================================
-# Phases 1-2: Generate PDFs from Specs
-# ========================================
-# Deterministic version (fast, recommended) — single spec file only
-npm run dev:deterministic output/specs/blog-01-abc.json
-
-# Agent SDK wrapper (writes a runner script that calls deterministic)
-npm run dev:agent output/specs/blog-01-abc.json
-
-# Compare both side-by-side (reads the first provided spec path)
-npm run dev:compare output/specs/blog-01-abc.json
-
-# Or use archived example specs (deprecated pattern)
-npm run dev input/archive/sample-blog-phase2.json
-
-# ========================================
-# Phase 4: Bulk PDF Generation + Deployment
-# ========================================
-# Generate all PDFs from Phase 3 specs (10 PDFs in ~8s)
-npm run generate:bulk output/specs
-
-# Deploy to Azure after generation
+# Complete workflow: Config → Specs → PDFs → Azure
+npm run generate:specs input/2026-01-10-adobe-summit/adobe-summit-2026-config.json
 npm run generate:bulk output/specs --deploy
 
-# Custom output directory
-npm run generate:bulk output/specs --output output/my-pdfs
+# Generate specs only (no PDFs yet)
+npm run generate:specs input/2026-01-10-adobe-summit/adobe-summit-2026-config.json
 
-# Adjust concurrency (default: 5 workers)
-npm run generate:bulk output/specs --concurrency 10 --deploy
+# Generate PDFs from existing specs
+npm run generate:bulk output/specs                    # Local only
+npm run generate:bulk output/specs --deploy           # Upload to Azure
+npm run generate:bulk output/specs --concurrency 10   # Adjust parallel workers
+
+# Single PDF from spec (for testing)
+npm run dev:deterministic output/specs/blog-01-abc.json
 ```
+
+**Example configs**: See `input/2026-01-10-adobe-summit/adobe-summit-2026-config.json`
 
 ## Input Organization (IMPORTANT)
 
@@ -249,73 +226,49 @@ blog-pdf-generator/
 
 ## How It Works
 
-### Phase 3: Spec Generation (Agent SDK)
+### Step 1: Spec Generation
 
-1. **Input**: Config file (JSON) with generation parameters
-2. **Agent SDK Execution**: Claude runs a scripted flow to read the config and write specs
-   - Reads config file to understand requirements
-   - Generates topics and writes HTML content (length/structure prompt-guided)
-   - Generates Unsplash-style image URLs and YouTube IDs
-   - Chooses template based on config distribution
-   - Writes each spec as separate JSON file
-   - Validation limited to id/title/content/template checks
-3. **Output**: 1-50 BlogPdfSpec JSON files ready for PDF generation
+**Input**: Config JSON with count, theme, topics, word count ranges
 
-### Phases 1-2: PDF Generation
+**Process**:
+- Agent SDK reads config and generates blog specs
+- Creates realistic content with proper HTML structure
+- Generates Unsplash image URLs and YouTube video IDs
+- Chooses template (basic/featured) based on config distribution
 
-#### Deterministic Approach
+**Output**: JSON files in `output/specs/` (e.g., `blog-01-edge-delivery-services.json`)
 
-1. **Input**: JSON file with blog post content, template selection, and media assets
-2. **Asset Processing** (hardcoded workflow):
-   - Fetches hero image (if featured template) → optimize to 1600px/85%
-   - Downloads images → optimize to 1200px/80% → convert to data URI
-   - Fetches YouTube thumbnails → overlay play button → convert to data URI
-   - Calculates relative paths for each asset (for downstream tracking)
-3. **Content Processing**:
-   - Parses position hints (`after-paragraph-3`, `after-section-2`)
-   - Inserts assets at specified positions (not appended at end)
-   - Displays asset paths below each image/video
-   - Shows YouTube URLs as clickable blue links
-4. **PDF Generation**:
-   - Renders HTML from selected template with embedded assets
-   - Generates PDF with Puppeteer (headless Chrome)
-   - Validates PDF quality and integrity
-5. **Output**: Professional PDF with positioned assets + validation report
+### Step 2: Bulk PDF Generation
 
-### Agent SDK Approach
+**Input**: Directory of spec JSON files
 
-1. **Input**: JSON spec saved to temporary file
-2. **Prompt**: Instructions direct Claude to write a runner that imports deterministic generator
-3. **Execution**: Claude uses built-in tools to create and run that script
-4. **Workflow**: Follows deterministic generator path
-5. **Output**: PDF generated by deterministic path + agent execution log
+**Process** (parallel, deterministic):
+1. Downloads and optimizes images (1200px, 80% quality)
+2. Fetches YouTube thumbnails and adds play button overlay
+3. Inserts assets at specified positions (`after-paragraph-3`, `after-section-2`)
+4. Displays asset paths below each image/video for downstream use
+5. Renders HTML template with embedded assets
+6. Generates PDF with Puppeteer (headless Chrome)
 
-### Phase 4: Bulk PDF Generation
+**Output**: Timestamped folder `output/pdf-run-YYYY-MM-DD-HHMMSS/` with:
+- PDFs in `pdfs/` subdirectory
+- Assets in `pdfs/assets/` subdirectory
+- Gallery `index.html` with local + Azure links
+- JSON generation report
 
-1. **Input**: Directory of BlogPdfSpec JSON files (from Phase 3)
-2. **Orchestration Setup**:
-   - Load all JSON specs from directory
-   - Generate timestamp: `YYYY-MM-DD-HHMMSS`
-   - Create output directory: `output/pdf-run-{timestamp}/`
-   - Initialize p-queue with concurrency limit (default: 5 workers)
-3. **Parallel Processing**:
-   - Spawn deterministic PDF generator for each spec
-   - Process up to N specs concurrently (configurable via .env)
-   - Track progress in real-time with console updates
-   - Continue processing on individual failures
-4. **Results Aggregation**:
-   - Collect success/failure status for each PDF
-   - Calculate performance metrics (total time, average time per PDF)
-   - Generate JSON results report
-   - Create local index.html gallery with card-based layout
-5. **Azure Deployment** (optional, with `--deploy` flag):
-   - Upload PDFs + assets to `contentsource/pdf-run-{timestamp}/`
-   - Preserve relative directory structure (assets in `pdfs/assets/`)
-   - Generate run-specific index in Azure
-   - Update root index listing all runs
-6. **Output**: N PDFs + JSON report + index.html (local + Azure)
+**Performance**: ~10 PDFs in 10 seconds (5 parallel workers)
 
-**Performance**: 10 PDFs in ~8s (0.8s per PDF average) with 5 workers
+### Step 3: Azure Deployment (Optional)
+
+**With `--deploy` flag**:
+- Uploads entire run folder to `contentsource/pdf-run-{timestamp}/`
+- Preserves relative paths (PDFs reference `assets/image-*.jpg`)
+- Generates run-specific gallery index
+- Updates root index listing all runs
+
+**URLs**:
+- Run: `https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-run-{timestamp}/`
+- Root: `https://dalivemcprg94e3.blob.core.windows.net/contentsource/`
 
 ## Requirements
 
@@ -433,22 +386,18 @@ Thumbnail: assets/youtube-videoId.jpg
 - ✅ Root index generation listing all runs
 - ✅ Local and Azure gallery pages with card-based layout
 
-## Performance
+## Performance & Costs
 
-Timing varies with network (asset downloads), Puppeteer startup, and spec content. The codebase does not record or enforce performance targets. Deterministic paths avoid LLM cost; Agent SDK paths incur LLM usage during spec generation.
+**Spec Generation** (Agent SDK):
+- LLM cost: ~$0.50-2.00 for 10-20 specs (depends on content length)
+- Time: 2-5 minutes for 10 specs
 
-### When to Use Each
+**PDF Generation** (Deterministic):
+- LLM cost: $0 (no API calls)
+- Time: ~1 second per PDF (parallel processing)
+- Bottleneck: Image downloads from Unsplash
 
-**Use Deterministic** when:
-- You need fast, predictable performance
-- Cost is a concern (zero token cost)
-- Workflow is well-understood and doesn't vary
-- Production environment with high volume
-
-**Use Agent SDK** when:
-- You want specs generated from a config using the prompt
-- You need the Agent SDK wrapper flow (which still calls deterministic)
-- Experimentation and prototyping where LLM cost is acceptable
+**Total for 10 PDFs**: ~$1-2 LLM cost, ~5 minutes end-to-end
 
 ## Migration from Release 1.0
 

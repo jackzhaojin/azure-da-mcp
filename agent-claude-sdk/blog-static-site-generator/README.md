@@ -1,13 +1,26 @@
 # Blog Static Site Generator
 
-AI-powered static blog generator with brand-aware design systems and Azure deployment.
+Generate professional static blog sites with AI content, brand-aware design systems, and automatic Azure deployment.
+
+**Workflow**: Spec + Design System → AI Content Generation → HTML Pages → Azure `$web` Storage
 
 ## Quick Start
 
 ```bash
 npm install
-npm run generate input/spec.md
+# Create .env with ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN
+
+# Complete workflow: Generate 10 HTML blog pages and deploy
+npm run generate input/2026-01-10-adobe-summit/spec.md
+
+# Result: Live website at https://[storage].z20.web.core.windows.net/[timestamp]/
 ```
+
+**Live Example**: https://dalivemcprg94e3.z20.web.core.windows.net/2026-01-10-233000/
+- 10 Adobe Summit 2026 blog posts
+- Full design system with Adobe brand tokens
+- Landing page with blog grid
+- Responsive HTML with optimized images
 
 ## Usage
 
@@ -40,21 +53,21 @@ Generate:
 npm run generate spec.md
 ```
 
-## Architecture
+## What This Does
 
-**Input**: Spec file + Design system
-**Output**: HTML blog pages + landing page + Azure deployment
+**Single command workflow**: From design system to deployed website
 
-**Pipeline**:
-1. Parse spec (markdown/JSON)
-2. Parse design system (tokens → CSS variables)
-3. Generate CSS from design tokens
-4. **AI content generation** (Claude Agent SDK)
-5. Render blog HTMLs from templates
-6. Generate landing page
-7. Deploy to Azure Blob Storage (`$web/YYYY-MM-DD-HHMMSS/`)
+1. **Parse Spec**: Reads your spec file (markdown or JSON) with content requirements
+2. **Load Design System**: Parses design tokens (colors, typography, spacing) and block definitions
+3. **Generate CSS**: Creates styles.css from design tokens with CSS variables
+4. **AI Content**: Claude Agent SDK generates 1-50 blog posts with realistic content
+5. **Render HTML**: Applies design system to create responsive blog pages
+6. **Generate Landing**: Creates index.html with blog grid (if enabled)
+7. **Deploy to Azure**: Uploads to Azure Blob Storage `$web` container
 
-**Design Systems**: Supports token-based directories or consolidated markdown files.
+**Result**: Production-ready static blog site with brand-consistent design
+
+**Design Systems**: Supports token-based directories or consolidated markdown files
 
 ## Output Directory Structure
 
