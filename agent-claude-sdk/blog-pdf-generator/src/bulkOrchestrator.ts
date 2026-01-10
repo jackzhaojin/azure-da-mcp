@@ -148,8 +148,10 @@ export async function generateBulkPdfs(
     console.log(`📁 Output directory: ${outputDirectory}\n`);
   }
 
-  // Ensure output directory exists
+  // Ensure output directory and pdfs subdirectory exist
   await fs.mkdir(outputDirectory, { recursive: true });
+  const pdfsDirectory = path.join(outputDirectory, 'pdfs');
+  await fs.mkdir(pdfsDirectory, { recursive: true });
 
   // Create queue with concurrency limit
   const queue = new PQueue({ concurrency });
@@ -161,7 +163,7 @@ export async function generateBulkPdfs(
   // Process each spec
   const tasks = specs.map((specFile) =>
     queue.add(async () => {
-      const result = await processSpec(specFile, outputDirectory, verbose);
+      const result = await processSpec(specFile, pdfsDirectory, verbose);
       results.push(result);
       completed++;
 

@@ -1,0 +1,51 @@
+{
+  "generation": {
+    "count": 10,
+    "theme": "Adobe Summit 2026 - Digital Experience & Marketing Technology",
+    "description": "Professional blog content about Adobe Summit 2026, covering Edge Delivery Services, GenAI, content velocity, and digital experience innovations",
+    "topics": [
+      "Edge Delivery Services: Revolutionary Web Performance",
+      "GenAI Transforms Digital Experience at Adobe Summit",
+      "DA.Live: Reimagining Content Authoring",
+      "Personalization at Scale with Adobe Analytics",
+      "Developer Experience Renaissance in AEM",
+      "Content Velocity: From Months to Minutes",
+      "Marketing Innovation: Campaign Orchestration Evolution",
+      "Customer Success: Real ROI with Adobe Experience Cloud",
+      "Future of Digital Experience Platforms",
+      "Adobe Summit 2026: Key Takeaways and Action Items"
+    ],
+    "variety": "high",
+    "contentDepth": "detailed",
+    "wordCountRange": {
+      "min": 800,
+      "max": 1500
+    }
+  },
+  "templates": {
+    "distribution": {
+      "basic": 0.3,
+      "featured": 0.7
+    }
+  },
+  "media": {
+    "includeImages": true,
+    "averageImageCount": 2,
+    "includeYouTube": 40
+  },
+  "output": {
+    "directory": "./output/specs",
+    "filenamePattern": "blog-{index}-{slug}.json"
+  },
+  "metadata": {
+    "author": "Adobe Summit Team",
+    "datePattern": "2026-01-{day}",
+    "tagSets": [
+      ["Adobe Summit 2026", "Edge Delivery Services", "Digital Experience", "Innovation"],
+      ["GenAI", "Personalization", "Marketing Technology", "AI"],
+      ["Content Velocity", "DA.Live", "Authoring", "Efficiency"],
+      ["Adobe Experience Manager", "Headless CMS", "Developer Experience", "API"],
+      ["Customer Success", "ROI", "Transformation", "Case Studies"]
+    ]
+  }
+}
