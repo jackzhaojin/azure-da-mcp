@@ -1,33 +1,37 @@
 # Blog PDF Generator
 
-AI-powered blog PDF generation system with **four-phase architecture**: Spec Generation (Agent SDK) → PDF Generation (Deterministic) → Bulk Orchestration (Deterministic).
+AI-powered blog PDF generation with **timestamped runs and Azure deployment**: Spec Generation (Agent SDK) → PDF Generation (Deterministic) → Bulk Orchestration → Azure Upload.
 
 ## What This Does
 
 **Phase 3: Generate blog specifications** (Agent SDK runs a scripted flow):
-- **AI Invocation**: Claude is prompted to read config and write specs via Read/Write.
-- **Config-Driven**: Targets 1-50 specs; validation only checks id/title/content/template basics.
+- **AI Invocation**: Claude reads config and writes specs via Read/Write tools.
+- **Config-Driven**: Targets 1-50 specs; validation checks id/title/content/template basics.
 - **Default Theme**: Postal tech & logistics trends via `config/default-postal-tech.json`.
 
 **Phases 1-2: Convert specs to PDFs** (Deterministic or Agent SDK wrapper):
 - **Templates**: Basic and Featured templates; hero image only used when template is `featured`.
 - **YouTube & Images**: Thumbnails with play icon; images optimized (1200px/80%) and embedded as base64.
-- **Asset Placement**: All embedded assets are appended after the provided HTML content (no positional insertion).
+- **Asset Placement**: Position-based insertion at specified locations (`after-paragraph-3`, `after-section-2`).
+- **Asset Tracking**: Relative paths displayed below each asset for downstream reuse.
 - **Validation**: Basic checks (file exists, size limit, page count).
 - **Agent SDK wrapper**: Writes a small runner that calls the deterministic generator; does not expose custom tools.
 
 **Phase 4: Bulk PDF generation** (Deterministic orchestration):
 - **Concurrency Control**: Configurable worker pool (default: 5 parallel workers).
+- **Timestamped Output**: Creates `output/pdf-run-YYYY-MM-DD-HHMMSS/` directories.
 - **Progress Logging**: Console updates during bulk operations.
-- **Results Reporting**: JSON reports with success/failure details
+- **Results Reporting**: JSON reports with success/failure details.
+- **Azure Deployment**: Optional `--deploy` flag uploads to Azure blob storage.
 
 ## Two Approaches
 
 ### 1. Deterministic (Recommended for Production)
 Fast, reliable, hardcoded workflow. **Zero LLM usage, zero token cost.**
-- ✅ Predictable performance (~2.7s)
+- ✅ Predictable performance (~0.8s per PDF)
 - ✅ Fixed tool execution order
 - ✅ No token costs
+- ✅ Position-based asset insertion
 - ❌ Cannot adapt to edge cases
 
 ### 2. Agent SDK (Experimental)
@@ -74,16 +78,19 @@ npm run dev:compare output/specs/blog-01-abc.json
 npm run dev examples/sample-blog-phase2.json
 
 # ========================================
-# Phase 4: Bulk PDF Generation
+# Phase 4: Bulk PDF Generation + Deployment
 # ========================================
 # Generate all PDFs from Phase 3 specs (10 PDFs in ~8s)
 npm run generate:bulk output/specs
+
+# Deploy to Azure after generation
+npm run generate:bulk output/specs --deploy
 
 # Custom output directory
 npm run generate:bulk output/specs --output output/my-pdfs
 
 # Adjust concurrency (default: 5 workers)
-npm run generate:bulk output/specs --concurrency 10
+npm run generate:bulk output/specs --concurrency 10 --deploy
 ```
 
 ## Input Format
@@ -105,7 +112,7 @@ Create a JSON file with your blog content:
 }
 ```
 
-### Featured Example (Phase 2)
+### Featured Example with Assets
 ```json
 {
   "id": "featured-post",
@@ -136,41 +143,75 @@ Create a JSON file with your blog content:
 }
 ```
 
-## Output
+## Output Structure
 
-PDFs are generated in the `output/` directory with the filename `{id}.pdf`.
+### Local Output (Release 2.0+)
+```
+output/
+├── pdf-run-2026-01-10-153045/          # Timestamped run folder
+│   ├── index.html                      # Gallery view (local + Azure links)
+│   ├── pdfs/
+│   │   ├── blog-01.pdf
+│   │   ├── blog-02.pdf
+│   │   └── assets/                     # All images/thumbnails
+│   │       ├── hero-*.jpg              # Original + optimized
+│   │       ├── image-*-optimized.jpg   # Content images
+│   │       └── youtube-*.jpg           # Video thumbnails
+│   └── bulk-generation-report.json
+├── specs/                              # Phase 3 generated specs (input)
+└── archive/
+    └── pre-release-2.0/                # Pre-2.0 outputs migrated here
+```
+
+### Azure Output (with --deploy flag)
+```
+contentsource/
+├── index.html                          # Root index (all runs)
+├── pdf-run-2026-01-10-153045/          # Automated deployment
+│   ├── index.html                      # Run-specific gallery
+│   ├── pdfs/
+│   │   ├── *.pdf
+│   │   └── assets/                     # Relative path: pdfs/assets/
+│   └── bulk-generation-report.json
+└── pdf-run-2026-01-10-160512/          # Another run
+```
+
+**Live URLs** (when deployed):
+- Run Gallery: `https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-run-YYYY-MM-DD-HHMMSS/index.html`
+- Root Index: `https://dalivemcprg94e3.blob.core.windows.net/contentsource/index.html`
 
 ## Project Structure
 
 ```
 blog-pdf-generator/
 ├── src/
-│   ├── specGenerator.ts              # Phase 3: Agent SDK spec runner (light validation)
+│   ├── specGenerator.ts              # Phase 3: Agent SDK spec runner
 │   ├── cliSpecGenerator.ts           # Phase 3: Spec generator CLI
-│   ├── bulkOrchestrator.ts           # Phase 4: Bulk PDF orchestration (deterministic)
-│   ├── cliBulk.ts                    # Phase 4: Bulk generation CLI
+│   ├── bulkOrchestrator.ts           # Phase 4: Bulk PDF orchestration
+│   ├── cliBulk.ts                    # Phase 4: Bulk generation CLI + deployment
 │   ├── agentDeterministic.ts         # Phases 1-2: Deterministic PDF generator
-│   ├── agentSdk.ts                   # Phases 1-2: Agent SDK wrapper (calls deterministic)
-│   ├── cliDeterministic.ts           # Phases 1-2: Deterministic CLI (single file)
-│   ├── cliSdk.ts                     # Phases 1-2: Agent SDK CLI (single file)
-│   ├── cliComparison.ts              # Phases 1-2: Side-by-side comparison (single file)
-│   ├── tools/                        # Asset processing tools
+│   ├── agentSdk.ts                   # Phases 1-2: Agent SDK wrapper
+│   ├── cliDeterministic.ts           # Phases 1-2: Deterministic CLI
+│   ├── cliSdk.ts                     # Phases 1-2: Agent SDK CLI
+│   ├── cliComparison.ts              # Phases 1-2: Side-by-side comparison
+│   ├── tools/                        # Asset processing & deployment
 │   │   ├── generatePdf.ts            # Puppeteer PDF generation
-│   │   ├── validatePdf.ts            # Basic PDF validation (existence/size/pages)
+│   │   ├── validatePdf.ts            # PDF validation
 │   │   ├── fetchImage.ts             # Image downloading
 │   │   ├── fetchYoutubeThumbnail.ts  # YouTube thumbnail + play icon
-│   │   ├── optimizeImage.ts          # Image compression (1200px, 80% quality)
-│   │   └── renderTemplate.ts         # Template variable substitution
+│   │   ├── optimizeImage.ts          # Image compression (1200px, 80%)
+│   │   ├── deployToAzure.ts          # Azure blob upload + index generation
+│   │   └── generateIndex.ts          # HTML gallery generation
 │   └── utils/
 │       ├── templateRenderer.ts       # HTML template engine
 │       ├── imageToDataUri.ts         # Base64 image encoding
-│       ├── contentProcessor.ts       # Asset injection (append-only)
+│       ├── contentProcessor.ts       # Position-based asset insertion
 │       └── promptLoader.ts           # Agent SDK prompt template loader
 ├── prompts/
 │   ├── spec-generation.md            # Phase 3: Spec generation prompt
 │   └── agent-sdk-pdf-generation.md   # Phases 1-2: PDF generation prompt
 ├── config/
-│   ├── default-postal-tech.json      # Phase 3: Default config (postal services)
+│   ├── default-postal-tech.json      # Phase 3: Default config
 │   └── test-small.json               # Phase 3: Test config (2 specs)
 ├── templates/
 │   ├── basic.html                    # Simple single-column layout
@@ -178,12 +219,7 @@ blog-pdf-generator/
 ├── examples/
 │   ├── sample-blog.json              # Basic example
 │   └── sample-blog-phase2.json       # Featured with YouTube & images
-└── output/                           # Generated output
-    ├── specs/                        # Phase 3: Generated BlogPdfSpec JSONs
-    ├── bulk-pdfs/                    # Phase 4: Bulk generated PDFs + reports
-    ├── deterministic/                # Phases 1-2: PDFs from deterministic
-    ├── agent-sdk/                    # Phases 1-2: PDFs from Agent SDK
-    └── generated-specs-test/         # Phase 3: Test output (preserved)
+└── output/                           # Generated output (timestamped runs)
 ```
 
 ## How It Works
@@ -193,12 +229,12 @@ blog-pdf-generator/
 1. **Input**: Config file (JSON) with generation parameters
 2. **Agent SDK Execution**: Claude runs a scripted flow to read the config and write specs
    - Reads config file to understand requirements
-   - Generates topics and writes HTML content (length/structure not enforced in code)
-   - Generates Unsplash-style image URLs and YouTube IDs based on prompt guidance
+   - Generates topics and writes HTML content (length/structure prompt-guided)
+   - Generates Unsplash-style image URLs and YouTube IDs
    - Chooses template based on config distribution
    - Writes each spec as separate JSON file
-   - Validation is limited to id/title/content/template checks
-3. **Output**: 1-50 BlogPdfSpec JSON files ready for PDF generation (lightly validated)
+   - Validation limited to id/title/content/template checks
+3. **Output**: 1-50 BlogPdfSpec JSON files ready for PDF generation
 
 ### Phases 1-2: PDF Generation
 
@@ -206,32 +242,37 @@ blog-pdf-generator/
 
 1. **Input**: JSON file with blog post content, template selection, and media assets
 2. **Asset Processing** (hardcoded workflow):
-   - Fetches hero image (if featured template)
-   - Downloads YouTube thumbnails and overlays play button
-   - Fetches and optimizes images (resize to 1200px, 80% quality)
-   - Converts all assets to base64 data URIs for PDF embedding
-3. **PDF Generation**:
-   - Renders HTML from selected template
-   - Injects embedded assets into content
+   - Fetches hero image (if featured template) → optimize to 1600px/85%
+   - Downloads images → optimize to 1200px/80% → convert to data URI
+   - Fetches YouTube thumbnails → overlay play button → convert to data URI
+   - Calculates relative paths for each asset (for downstream tracking)
+3. **Content Processing**:
+   - Parses position hints (`after-paragraph-3`, `after-section-2`)
+   - Inserts assets at specified positions (not appended at end)
+   - Displays asset paths below each image/video
+   - Shows YouTube URLs as clickable blue links
+4. **PDF Generation**:
+   - Renders HTML from selected template with embedded assets
    - Generates PDF with Puppeteer (headless Chrome)
    - Validates PDF quality and integrity
-4. **Output**: Professional PDF + validation report + asset metadata
+5. **Output**: Professional PDF with positioned assets + validation report
 
 ### Agent SDK Approach
 
 1. **Input**: JSON spec saved to temporary file
-2. **Prompt**: Instructions direct Claude to write a small runner that imports the deterministic generator
-3. **Execution**: Claude uses built-in tools (`Read`, `Write`, `Bash`, `Glob`, `TodoWrite`) to create and run that script
-4. **Workflow**: Follows the deterministic generator; no custom tools or alternative logic are exposed to the agent
-5. **Output**: PDF generated by the deterministic path + agent execution log
+2. **Prompt**: Instructions direct Claude to write a runner that imports deterministic generator
+3. **Execution**: Claude uses built-in tools to create and run that script
+4. **Workflow**: Follows deterministic generator path
+5. **Output**: PDF generated by deterministic path + agent execution log
 
-### Phase 4: Bulk PDF Generation (Deterministic Orchestration)
+### Phase 4: Bulk PDF Generation
 
 1. **Input**: Directory of BlogPdfSpec JSON files (from Phase 3)
 2. **Orchestration Setup**:
    - Load all JSON specs from directory
-   - Create p-queue with concurrency limit (default: 5 workers)
-   - Initialize progress tracking
+   - Generate timestamp: `YYYY-MM-DD-HHMMSS`
+   - Create output directory: `output/pdf-run-{timestamp}/`
+   - Initialize p-queue with concurrency limit (default: 5 workers)
 3. **Parallel Processing**:
    - Spawn deterministic PDF generator for each spec
    - Process up to N specs concurrently (configurable via .env)
@@ -241,33 +282,92 @@ blog-pdf-generator/
    - Collect success/failure status for each PDF
    - Calculate performance metrics (total time, average time per PDF)
    - Generate JSON results report
-5. **Output**: N PDFs + JSON results report with detailed metrics
+   - Create local index.html gallery with card-based layout
+5. **Azure Deployment** (optional, with `--deploy` flag):
+   - Upload PDFs + assets to `contentsource/pdf-run-{timestamp}/`
+   - Preserve relative directory structure (assets in `pdfs/assets/`)
+   - Generate run-specific index in Azure
+   - Update root index listing all runs
+6. **Output**: N PDFs + JSON report + index.html (local + Azure)
 
-**Performance**: 10 PDFs in ~8s (0.77s per PDF average) with 5 workers
+**Performance**: 10 PDFs in ~8s (0.8s per PDF average) with 5 workers
 
 ## Requirements
 
 - Node.js 18+
 - Anthropic API key or Claude OAuth token in `.env`
 - Chromium (auto-installed by Puppeteer)
+- Azure CLI (for deployment, authenticated via `az login`)
 
 ## Environment Variables
 
 Create a `.env` file:
 
 ```bash
-# Option 1: API Key (pay-per-use)
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Option 2: OAuth Token (Claude Pro/Max)
-CLAUDE_CODE_OAUTH_TOKEN=sk-ant-...
+# Required: Authentication
+ANTHROPIC_API_KEY=sk-ant-...           # Or CLAUDE_CODE_OAUTH_TOKEN
 
 # Optional: Model selection
 MODEL=claude-sonnet-4-5-20250929
 
-# Phase 4: Bulk PDF Generation Configuration
-# Number of parallel workers for bulk PDF generation (default: 5)
-BULK_CONCURRENCY=5
+# Optional: Bulk PDF generation
+BULK_CONCURRENCY=5                     # Parallel workers (default: 5)
+
+# Optional: Azure deployment (for --deploy flag)
+AZURE_STORAGE_ACCOUNT=dalivemcprg94e3
+AZURE_RESOURCE_GROUP=da-live-mcp-rg
+AZURE_CONTAINER=contentsource
+```
+
+## Azure Deployment
+
+### Prerequisites
+```bash
+# Login to Azure (one-time)
+az login
+
+# Verify authentication
+az account show
+```
+
+### Deploy PDFs
+```bash
+# Generate and deploy to Azure
+npm run generate:bulk output/specs --deploy
+
+# Custom Azure settings (overrides .env)
+npm run generate:bulk output/specs --deploy \
+  --storage dalivemcprg94e3 \
+  --resource-group da-live-mcp-rg \
+  --container contentsource
+```
+
+### What Gets Deployed
+- Timestamped folder: `contentsource/pdf-run-YYYY-MM-DD-HHMMSS/`
+- All PDFs in `pdfs/` subdirectory
+- All assets in `pdfs/assets/` subdirectory (preserving relative paths)
+- Run-specific index.html
+- Root index.html (auto-updated with all runs)
+
+## Asset Display in PDFs
+
+### Content Images (Position-Based Insertion)
+```
+[Image embedded at specified position]
+Asset: assets/image-blog-id-0-optimized.jpg
+```
+
+### YouTube Videos
+```
+[Thumbnail embedded at specified position]
+Video: https://www.youtube.com/watch?v=videoId (clickable blue link)
+Thumbnail: assets/youtube-videoId.jpg
+```
+
+### Hero Images (Featured Template)
+```
+[Hero image with gradient overlay]
+[Bottom-right badge: "Asset: assets/hero-blog-id-optimized.jpg"]
 ```
 
 ## Current Implementation
@@ -285,11 +385,14 @@ BULK_CONCURRENCY=5
 - ✅ Image optimization (max 1200px width, 80% quality)
 - ✅ Hero image support for featured template
 - ✅ Asset management and caching
+- ✅ Position-based asset insertion
+- ✅ Asset path tracking for downstream reuse
+- ✅ YouTube URLs as clickable links
 
 ### Phase 3 ✅ (Complete)
 - ✅ Agent SDK spec generation (1-50 specs from config prompt)
-- ⚠️ Content length/structure is prompt-guided only; no enforced word counts or schema depth
-- ✅ Image URL and YouTube ID generation based on prompt guidance
+- ⚠️ Content length/structure is prompt-guided only
+- ✅ Image URL and YouTube ID generation
 - ✅ Real-time progress output
 - ⚠️ Validation limited to id/title/content/template fields
 - ✅ Default postal services theme
@@ -297,15 +400,17 @@ BULK_CONCURRENCY=5
 ### Phase 4 ✅ (Complete)
 - ✅ Bulk PDF orchestration (1-50 PDFs in single execution)
 - ✅ Concurrency control with p-queue (configurable workers)
+- ✅ Timestamped output directories (`pdf-run-YYYY-MM-DD-HHMMSS`)
 - ✅ Real-time progress tracking and reporting
 - ✅ Results aggregation with JSON reports
 - ✅ Error-resilient processing (continues on individual failures)
-
-See `/Users/jackjin/dev/eds-ai-editor-ai-instructions/ai-docs/agents/blog-pdf-generator/blog-pdf-generator-plan.md` for full roadmap.
+- ✅ Azure deployment with `--deploy` flag
+- ✅ Root index generation listing all runs
+- ✅ Local and Azure gallery pages with card-based layout
 
 ## Performance
 
-Timing varies with network (asset downloads), Puppeteer startup, and spec content. The codebase does not record or enforce performance targets. Deterministic paths avoid LLM cost; Agent SDK paths incur LLM usage during spec generation and when launching the wrapper for PDF generation.
+Timing varies with network (asset downloads), Puppeteer startup, and spec content. The codebase does not record or enforce performance targets. Deterministic paths avoid LLM cost; Agent SDK paths incur LLM usage during spec generation.
 
 ### When to Use Each
 
@@ -316,9 +421,24 @@ Timing varies with network (asset downloads), Puppeteer startup, and spec conten
 - Production environment with high volume
 
 **Use Agent SDK** when:
-- You want specs generated from a config using the prompt in `prompts/spec-generation.md`
-- You need the Agent SDK wrapper flow (which still calls the deterministic generator)
+- You want specs generated from a config using the prompt
+- You need the Agent SDK wrapper flow (which still calls deterministic)
 - Experimentation and prototyping where LLM cost is acceptable
+
+## Migration from Release 1.0
+
+If upgrading from Release 1.0, old output folders can be archived:
+
+```bash
+# One-time migration script
+./scripts/migrate-to-release-2.0.sh
+
+# This moves old folders to archive/pre-release-2.0/
+# - bulk-pdfs/
+# - deterministic/
+# - agent-sdk/
+# - generated-specs-test/
+```
 
 ## Troubleshooting
 
@@ -333,6 +453,11 @@ Timing varies with network (asset downloads), Puppeteer startup, and spec conten
 - Check agent log for specific validation errors
 - Ensure HTML content is well-formed
 - Verify images are accessible if using image URLs
+
+**Azure deployment fails**
+- Ensure logged into Azure CLI: `az login`
+- Verify storage account exists: `az storage account show --name dalivemcprg94e3`
+- Check .env has correct AZURE_STORAGE_ACCOUNT, AZURE_RESOURCE_GROUP
 
 ## License
 
