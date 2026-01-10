@@ -26,7 +26,7 @@ export async function generateBlogHtml(
   input: GenerateBlogHtmlInput
 ): Promise<GenerateBlogHtmlResult> {
   try {
-    const { content, outputDir, postNumber } = input;
+    const { content, outputDir } = input;
 
     // Render all blocks
     const renderedBlocks = await Promise.all(

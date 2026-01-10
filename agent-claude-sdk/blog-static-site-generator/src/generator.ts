@@ -10,7 +10,7 @@ import { generateBlogContents } from './contentGenerator.js';
 import { generateBlogHtml } from './tools/generateBlogHtml.js';
 import { generateLandingPage } from './tools/generateLandingPage.js';
 import { deployToAzure } from './tools/deployToAzure.js';
-import type { StaticSiteSpec } from './types/spec.js';
+// Types imported below
 import type { BlogPageInfo } from './tools/generateLandingPage.js';
 
 export interface StaticSiteResult {

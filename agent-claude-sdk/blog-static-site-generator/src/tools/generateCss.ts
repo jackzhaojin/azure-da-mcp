@@ -155,7 +155,7 @@ pre code {
 \n`;
 }
 
-function generateBlockStyles(blocks: Record<string, any>): string {
+function generateBlockStyles(_blocks: Record<string, any>): string {
   return `/* Block Styles */
 
 .blog-post {

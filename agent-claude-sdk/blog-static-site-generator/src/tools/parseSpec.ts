@@ -142,9 +142,9 @@ function extractSpecFromMarkdown(content: string): StaticSiteSpec {
           if (!spec.deployment) {
             spec.deployment = {} as any;
           }
-          if (key === 'storageAccount') spec.deployment.storageAccount = value;
-          if (key === 'resourceGroup') spec.deployment.resourceGroup = value;
-          if (key === 'containerName') spec.deployment.containerName = value;
+          if (key === 'storageAccount') spec.deployment!.storageAccount = value;
+          if (key === 'resourceGroup') spec.deployment!.resourceGroup = value;
+          if (key === 'containerName') spec.deployment!.containerName = value;
           break;
       }
     }

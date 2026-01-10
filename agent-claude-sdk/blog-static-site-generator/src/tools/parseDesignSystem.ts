@@ -242,7 +242,7 @@ function parseBlockMarkdown(content: string, blockName: string): BlockDefinition
  */
 function parseCssVariables(
   cssContent: string,
-  tokens: Record<string, Record<string, string>>
+  tokens: any
 ): void {
   // Extract :root block
   const rootMatch = cssContent.match(/:root\s*{([^}]+)}/);

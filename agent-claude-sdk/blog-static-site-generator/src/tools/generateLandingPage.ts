@@ -6,7 +6,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { renderTemplate } from '../utils/templateRenderer.js';
-import type { BlogContent } from '../types/blogContent.js';
+// Types defined below
 
 export interface BlogPageInfo {
   title: string;
@@ -55,17 +55,18 @@ export async function generateLandingPage(
     });
 
     // Render blog cards for remaining posts
-    const cardPromises = blogPages.slice(1).map((post) =>
-      renderTemplate('components/blog-card', {
-        TITLE: post.title,
-        TEASER: post.teaser,
-        LINK: `posts/${post.filename}`,
-        DATE: formatDate(post.date),
-        TAGS: post.tags.join(', '),
-      })
+    const cards = await Promise.all(
+      blogPages.slice(1).map((post) =>
+        renderTemplate('components/blog-card', {
+          TITLE: post.title,
+          TEASER: post.teaser,
+          LINK: `posts/${post.filename}`,
+          DATE: formatDate(post.date),
+          TAGS: post.tags.join(', '),
+        })
+      )
     );
 
-    const cards = await Promise.all(cardPromises);
     const blogGridHtml = cards.join('\n');
 
     // Render landing page

@@ -11,19 +11,19 @@ export async function renderBlock(block: Block): Promise<string> {
 
   switch (block.type) {
     case 'prose':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         CONTENT: block.content.text || '',
       });
 
     case 'blockquote':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         QUOTE: block.content.quote || '',
         AUTHOR: block.content.author || '',
         VARIANT: block.variant || '',
       });
 
     case 'image':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         SRC: block.content.src || '',
         ALT: block.content.alt || '',
         CAPTION: block.content.caption || '',
@@ -31,21 +31,21 @@ export async function renderBlock(block: Block): Promise<string> {
       });
 
     case 'video':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         VIDEO_ID: block.content.videoId || '',
         CAPTION: block.content.caption || '',
         VARIANT: block.variant || '',
       });
 
     case 'code':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         CODE: escapeHtml(block.content.code || ''),
         LANGUAGE: block.content.language || '',
         FILENAME: block.content.filename || '',
       });
 
     case 'callout':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         VARIANT: block.variant || 'note',
         TITLE: block.content.title || '',
         CONTENT: block.content.text || '',
@@ -62,7 +62,7 @@ export async function renderBlock(block: Block): Promise<string> {
         )
         .join('');
 
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         HEADERS: headers,
         ROWS: rows,
         VARIANT: block.variant || '',
@@ -79,13 +79,13 @@ export async function renderBlock(block: Block): Promise<string> {
         )
         .join('');
 
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         STATS_ITEMS: statsItems,
         VARIANT: block.variant || '',
       });
 
     case 'cta':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         TITLE: block.content.title || '',
         TEXT: block.content.text || '',
         BUTTON_TEXT: block.content.buttonText || 'Learn More',
@@ -94,7 +94,7 @@ export async function renderBlock(block: Block): Promise<string> {
       });
 
     case 'author-card':
-      return renderTemplate(templateName, {
+      return await renderTemplate(templateName, {
         NAME: block.content.name || '',
         BIO: block.content.bio || '',
         AVATAR: block.content.avatar || '',

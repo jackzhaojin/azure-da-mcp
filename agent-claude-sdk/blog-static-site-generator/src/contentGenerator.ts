@@ -61,8 +61,9 @@ export async function generateBlogContents(
 
     // Process streaming results
     for await (const event of queryIterator) {
-      if (event.type === 'turn') {
-        messages.push(`Turn ${event.turnNumber}: ${event.status}`);
+      // Agent SDK events - just consume them
+      if (event.type) {
+        // Event processed
       }
     }
 
