@@ -110,11 +110,18 @@ export async function generateBlogPdf(
           processedYoutubeVideos.push(result.imagePath);
           // Convert to data URI for embedding
           const dataUri = await imageToDataUri(result.imagePath);
+          // Calculate relative path from PDF location to asset
+          const relativePath = path.relative(outputDir, result.imagePath);
+          // Construct YouTube URL
+          const videoUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
           embeddedAssets.push({
             id: `youtube-${video.videoId}`,
             dataUri,
             caption: video.caption,
             type: 'youtube',
+            position: video.position,
+            relativePath,
+            videoUrl, // Add YouTube video URL
           });
           messages.push(`✓ YouTube thumbnail: ${video.videoId}`);
         } else {
@@ -148,11 +155,15 @@ export async function generateBlogPdf(
             processedImages.push(optimizedResult.optimizedPath);
             // Convert to data URI for embedding
             const dataUri = await imageToDataUri(optimizedResult.optimizedPath);
+            // Calculate relative path from PDF location to asset
+            const relativePath = path.relative(outputDir, optimizedResult.optimizedPath);
             embeddedAssets.push({
               id: `image-${i}`,
               dataUri,
               caption: image.alt,
               type: 'image',
+              position: image.position,
+              relativePath, // Add relative path
             });
             messages.push(
               `✓ Image ${i + 1} processed (${(optimizedResult.metadata!.compressionRatio).toFixed(1)}% compression)`
@@ -175,8 +186,10 @@ export async function generateBlogPdf(
 
     // Convert hero image to data URI if it exists
     let heroImageDataUri: string | undefined;
+    let heroImageRelativePath: string | undefined;
     if (heroImagePath) {
       heroImageDataUri = await imageToDataUri(heroImagePath);
+      heroImageRelativePath = path.relative(outputDir, heroImagePath);
       messages.push('✓ Hero image converted to data URI');
     }
 
@@ -188,6 +201,7 @@ export async function generateBlogPdf(
       date: spec.metadata?.date,
       tags: spec.metadata?.tags,
       heroImage: heroImageDataUri,
+      heroImagePath: heroImageRelativePath,
     });
     messages.push('✓ HTML rendered');
 

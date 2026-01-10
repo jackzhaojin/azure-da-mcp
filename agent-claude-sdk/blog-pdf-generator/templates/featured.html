@@ -213,6 +213,26 @@
             color: #2c3e50;
         }
 
+        .asset-path {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 0.25rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .hero-asset-path {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.8);
+            background: rgba(0,0,0,0.5);
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            z-index: 11;
+        }
+
         @page {
             margin: 0;
         }
@@ -239,6 +259,9 @@
                 {{#if DATE}}<span>{{DATE}}</span>{{/if}}
             </div>
         </div>
+        {{#if HERO_IMAGE_PATH}}
+        <div class="hero-asset-path">Asset: {{HERO_IMAGE_PATH}}</div>
+        {{/if}}
     </div>
     {{/if}}
 

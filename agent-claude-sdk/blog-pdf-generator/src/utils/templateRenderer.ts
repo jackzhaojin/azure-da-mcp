@@ -18,6 +18,7 @@ export interface BlogContent {
   date?: string;
   tags?: string[];
   heroImage?: string;
+  heroImagePath?: string; // Relative path to hero image asset
 }
 
 export async function renderTemplate(
@@ -92,6 +93,14 @@ export async function renderTemplate(
     );
     // Keep !if HERO_IMAGE blocks when no hero image
     template = template.replace(/\{\{#if !HERO_IMAGE\}\}/g, '');
+  }
+
+  // Handle hero image path
+  if (data.heroImagePath) {
+    template = template.replace(/\{\{#if HERO_IMAGE_PATH\}\}/g, '');
+    template = template.replace(/\{\{HERO_IMAGE_PATH\}\}/g, escapeHtml(data.heroImagePath));
+  } else {
+    template = template.replace(/\{\{#if HERO_IMAGE_PATH\}\}.*?\{\{\/if\}\}/g, '');
   }
 
   // Clean up any remaining conditional blocks
