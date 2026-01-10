@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="{{SITE_DESCRIPTION}}">
+  <title>{{SITE_TITLE}}</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="landing">
+    <header class="site-header">
+      <h1>{{SITE_TITLE}}</h1>
+      {{#if SITE_DESCRIPTION}}
+      <p>{{SITE_DESCRIPTION}}</p>
+      {{/if}}
+    </header>
+
+    {{#if FEATURED_POST}}
+    {{FEATURED_POST}}
+    {{/if}}
+
+    {{#if BLOG_GRID}}
+    <div class="blog-grid">
+      {{BLOG_GRID}}
+    </div>
+    {{/if}}
+  </div>
+</body>
+</html>

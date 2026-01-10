@@ -1,0 +1,26 @@
+{
+  "designSystem": {
+    "path": "/Users/jackjin/Downloads/files 2/adobe-summit-blog-design-system.md",
+    "format": "consolidated"
+  },
+  "content": {
+    "count": 5,
+    "theme": "Adobe Summit 2026",
+    "topics": [
+      "Edge Delivery Services",
+      "GenAI in Digital Experience",
+      "Content Velocity",
+      "DA.Live Authoring"
+    ]
+  },
+  "output": {
+    "directory": "./output",
+    "includeLandingPage": true,
+    "siteTitle": "Adobe Summit 2026 Blog",
+    "siteDescription": "Insights and announcements from Adobe Summit 2026"
+  },
+  "deployment": {
+    "storageAccount": "summitblog2026",
+    "resourceGroup": "summit-rg"
+  }
+}

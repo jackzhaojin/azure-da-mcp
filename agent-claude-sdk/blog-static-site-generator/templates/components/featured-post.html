@@ -1,0 +1,10 @@
+<div class="featured-post">
+  {{#if IMAGE}}
+  <img src="{{IMAGE}}" alt="{{TITLE}}" class="featured-post__image">
+  {{/if}}
+  <div class="featured-post__content">
+    <h2 class="featured-post__title"><a href="{{LINK}}">{{TITLE}}</a></h2>
+    <p class="featured-post__teaser">{{TEASER}}</p>
+    <a href="{{LINK}}" class="featured-post__link">Read More →</a>
+  </div>
+</div>

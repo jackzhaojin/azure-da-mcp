@@ -1,0 +1,6 @@
+<div class="code-block">
+  {{#if FILENAME}}
+  <div class="code-block__filename">{{FILENAME}}</div>
+  {{/if}}
+  <pre><code{{#if LANGUAGE}} class="language-{{LANGUAGE}}"{{/if}}>{{CODE}}</code></pre>
+</div>

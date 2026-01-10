@@ -1,0 +1,6 @@
+<div class="video-block {{#if VARIANT}}video-block--{{VARIANT}}{{/if}}">
+  <iframe src="https://www.youtube.com/embed/{{VIDEO_ID}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  {{#if CAPTION}}
+  <p class="video-block__caption">{{CAPTION}}</p>
+  {{/if}}
+</div>
