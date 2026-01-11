@@ -210,6 +210,55 @@ export async function createFolder(path, bearerToken) {
 }
 
 /**
+ * List directory contents from da.live Admin API
+ * @param {string} path - da.live directory path (e.g., '/jackzhaojin/da-live-postal-2025-07/block-collection')
+ * @param {string} bearerToken - Authentication Bearer token
+ * @returns {Promise<Object>} Directory listing with files and folders
+ * @throws {Error} On 401 Unauthorized, 404 Not Found, or service unavailable
+ */
+export async function listContent(path, bearerToken) {
+  try {
+    const response = await axios.get(`${DALIVE_API_URL}/list${path}`, {
+      headers: {
+        'Authorization': `Bearer ${bearerToken}`
+      },
+      timeout: 5000
+    });
+
+    // Response is an array of items
+    // Files have: path, name, ext, lastModified
+    // Folders have: path, name (no ext or lastModified)
+    const items = response.data;
+
+    // Separate files and folders for better structure
+    const files = items.filter(item => item.ext !== undefined);
+    const folders = items.filter(item => item.ext === undefined);
+
+    return {
+      path,
+      items,
+      files,
+      folders,
+      totalCount: items.length,
+      fileCount: files.length,
+      folderCount: folders.length
+    };
+  } catch (error) {
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 401) {
+        throw new Error(`401 Unauthorized: Invalid or expired Bearer token`);
+      }
+      if (status === 404) {
+        throw new Error(`404 Not Found: Path '${path}' does not exist in da.live`);
+      }
+      throw new Error(`da.live API error: ${status} ${error.response.statusText}`);
+    }
+    throw new Error(`Network error accessing da.live API: ${error.message}`);
+  }
+}
+
+/**
  * Sleep utility for retry backoff
  * @param {number} ms - Milliseconds to sleep
  * @returns {Promise<void>}

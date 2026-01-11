@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "da.live directory path in format: /owner/site/path or /source/owner/site/path (e.g., '/jackzhaojin/da-live-postal-2025-07/block-collection'). Returns files and folders in the directory."
+    }
+  },
+  "required": ["path"]
+}

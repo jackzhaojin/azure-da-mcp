@@ -8,6 +8,7 @@ import * as SaveDaliveContent from './save-dalive-content.js';
 import * as CreateDaliveContent from './create-dalive-content.js';
 import * as CreateFolderDalive from './create-folder-dalive.js';
 import * as PreviewPublishDaliveContent from './preview-publish-dalive-content.js';
+import * as ListDaliveContent from './list-dalive-content.js';
 
 /**
  * All available MCP tools
@@ -17,7 +18,8 @@ export const tools = {
   'save_dalive_content': SaveDaliveContent,
   'create_dalive_content': CreateDaliveContent,
   'create_folder_dalive': CreateFolderDalive,
-  'preview_publish_dalive_content': PreviewPublishDaliveContent
+  'preview_publish_dalive_content': PreviewPublishDaliveContent,
+  'list_dalive_content': ListDaliveContent
 };
 
 /**

@@ -8,23 +8,22 @@ Monorepo for AI-powered content authoring, migration, and editing tools built on
 **Status**: Production-ready
 **Purpose**: HTTP MCP server for AI-assisted content editing on da.live
 
-AI-powered content editing backend built with Azure Functions and Claude. Provides MCP tools (`get_dalive_content`, `save_dalive_content`) for autonomous content editing workflows.
+AI-powered content editing backend built with Azure Functions and Claude. Provides MCP tools (`list_dalive_content`, `get_dalive_content`, `save_dalive_content`, and more) for autonomous content editing workflows.
 
 **Quick Start**:
 ```bash
 cd functions
 npm install
-nvm use 20
-npm start
+npm start  # Requires Node 22+
 ```
 
-**Documentation**: [functions/CLAUDE.md](./functions/CLAUDE.md)
+**Documentation**: [functions/README.md](./functions/README.md) | [functions/CLAUDE.md](./functions/CLAUDE.md)
 
 **Key Features**:
+- 6 MCP tools: list, get, save, create, create folder, preview/publish
 - MCP server endpoints (`/api/mcp`, `/api/mcp-streamable`)
+- Multi-LLM support (Claude, Gemini, Azure AI Foundry)
 - Claude Desktop integration via stdio bridge
-- Multi-LLM support (Claude, Gemini, Azure OpenAI)
-- Real API testing (no mocks)
 
 ---
 
@@ -152,7 +151,7 @@ For complete release procedures, branching model, and hotfix workflows, see **[R
 
 ## Common Dependencies
 
-- **Node.js**: 20.x LTS (functions, content-authoring-eval)
+- **Node.js**: 22.x LTS (functions), 20.x LTS (content-authoring-eval)
 - **Claude Agent SDK**: `@anthropic-ai/claude-agent-sdk` (content-authoring-eval, agent-claude-sdk)
 - **Anthropic SDK**: `@anthropic-ai/sdk` (functions)
 - **MCP SDK**: `@modelcontextprotocol/sdk` (functions)
@@ -175,8 +174,7 @@ All projects support Claude API authentication via:
 ### Azure Functions Development
 ```bash
 cd functions
-nvm use 20
-npm start
+npm start  # Requires Node 22+
 # Server: http://localhost:7071
 ```
 
@@ -249,5 +247,5 @@ MIT
 
 ---
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2026-01-11
 **Primary Tools**: Claude Code, Agent SDK, Azure Functions, Next.js, MCP
