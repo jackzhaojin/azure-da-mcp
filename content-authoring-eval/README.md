@@ -201,6 +201,25 @@ finalScore = (agenticScore × 0.7) + (deterministicScore × 0.3)
 
 This ensures scores are grounded in measurable data while benefiting from AI judgment.
 
+### Deterministic vs Agentic Breakdown
+
+| Component | Type | Responsibility | Technology |
+|-----------|------|----------------|------------|
+| **Web UI / API Routes** | Deterministic | Accept inputs, trigger evaluation, serve results | Next.js API routes |
+| **Batch Orchestrator** | Deterministic | Sequential processing, coordinate 4 agents, aggregate scores | TypeScript (for loop, try/catch) |
+| **Prompt Builder** | Deterministic | Construct agent prompts with evaluation criteria | TypeScript template strings |
+| **Agent SDK Invocation** | Deterministic | Configure and invoke Claude Agent SDK `query()` | TypeScript (`@anthropic-ai/claude-agent-sdk`) |
+| **Cheerio Analysis** | Deterministic | Parse HTML, extract headings, count elements | Cheerio (DOM parsing) |
+| **axe-core Checks** | Deterministic | Run accessibility rules, generate violations list | axe-core (automated a11y testing) |
+| **unpdf Extraction** | Deterministic | Extract text from PDF source documents | unpdf library |
+| **Playwright Automation** | Deterministic | Navigate, screenshot, capture page metrics | Playwright MCP (browser automation) |
+| **Structure Agent** | Agentic | Evaluate heading hierarchy, semantic HTML, navigation | Claude 4.5 (reasoning + Cheerio data) |
+| **Accessibility Agent** | Agentic | Evaluate WCAG compliance, keyboard navigation, ARIA | Claude 4.5 (reasoning + axe-core data) |
+| **Content Agent** | Agentic | Compare PDF vs webpage content, evaluate accuracy | Claude 4.5 (reasoning + unpdf data) |
+| **Visual Agent** | Agentic | Evaluate layout, typography, visual fidelity | Claude 4.5 (reasoning + Playwright snapshots) |
+| **Score Aggregation** | Agentic | Synthesize 4 agent scores into overall quality score | Claude 4.5 (weighted reasoning) |
+| **Report Generation** | Agentic | Generate HTML dashboard with findings and recommendations | Claude 4.5 (via Write tool) |
+
 ### Agent Tool Access
 
 All agents configured with `bypassPermissions` mode for autonomous tool usage:
