@@ -212,11 +212,10 @@ This ensures scores are grounded in measurable data while benefiting from AI jud
 | **Cheerio Analysis** | Deterministic | Parse HTML, extract headings, count elements | Cheerio (DOM parsing) |
 | **axe-core Checks** | Deterministic | Run accessibility rules, generate violations list | axe-core (automated a11y testing) |
 | **unpdf Extraction** | Deterministic | Extract text from PDF source documents | unpdf library |
-| **Playwright Automation** | Deterministic | Navigate, screenshot, capture page metrics | Playwright MCP (browser automation) |
-| **Structure Agent** | Agentic | Evaluate heading hierarchy, semantic HTML, navigation | Claude 4.5 (reasoning + Cheerio data) |
-| **Accessibility Agent** | Agentic | Evaluate WCAG compliance, keyboard navigation, ARIA | Claude 4.5 (reasoning + axe-core data) |
+| **Structure Agent** | Agentic | Evaluate heading hierarchy, semantic HTML, SEO quality | Claude 4.5 (reasoning + Cheerio data + Playwright MCP for live DOM inspection) |
+| **Accessibility Agent** | Agentic | Evaluate WCAG compliance, keyboard navigation, ARIA | Claude 4.5 (reasoning + axe-core data + Playwright MCP for keyboard nav testing) |
 | **Content Agent** | Agentic | Compare PDF vs webpage content, evaluate accuracy | Claude 4.5 (reasoning + unpdf data) |
-| **Visual Agent** | Agentic | Evaluate layout, typography, visual fidelity | Claude 4.5 (reasoning + Playwright snapshots) |
+| **Visual Agent** | Agentic | Evaluate layout, typography, visual fidelity | Claude 4.5 (reasoning + Playwright MCP for screenshots and visual analysis) |
 | **Score Aggregation** | Agentic | Synthesize 4 agent scores into overall quality score | Claude 4.5 (weighted reasoning) |
 | **Report Generation** | Agentic | Generate HTML dashboard with findings and recommendations | Claude 4.5 (via Write tool) |
 
