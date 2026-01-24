@@ -381,4 +381,69 @@ Skills can be bundled with agents by placing them in the project's `.claude/skil
 
 ---
 
+## Extended Tests: Script Execution & Real Workflows
+
+### Test 1: Project Analyzer (Script Execution)
+
+**Goal**: Verify skills can bundle and execute scripts
+
+**Result**: ✅ SUCCESS
+
+**What Happened**:
+1. Claude invoked `Skill` tool with `project-analyzer`
+2. Claude ran the bundled `scripts/analyze.js` via Bash
+3. Script analyzed project and output structured data
+4. Claude formatted results for user
+
+**Tools Used**: Skill → Bash → Read → Edit
+
+**Key Finding**: **Scripts bundled with skills work!** The skill can reference and execute scripts in its directory.
+
+### Test 2: Conversation Logger (User Skill)
+
+**Goal**: Verify user skills (~/.claude/skills/) work and create real files
+
+**Result**: ✅ SUCCESS
+
+**What Happened**:
+- Claude created `prompt-log.md` with properly formatted session log
+- File created in project root as expected
+
+**Output File Created**:
+```markdown
+# Conversation Log
+**Session Date**: 2025-01-24
+
+## Prompt 1
+**User**: Testing the conversation logger skill
+**Assistant**: Successfully tested
+```
+
+### Test 3: Skill Discovery
+
+**Goal**: Verify Claude can discover project-specific skills
+
+**Result**: ✅ SUCCESS
+
+**Skills Found**:
+1. `poc-test-skill` - Test skill for POC validation
+2. `project-analyzer` - Script-based project analysis
+
+---
+
+## Extended Test Commands
+
+```bash
+# Run extended tests (script execution + real file creation)
+npm run test:extended
+
+# Run original 10-experiment suite
+npm run test:all
+
+# Interactive testing
+npm run dev
+```
+
+---
+
 *This POC successfully validates that Agent SDK skills work as documented.*

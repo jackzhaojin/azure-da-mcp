@@ -1,0 +1,33 @@
+[
+  {
+    "name": "Project Analyzer Skill",
+    "prompt": "Analyze this project using the project-analyzer skill. Run the analysis script and show me the results.",
+    "success": true,
+    "output": "Perfect! Here's the project analysis:\n\n## Project Analysis: agent-sdk-skills-poc\n\n**Description**: POC for testing Claude Agent SDK Skills - discovery, loading, and invocation\n\n**Analyzed at**: 2026-01-24T19:19:21.355Z\n\n### File Counts\n- TypeScript files (`.ts`): 4\n- Markdown files (`.md`): 3\n- JSON files (`.json`): 3\n\n### Directory Structure\n- `src/` - Source code\n- `test-results/` - Test output files\n\n### Key Configuration Files Found\n- ✓ package.json\n- ✓ tsconfig.json\n- ✓ CLAUDE.md\n- ✓ .env.example\n- ✓ .gitignore\n\n---\n\n**Summary**: This is a TypeScript-based proof-of-concept project for testing the Claude Agent SDK's Skills functionality. It's a small, focused project with just 4 TypeScript source files and comprehensive documentation, designed to validate that skills can be discovered, loaded, and invoked correctly by the Agent SDK.",
+    "toolsUsed": [
+      "Skill",
+      "Bash",
+      "Read",
+      "Edit"
+    ]
+  },
+  {
+    "name": "Conversation Logger Skill",
+    "prompt": "Log this conversation session. Create a prompt-log.md file in the project root. The session had one prompt: \"Testing the conversation logger skill\" and the response was \"Successfully tested\".",
+    "success": true,
+    "output": "I've created `prompt-log.md` in the project root with your conversation session logged. The file contains:\n- Session date (2025-01-24)\n- Your prompt: \"Testing the conversation logger skill\"\n- The response: \"Successfully tested\"\n\nThe log is formatted in markdown with clear sections for easy reading.",
+    "toolsUsed": [
+      "Write"
+    ]
+  },
+  {
+    "name": "Skill Discovery",
+    "prompt": "What skills are available in this project? List the project-specific ones.",
+    "success": true,
+    "output": "Based on my search, this project has **2 project-specific skills** located in `.claude/skills/`:\n\n## Project-Specific Skills\n\n### 1. **poc-test-skill** (v1.0.0)\n- **Purpose**: A test skill for validating that the Agent SDK Skills POC works\n- **Triggers**: When user says \"poc test\", \"test skill\", \"skills poc\", or asks to demonstrate bundled skills\n- **Location**: `.claude/skills/poc-test-skill/SKILL.md`\n- **What it does**: Confirms that bundled project skills can be successfully loaded and invoked by the Agent SDK\n\n### 2. **project-analyzer** (v1.0.0)\n- **Purpose**: Analyze project structure and generate a summary report\n- **Triggers**: When user says \"analyze project\", \"project summary\", \"what's in this project\", or asks about codebase structure\n- **Location**: `.claude/skills/project-analyzer/SKILL.md`\n- **What it does**: Runs a bundled analysis script that provides:\n  - Project name and description (from package.json)\n  - File counts by type\n  - Directory structure\n  - Key configuration files found\n\nBoth skills are **bundled project-level skills** that demonstrate the Claude Agent SDK's ability to discover and load skills from the `.claude/skills/` directory when configured with `settingSources: ['project']`.",
+    "toolsUsed": [
+      "Glob",
+      "Read"
+    ]
+  }
+]

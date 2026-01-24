@@ -12,6 +12,7 @@
     "test:project-skills": "tsx src/experiments/test-project-skills.ts",
     "test:bundled-skills": "tsx src/experiments/test-bundled-skills.ts",
     "test:all": "tsx src/experiments/run-all-tests.ts",
+    "test:extended": "tsx src/experiments/test-extended-skills.ts",
     "clean": "rm -rf dist"
   },
   "keywords": [
