@@ -56,6 +56,43 @@ MVP → MVP+Memory → MVP+BlockLibrary → Full (Production)
 /source/jackzhaojin/da-live-postal-2025-07/migration-batch-12-20-trial-run-3/page-name.html
 ```
 
+## Context Usage Analysis
+
+Understanding token consumption for the full prompt with all context loaded.
+
+### Component Breakdown
+
+| Component | Characters | Tokens (est.) |
+|-----------|------------|---------------|
+| **Prompt file** (`agent-init-prompt-full.md`) | ~16K | ~4K |
+| **1 HTML page** (typical migrated page) | ~6K | ~1.5K |
+| **8 HTML pages** | ~48K | ~12K |
+| **Block library index** | ~2-4K | ~0.5-1K |
+| **Memory page** (10-20 entries) | ~5-10K | ~1.5-2.5K |
+
+### Full Load Scenarios
+
+| Scenario | Characters | Tokens (est.) |
+|----------|------------|---------------|
+| Prompt only | ~16K | ~4K |
+| Prompt + block library + memory | ~25-30K | ~6-8K |
+| **Full load (prompt + library + memory + 8 pages)** | **~75-80K** | **~18-20K** |
+
+### Model Compatibility
+
+| Model | Max Tokens | Full Load Usage |
+|-------|------------|-----------------|
+| Claude 3.5 Sonnet | 200K | ~10% |
+| Claude 3 Opus | 200K | ~10% |
+| GPT-4 Turbo | 128K | ~15% |
+
+### Key Takeaways
+
+- **8 pages is very manageable** - only ~20K tokens out of 200K available
+- **The prompt itself is the largest component** at ~16K characters (~4K tokens)
+- **50+ pages could fit** before hitting context limits
+- Larger pages (10-15K each) would still allow 10-15 pages comfortably
+
 ## Documentation
 
 - **`AGENT-LOG.md`** - Complete development history (Opus + Claude Code sessions)
