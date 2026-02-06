@@ -15,6 +15,7 @@ These variables are set by the Make.com workflow and injected at runtime:
 | `{{5.sourceType}}` | Type of source content | `pdf` or `webpage` |
 | `{{5.sourceLocation}}` | URL/path to source content | `https://dalivemcprg94e3.blob.core.windows.net/contentsource/pdf-2025-12-18/customer-experience-digital-postal.pdf`<br>or `https://example.com/page` |
 | `{{5.folderPostfix}}` | Unique identifier for this migration run | `trial-run-3` |
+| `{{5.siteName}}` | da.live site repository name | `da-live-postal-2025-07` |
 
 ### Internal Template Variables
 
@@ -23,14 +24,14 @@ These variables use `${variable}` syntax and are defined within this prompt:
 | Variable | Description | Example Value |
 |----------|-------------|---------------|
 | `${owner}` | GitHub owner/org | `jackzhaojin` |
-| `${site}` | Site repository name | `da-live-postal-2025-07` |
+| `${site}` | Site repository name (from `{{5.siteName}}`) | `da-live-postal-2025-07` |
 | `${date}` | Migration batch date (MM-DD format) | `12-20` |
 | `${page_slug}` | URL-safe page name from source | `product-overview` |
 
 **Current Execution Values:**
 
 - **Owner:** `jackzhaojin`
-- **Site:** `da-live-postal-2025-07`
+- **Site:** `{{5.siteName}}` (e.g., `da-live-postal-2025-07`)
 - **Date:** `12-20`
 - **Page Slug:** `customer-experience-digital-postal`
 - **Folder Postfix:** `trial-run-3` (example - set via Make.com)
@@ -216,8 +217,9 @@ Transform the source content into da.live HTML format.
 
 ### 2.4 Preview Publish
 
-- Use `preview_publish_dalive_content` with the path (without .html extension)
-- Preview URL: `https://main--${site}--${owner}.aem.page/migration-batch-${date}-{{5.folderPostfix}}/${page_slug}`
+- Use `preview_publish_dalive_content` with the **full source path**: `/source/${owner}/${site}/migration-batch-${date}-{{5.folderPostfix}}/${page_slug}` (without .html extension)
+- **IMPORTANT**: The path MUST include `/source/{owner}/{site}/` prefix for preview to work
+- Preview URL (after publish): `https://main--${site}--${owner}.aem.page/migration-batch-${date}-{{5.folderPostfix}}/${page_slug}`
 - Wait for publish confirmation before validation
 
 ---
@@ -294,7 +296,7 @@ If refinement is needed and iterations remain:
 
 4. **Save and republish**
    - Use `save_dalive_content` to update
-   - Use `preview_publish_dalive_content` to republish
+   - Use `preview_publish_dalive_content` with full path `/source/${owner}/${site}/...` to republish
    - Return to validation step
 
 5. **Track iteration count**
@@ -481,13 +483,14 @@ Provide a structured summary:
 1. **Always GET before CREATE** — Understand da.live structure first
 2. **Block library is your source of truth** — Start with index, drill into blocks as needed
 3. **Block structure is precise** — Match the library exactly
-4. **Preview publish before validate** — .aem.page won't update otherwise
-5. **Max 3 Playwright validation loops** — Don't infinite loop
-6. **No hallucinations** — Only use content from the source
-7. **Preserve brand terminology** — Never paraphrase company/product names
-8. **Calculate confidence score** — Be honest about quality
-9. **Document gaps** — Future humans need to know what's missing
-10. **Update memory** — Save lessons learned for future migrations
+4. **Preview publish requires FULL path** — Must use `/source/${owner}/${site}/...` format (not just folder/page)
+5. **Preview publish before validate** — .aem.page won't update otherwise
+6. **Max 3 Playwright validation loops** — Don't infinite loop
+7. **No hallucinations** — Only use content from the source
+8. **Preserve brand terminology** — Never paraphrase company/product names
+9. **Calculate confidence score** — Be honest about quality
+10. **Document gaps** — Future humans need to know what's missing
+11. **Update memory** — Save lessons learned for future migrations
 
 ---
 
