@@ -243,7 +243,7 @@ This is a personal monorepo for AI content authoring experimentation. Each subpr
 
 ## License
 
-MIT
+Apache License 2.0
 
 ---
 
