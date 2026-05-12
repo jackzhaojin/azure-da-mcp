@@ -123,6 +123,9 @@ RUN mkdir -p /home/appuser/.claude && \
 # Copy standalone Next.js build output (minimal)
 COPY --from=builder --chown=appuser:appuser /app/.next/standalone ./
 COPY --from=builder --chown=appuser:appuser /app/.next/static ./.next/static
+# Next.js standalone output does NOT include public/ — copy it explicitly so
+# static assets like /samples/*.json are served in production.
+COPY --from=builder --chown=appuser:appuser /app/public ./public
 
 # PHASE 31: Pre-install Playwright browsers for BOTH @playwright/mcp AND app scripts
 # Use chromium (not chrome) for ARM64 compatibility
