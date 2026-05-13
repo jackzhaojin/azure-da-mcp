@@ -1,6 +1,10 @@
-# Azure DA.live MCP - Monorepo
+# CLAUDE.md
 
-AI-powered content authoring, migration, and evaluation tools. This is a monorepo containing multiple independent projects related to da.live content management and AI-assisted workflows.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository Overview
+
+**Azure DA.live MCP** — a monorepo of 5 independent AI-powered content authoring, migration, and evaluation tools for [da.live](https://da.live) (Adobe Edge Delivery Services). Each subproject has its own dependencies, configs, and workflows; this root file orients you to which one to work in.
 
 ## Monorepo Structure
 
@@ -161,6 +165,53 @@ All projects support:
    - Get from: https://console.anthropic.com/
    - Add to project `.env` files
 
+## Release & Deployment
+
+This monorepo uses **lockstep versioning** + **trunk-based releases** — tag directly from `main`.
+
+### Current State
+- **Current version**: `v1.0.2` (released 2026-05-12)
+- **Branch model**: Trunk-based; `main` is the only long-lived branch
+- **Strategy doc**: [`RELEASES.md`](./RELEASES.md)
+- **Strategy history**: A `release/1.0` branch existed from 2026-01-01 to 2026-05-12 but was merged into `main` and deleted — that flow added overhead without benefit for a single-maintainer repo
+
+### Cutting a Release (`content-authoring-eval`)
+
+```bash
+git checkout main && git pull
+# Bump content-authoring-eval/package.json "version" → e.g. 1.0.3
+git commit -am "chore(content-authoring-eval): bump version to 1.0.3"
+git push
+git tag -a v1.0.3 -m "Release 1.0.3"
+git push origin v1.0.3              # tag push triggers the Oracle deploy
+gh release create v1.0.3 --generate-notes
+```
+
+### Deployment Mechanics
+
+**Workflow**: `.github/workflows/deploy-content-authoring-eval.yml` — triggered by `push: tags: ['v*']` *and* the tag touching `content-authoring-eval/**` or the workflow file itself.
+
+1. Multi-arch Docker build (`linux/amd64,linux/arm64`) from `content-authoring-eval/Dockerfile`
+2. Push to GHCR: `ghcr.io/jackzhaojin/azure-da-mcp/content-authoring-eval:vX.Y.Z` + `:latest`
+3. SSH into Oracle Cloud VM, `docker compose down && up -d` at `~/jack-dev-server-configs/server/oracle-arm4-free-vm/deploy`
+4. 60s healthcheck loop
+
+**Emergency / rollback / redeploy without rebuild**: use `.github/workflows/deploy-only-content-authoring-eval.yml` (manual `workflow_dispatch`) — pick an existing image tag and `deploy`, `restart`, or `rollback`.
+
+### Tag-Movement Gotchas
+
+If you ever need to re-point a tag (e.g., because the tagged commit was wrong):
+1. **Cancel any in-flight deploy** first (`gh run cancel <run-id>`) to avoid two builds racing on Oracle
+2. Delete local + remote: `git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z`
+3. Re-create the tag and push
+4. Confirm the new deploy started: `gh run list --limit 1`
+
+**Tags should be treated as immutable** once they've shipped. Moving a tag invalidates GHCR images already pulled by clients. Only re-point a tag if no consumer has used it yet.
+
+### Functions Subproject
+
+`functions/` deploys separately via `.github/workflows/main_jack-mcp-azure-ai-function.yml` on pushes to `main` — not tag-driven. To deploy MCP server changes, just merge to `main`.
+
 ## Common Issues
 
 ### Node Version Errors
@@ -249,6 +300,7 @@ cp .env.example .env
 
 ---
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2026-05-12
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
+**Current Version**: v1.0.2 (trunk-based, tag from `main`)

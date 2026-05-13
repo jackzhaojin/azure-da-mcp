@@ -133,21 +133,21 @@ azure-da-mcp/
 
 ## Releases & Versioning
 
-This monorepo uses **lockstep versioning** with a shared SemVer version across all projects:
+This monorepo uses **lockstep versioning** with a shared SemVer version across all projects, and **trunk-based releases** (tag directly from `main`):
 
-- **Current Version**: `v1.0.0`
-- **Active Release Branch**: `release/1.0`
+- **Current Version**: `v1.0.2`
+- **Branch Model**: Trunk-based — `main` is the only long-lived branch
 - **Versioning Strategy**: Lockstep (single version for entire repo)
-- **Deployment**: Automated via GitHub Actions on version changes
+- **Deployment**: Automated via GitHub Actions on version tag push
 
 **Release workflow**:
-1. Create release branch: `release/<MAJOR>.<MINOR>`
-2. Stabilize with bug fixes only
-3. Bump version in `package.json` files
-4. Tag release: `v<MAJOR>.<MINOR>.<PATCH>`
-5. Automated deployment triggers on tag push
+1. Merge changes to `main`
+2. Bump version in `content-authoring-eval/package.json`
+3. Tag release: `v<MAJOR>.<MINOR>.<PATCH>`
+4. Push the tag — deployment triggers automatically
+5. Create GitHub Release with `gh release create`
 
-For complete release procedures, branching model, and hotfix workflows, see **[RELEASES.md](./RELEASES.md)**.
+For complete release procedures, deployment automation, and the strategy history (we previously used a `release/1.0` branch, abandoned 2026-05-12), see **[RELEASES.md](./RELEASES.md)**.
 
 ## Common Dependencies
 
@@ -247,5 +247,5 @@ Apache License 2.0
 
 ---
 
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-05-12
 **Primary Tools**: Claude Code, Agent SDK, Azure Functions, Next.js, MCP

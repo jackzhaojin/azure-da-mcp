@@ -1,6 +1,6 @@
 # Release Strategy
 
-This monorepo uses **lockstep versioning** with release branches for stable releases and hotfixes.
+This monorepo uses **trunk-based releases**: cut version tags directly from `main`.
 
 ## Versioning Model
 
@@ -21,7 +21,7 @@ MAJOR.MINOR.PATCH
 - Simplest mental model for a learning/OSS monorepo
 - Single "current release" state for the entire repository
 - Clear, unified release notes
-- Easy hotfix management without coordination overhead
+- No coordination overhead
 
 ### SemVer Guidelines
 
@@ -33,24 +33,16 @@ MAJOR.MINOR.PATCH
 
 ## Branching Model
 
-### Main Branch
+### Trunk-Based Development
 
-- **Branch**: `main`
-- **Purpose**: Active development (future minor/major work)
-- **Protection**: Should not be force-pushed
-- **Merges**: All feature work merges here first
+- **One long-lived branch**: `main`
+- All work merges into `main` (directly or via short-lived feature branches)
+- Releases are cut by tagging a commit on `main`
+- No `release/*` branches — they added overhead without earning their keep
 
-### Release Branches
+### Feature Branches (Optional)
 
-- **Branch pattern**: `release/<MAJOR>.<MINOR>`
-- **Example**: `release/1.0`, `release/2.0`
-- **Purpose**: Stabilization and patch releases for that minor version line
-- **Lifetime**: Long-lived (until minor version is EOL)
-- **Allowed changes**: Bug fixes, documentation updates, version bumps only
-- **No features**: New features must go to `main`, not release branches
-
-**Current active release branches**:
-- `release/1.0` - Version 1.0.x line
+For larger changes you may use short-lived branches (`feat/foo`, `fix/bar`) and merge via PR. These are not required for the release process.
 
 ## Tagging Model
 
@@ -63,89 +55,53 @@ v<MAJOR>.<MINOR>.<PATCH>
 ```
 
 **Examples**:
-- `v1.0.0` - First release from `release/1.0`
-- `v1.0.1` - First hotfix for version 1.0
-- `v1.1.0` - Next minor release from `release/1.1`
+- `v1.0.0` - First release
+- `v1.0.2` - Patch release
+- `v1.1.0` - Next minor release
 
 ### Tag Rules
 
 1. ✅ **DO**: Use annotated tags (`git tag -a`)
-2. ✅ **DO**: Create tags from release branches only
-3. ✅ **DO**: Push tags to origin after creating
-4. ❌ **DON'T**: Move or delete tags after publishing
-5. ❌ **DON'T**: Create tags from `main` branch
+2. ✅ **DO**: Tag from `main` after your changes are merged and tested
+3. ✅ **DO**: Push tags to origin — the tag push triggers deployment
+4. ❌ **DON'T**: Move or delete tags after publishing (force-moving a tag invalidates published artifacts)
+5. ❌ **DON'T**: Tag uncommitted or unmerged work
 
-## Release Workflows
+## Release Workflow
 
-### Standard Release Flow (New Minor/Major)
-
-**Example**: Releasing version `1.0.0`
+### Standard Release
 
 ```bash
-# 1. Create release branch from main
+# 1. Make sure main is up to date and your changes are merged
 git checkout main
 git pull
-git checkout -b release/1.0
-git push -u origin release/1.0
 
-# 2. Stabilize on release branch
-# - Only bug fixes, docs, version prep
-# - No new features
-
-# 3. Update version in all affected package.json files
-# For this monorepo, update:
-cd content-authoring-eval
-# Edit package.json: "version": "1.0.0"
+# 2. Bump version in content-authoring-eval/package.json
+# Edit: "version": "1.0.3"
 git add content-authoring-eval/package.json
-git commit -m "chore: Bump version to 1.0.0"
+git commit -m "chore(content-authoring-eval): bump version to 1.0.3"
 git push
 
-# 4. Tag the release
-git tag -a v1.0.0 -m "Release 1.0.0"
-git push origin v1.0.0
+# 3. Tag the release (annotated)
+git tag -a v1.0.3 -m "Release 1.0.3"
+git push origin v1.0.3
+# ↑ tag push triggers the Oracle deploy workflow
 
-# 5. Create GitHub Release
-# - Go to https://github.com/jackzhaojin/azure-da-mcp/releases/new
-# - Select tag: v1.0.0
-# - Generate release notes
-# - Publish release
+# 4. Create the GitHub Release
+gh release create v1.0.3 --generate-notes
+# or with custom notes:
+# gh release create v1.0.3 --title "v1.0.3" --notes-file notes.md
 ```
 
-### Hotfix Flow (Patch Release)
+### Hotfix Release
 
-**Example**: Releasing version `1.0.1` to fix a critical bug
+A hotfix is just a normal release with a bug-fix commit. No special branching:
 
 ```bash
-# 1. Checkout release branch
-git checkout release/1.0
-git pull
-
-# 2. Apply fix
-# - Fix the bug
-# - Write tests
-# - Commit changes
-
-# 3. Update version in package.json
-cd content-authoring-eval
-# Edit package.json: "version": "1.0.1"
-git add content-authoring-eval/package.json
-git commit -m "chore: Bump version to 1.0.1"
-git push
-
-# 4. Tag the patch release
-git tag -a v1.0.1 -m "Release 1.0.1"
-git push origin v1.0.1
-
-# 5. Merge/cherry-pick fix back to main
 git checkout main
-git cherry-pick <commit-sha>  # or merge release/1.0 into main
-git push
-
-# 6. Create GitHub Release
-# - Go to https://github.com/jackzhaojin/azure-da-mcp/releases/new
-# - Select tag: v1.0.1
-# - Generate release notes
-# - Publish release
+git pull
+# ... fix the bug, commit, push ...
+# bump version and tag as in "Standard Release" above
 ```
 
 ## Deployment Automation
@@ -154,41 +110,33 @@ git push
 
 Deployment to Oracle Cloud VM is automated via GitHub Actions:
 
-**Trigger conditions**:
-1. ✅ Push to `main` or `release/*` branches
-2. ✅ Changes in `content-authoring-eval/**` or workflow file
-3. ✅ Version in `content-authoring-eval/package.json` changed
+**Trigger**:
+- A `v*` tag is pushed AND the tag's commit touches `content-authoring-eval/**` or the workflow file itself
+- Manual via `workflow_dispatch` (handy for re-deploying without a new tag)
 
 **Workflow**: `.github/workflows/deploy-content-authoring-eval.yml`
 
 **What happens**:
-1. Version check (compares with previous commit)
-2. Docker build (multi-arch: amd64, arm64)
-3. Push to GitHub Container Registry
-4. Deploy to Oracle VM via SSH
-5. Health check verification
+1. Multi-arch Docker build (linux/amd64, linux/arm64) from `content-authoring-eval/Dockerfile`
+2. Push to GitHub Container Registry: `ghcr.io/jackzhaojin/azure-da-mcp/content-authoring-eval:vX.Y.Z` + `:latest`
+3. SSH into Oracle VM, `docker pull`, `docker compose down && up -d`
+4. Health check verification (60s timeout)
 
-**Manual trigger**:
-```bash
-# Via GitHub Actions UI: workflow_dispatch
-```
+**Emergency / re-deploy without rebuild**: use `.github/workflows/deploy-only-content-authoring-eval.yml` to deploy a specific existing image tag (`deploy`, `restart`, or `rollback`).
 
-### functions (Future)
+### functions (Azure Functions MCP Server)
 
-Azure Functions deployment automation TBD.
+Azure Functions deploys via its own workflow (`main_jack-mcp-azure-ai-function.yml`) on pushes to `main`. Not tag-driven today.
 
 ## Version Bump Checklist
 
-Before creating a new release tag, ensure:
+Before tagging, ensure:
 
-- [ ] All tests pass on the release branch
-- [ ] Version number updated in `content-authoring-eval/package.json`
-- [ ] CHANGELOG.md updated (if exists)
-- [ ] Breaking changes documented (for major versions)
-- [ ] Migration guide written (for breaking changes)
-- [ ] Documentation updated to reflect new version
-- [ ] All critical bugs fixed
-- [ ] No known regressions
+- [ ] All relevant changes are merged to `main`
+- [ ] Local `main` is up to date with `origin/main`
+- [ ] Version updated in `content-authoring-eval/package.json` (bump committed and pushed)
+- [ ] Working tree is clean
+- [ ] No known critical regressions
 
 ## Release Notes
 
@@ -198,96 +146,61 @@ Before creating a new release tag, ensure:
 - **Bug fixes**: List critical fixes
 - **Breaking changes**: Highlight incompatibilities
 - **Migration steps**: For major versions
-- **Contributors**: Credit contributors (if any)
+- **Deployment info**: Image tag, deployment target
 
-### Example Release Note
+### Quick Generation
 
-```markdown
-# Release v1.0.0
-
-## New Features
-- ✨ Grouped strengths display by dimension (Phase 40)
-- 🎨 2x2 grid layout for better visual organization
-- 🔧 Lockstep versioning deployment automation
-
-## Bug Fixes
-- 🐛 Fixed duplicate React key warnings in StrengthsCard
-
-## Breaking Changes
-None
-
-## Deployment
-- Docker image: ghcr.io/jackzhaojin/azure-da-mcp/content-authoring-eval:v1.0.0
-- Deployed to Oracle Cloud VM via GitHub Actions
-
-## Contributors
-- @jackzhaojin
-- Claude Sonnet 4.5 (AI pair programming)
+```bash
+gh release create v1.0.3 --generate-notes
 ```
+
+This pulls from commit messages and PRs since the previous tag — usually a fine starting point.
 
 ## Guardrails and Best Practices
 
 ### DO ✅
 
-- Create release branches for each `MAJOR.MINOR` version
-- Use SemVer tags (`vMAJOR.MINOR.PATCH`)
-- Keep release branches stable (patches only)
-- Merge hotfixes back to `main`
-- Test thoroughly before tagging
-- Document breaking changes clearly
+- Cut tags from `main` after work is merged and tested
+- Use annotated SemVer tags (`vMAJOR.MINOR.PATCH`)
+- Bump `content-authoring-eval/package.json` to match the tag
+- Push commits before pushing the tag
 - Use conventional commits (`feat:`, `fix:`, `chore:`)
+- Cancel an in-flight deploy before re-tagging the same version
 
 ### DON'T ❌
 
-- Add new features to release branches
-- Force-push to release branches
-- Move or delete published tags
-- Skip version bumps in package.json
-- Release directly from `main` branch
-- Forget to merge hotfixes back to `main`
+- Tag a commit that isn't on `main`
+- Move or delete a published tag (treat tags as immutable)
+- Skip the `package.json` version bump
+- Force-push to `main`
+- Run two concurrent deploys for the same version
 
-## Migration from Old Strategy
+## Strategy Evolution
 
-### Before (Ad-hoc Releases)
+### v1.0.0 – v1.0.1: Release Branch Model
 
-- ❌ No clear version number
-- ❌ No release branches
-- ❌ Manual deployment
-- ❌ No hotfix workflow
+The original release strategy (2026-01-01) introduced a `release/1.0` branch with cherry-pick-back-to-main hotfix flow. Patterned after large-monorepo conventions.
 
-### After (Lockstep Versioning)
+### v1.0.2+: Trunk-Based (Current)
 
-- ✅ Clear SemVer version (`v1.0.0`)
-- ✅ Release branches (`release/1.0`)
-- ✅ Automated deployment on version changes
-- ✅ Structured hotfix workflow
+On 2026-05-12, `release/1.0` was merged back into `main` and deleted. Reasons:
 
-## Future Considerations
+- The release branch hadn't been touched in 4 months — it had drifted ~29 commits behind `main`
+- The deploy workflow keys off tag push regardless of branch, so the branch wasn't load-bearing
+- For a single-maintainer monorepo, the overhead of cherry-picking and keeping two branches in sync outweighed any benefit
+- Tagging from `main` is the standard convention and matches what most teams expect
 
-As the monorepo grows, we may consider:
-
-1. **Independent versioning**: Per-project version numbers
-2. **Automated changelogs**: Using conventional commits
-3. **Release automation**: Tools like semantic-release or Lerna
-4. **Multiple deployment targets**: Separate workflows per project
-
-For now, lockstep versioning provides the simplest, clearest model.
+If a future minor version needs an LTS line (e.g., supporting both `v1.x` and `v2.x`), the release branch model can be reintroduced — but cross that bridge when there's an actual reason.
 
 ## Related Documentation
 
 - [README.md](./README.md) - Monorepo overview
 - [CLAUDE.md](./CLAUDE.md) - AI context and development guide
-- [.github/workflows/deploy-content-authoring-eval.yml](./.github/workflows/deploy-content-authoring-eval.yml) - Deployment workflow
-
-## References
-
-- [Nx: Versioning and Releasing Packages](https://nx.dev/blog/versioning-and-releasing-packages-in-a-monorepo)
-- [Streamdal: Monorepo Version Strategy](https://medium.com/streamdal/monorepos-version-tag-and-release-strategy-ce26a3fd5a03)
-- [Aviator: Release Management for Monorepos](https://www.aviator.co/blog/how-to-scale-release-management-for-monorepos/)
-- [Microsoft: Monorepo with Independent Cycles](https://devblogs.microsoft.com/ise/streamlining-development-through-monorepo-with-independent-release-cycles/)
+- [.github/workflows/deploy-content-authoring-eval.yml](./.github/workflows/deploy-content-authoring-eval.yml) - Tag-triggered build + deploy
+- [.github/workflows/deploy-only-content-authoring-eval.yml](./.github/workflows/deploy-only-content-authoring-eval.yml) - Manual deploy/rollback of existing image tags
 
 ---
 
-**Established**: 2025-01-01
-**Current Version**: v1.0.0
-**Active Release Branch**: release/1.0
+**Last Updated**: 2026-05-12
+**Current Version**: v1.0.2
+**Branch Model**: Trunk-based (tag from `main`)
