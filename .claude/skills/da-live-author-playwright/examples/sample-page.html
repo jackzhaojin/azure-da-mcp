@@ -1,0 +1,103 @@
+<!--
+  Canonical da.live page shape.
+
+  Use this as a structural anchor when references/eds-html-structure.md feels too abstract.
+  Every block here follows the row/column-by-div pattern. The metadata block at the bottom
+  is what produces the page's <meta> tags after preview-publish.
+
+  This is a *shape* reference, not a template to copy verbatim. Specific block contracts
+  (column counts, modifier classes) come from the site's own block library — see
+  references/block-library.md.
+-->
+<html>
+<body>
+<header></header>
+<main>
+
+  <!-- Hero: image row + title/subtitle row -->
+  <div class="hero">
+    <div>
+      <div><picture><img src="/media/hero-landscape.jpg" alt="Aerial view of sorting facility"/></picture></div>
+    </div>
+    <div>
+      <div>
+        <h1>The Future of Postal Delivery</h1>
+        <p>How digital touchpoints, IoT sensors, and customer-experience telemetry are reshaping the last mile.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Default content: bare semantic HTML, no block wrapper -->
+  <div>
+    <h2>Why this matters</h2>
+    <p>Carriers face simultaneous pressure to reduce cost-per-package, hit tighter delivery windows, and surface trust signals to recipients before, during, and after delivery. The pages in this report walk through five interlocking systems that, together, define a modern parcel experience.</p>
+    <p>Read on for the operational, technical, and customer-experience implications.</p>
+  </div>
+
+  <!-- Columns: one row, two columns -->
+  <div class="columns">
+    <div>
+      <div>
+        <h3>Operational telemetry</h3>
+        <p>Real-time scanning, route optimization, and exception handling create the data substrate that everything else depends on.</p>
+      </div>
+      <div>
+        <h3>Customer-facing signals</h3>
+        <p>Estimated arrival, live tracking, photo proof-of-delivery — the touchpoints recipients actually interact with.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards: three rows, each with image/title/description -->
+  <div class="cards">
+    <div>
+      <div><picture><img src="/media/card-iot.jpg" alt="IoT temperature sensor"/></picture></div>
+      <div><h3>Cold-chain integrity</h3></div>
+      <div><p>Continuous temperature monitoring for vaccines, biologics, and perishables — with mid-route remediation triggers.</p></div>
+    </div>
+    <div>
+      <div><picture><img src="/media/card-routing.jpg" alt="Route map visualization"/></picture></div>
+      <div><h3>Dynamic routing</h3></div>
+      <div><p>Per-stop reordering based on traffic, weather, and delivery-window constraints — recalculated up to 12 times per shift.</p></div>
+    </div>
+    <div>
+      <div><picture><img src="/media/card-pod.jpg" alt="Photo proof of delivery"/></picture></div>
+      <div><h3>Photo proof-of-delivery</h3></div>
+      <div><p>Geo-tagged delivery photos surfaced to the recipient in under 30 seconds, cutting "did it arrive?" support tickets by 38%.</p></div>
+    </div>
+  </div>
+
+  <!-- More default content between blocks is fine -->
+  <div>
+    <h2>Where to go next</h2>
+    <p>Each system above gets its own page in this report. Start with whichever one your team owns — they read independently.</p>
+    <ul>
+      <li><a href="/operational-telemetry">Operational telemetry deep-dive</a></li>
+      <li><a href="/customer-experience-digital-postal">Customer-experience layer</a></li>
+      <li><a href="/iot-temperature-controlled-delivery">Cold-chain IoT</a></li>
+    </ul>
+  </div>
+
+  <!-- CTA: single-row, single-column block with a heading + link -->
+  <div class="cta">
+    <div>
+      <div>
+        <h3>Want the full report as a PDF?</h3>
+        <p><a href="/downloads/future-of-postal-2026.pdf">Download (4.2MB, 32 pages)</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metadata: produces <meta> tags on publish. Lowercase keys; values can contain HTML for image -->
+  <div class="metadata">
+    <div><div>title</div><div>The Future of Postal Delivery — 2026 Report</div></div>
+    <div><div>description</div><div>How IoT, dynamic routing, and customer-experience telemetry are reshaping the last mile.</div></div>
+    <div><div>image</div><div><picture><img src="/media/og-future-of-postal.jpg" alt="The Future of Postal Delivery"/></picture></div></div>
+    <div><div>keywords</div><div>postal, logistics, last mile, IoT, customer experience</div></div>
+    <div><div>og:type</div><div>article</div></div>
+  </div>
+
+</main>
+<footer></footer>
+</body>
+</html>
