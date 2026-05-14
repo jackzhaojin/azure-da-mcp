@@ -136,13 +136,17 @@ WORKDIR /app
 # Strategy: Install app's Playwright browsers from deps stage, then install @playwright/mcp's version
 # This ensures both chromium-1200 (app) and chromium-1205 (@playwright/mcp) are available
 
-# First: Install app's Playwright version (1.57.0 = chromium-1200) using npx from deps
+# First: Install app's Playwright version (1.57.0 = chromium-1200) using its OWN binary.
+# IMPORTANT: do NOT use `npx playwright install` here — after `cd temp_node_modules`,
+# we're inside a node_modules directory (not a project root), so npx can't resolve a
+# local playwright and silently downloads the LATEST playwright from npm. That installs
+# the wrong chromium revision (e.g. 1223/1224) and leaves the app's expected
+# chromium_headless_shell-1200 missing → runtime crash. Invoke the binary directly.
 # Install BOTH chromium (full) and chromium-headless-shell — Playwright 1.49+ uses the
-# separate headless_shell binary when launch({ headless: true }) is called, and
-# `install chromium` alone does NOT include it.
+# separate headless_shell binary when launch({ headless: true }) is called.
 COPY --from=deps /app/node_modules ./temp_node_modules
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-RUN cd temp_node_modules && npx playwright install chromium chromium-headless-shell --with-deps
+RUN /app/temp_node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps
 
 # Second: Install @playwright/mcp's version (chromium-1205) — also install headless shell
 RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps

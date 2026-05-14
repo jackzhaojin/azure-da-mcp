@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 export function Navigation() {
   const pathname = usePathname();
 
+  const version = process.env.NEXT_PUBLIC_APP_VERSION;
+
   return (
     <nav className="border-b">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -41,6 +43,14 @@ export function Navigation() {
             </Link>
           </div>
         </div>
+        {version && (
+          <span
+            className="text-xs font-mono text-muted-foreground tracking-tight"
+            title="Deployed version"
+          >
+            v{version}
+          </span>
+        )}
       </div>
     </nav>
   );
