@@ -39,19 +39,66 @@ Key rules:
 
 Some blocks expect a fixed shape (e.g., `cards` often needs each row to be `[image, title, description]` — 3 columns). The *only* reliable way to know is to fetch the block's example page from the block library. See `block-library.md`.
 
-## The metadata block
+## The metadata block — a `<table>`, not a `<div>` block
 
-Every page should end with a `metadata` block. The renderer turns it into `<meta>` tags in the published `<head>`:
+Most blocks in EDS / da.live are authored as block-divs (`<div class="block-name">…`), but **the metadata block is the exception** — it's a plain `<table>` whose first cell is the literal word `Metadata`. Both the canonical EDS docs ([aem.live/developer/block-collection/metadata](https://www.aem.live/developer/block-collection/metadata), [aem.live/docs/metadata](https://www.aem.live/docs/metadata)) and the observed behavior of da.live's save endpoint confirm this:
+
+- The EDS publish pipeline scans for a `<table>` whose first cell is `Metadata`. That's what turns it into `<meta>` tags in `<head>`.
+- The metadata block does **not** appear verbatim in `<body>` on the published page.
+- A `<div class="metadata">` with **bare text in cells** is **not** recognized — the save endpoint strips the class and flattens the structure, and can even cascade-damage adjacent blocks. Burned us once; we now know.
+
+### Canonical authoring form (what to write)
+
+```html
+<table>
+  <tr><td>Metadata</td><td></td></tr>
+  <tr><td>title</td><td>Customer Experience Digital Postal</td></tr>
+  <tr><td>description</td><td>How postal services modernize CX with digital touchpoints.</td></tr>
+  <tr><td>image</td><td><picture><img src="/media/og-image.jpg" alt="og image"/></picture></td></tr>
+  <tr><td>keywords</td><td>postal, customer experience, digital</td></tr>
+  <tr><td>author</td><td>Elena Kowalski</td></tr>
+  <tr><td>publication-date</td><td>2026-01-09</td></tr>
+</table>
+```
+
+Rules:
+
+- Row 1 is the block-name header — literally `Metadata` (case-insensitive in practice; capitalized by convention).
+- Each subsequent row is key/value. Column 1 is the meta key (`title`, `description`, `image`, `keywords`, `author`, `publication-date`, `og:type`, etc., lowercase). Column 2 is the value.
+- Values are usually plain text; for `image` (and similar fields) the value is HTML — typically `<picture><img src="…" alt="…"/></picture>`.
+- One metadata table per page. Placement doesn't matter to the pipeline, but **convention is to place it as the last element inside `<main>`**.
+
+### Canonical storage form (what you'll see on a GET)
+
+da.live normalizes the `<table>` you save into a `<div class="metadata">` block for storage. So a subsequent `get_dalive_content` on the same page returns this shape, *not* the table you sent:
 
 ```html
 <div class="metadata">
-  <div><div>title</div><div>Customer Experience Digital Postal</div></div>
-  <div><div>description</div><div>How postal services modernize CX with digital touchpoints.</div></div>
-  <div><div>image</div><div><picture><img src="/media/og-image.jpg"/></picture></div></div>
+  <div>
+    <div><p>title</p></div>
+    <div><p>Customer Experience Digital Postal</p></div>
+  </div>
+  <div>
+    <div><p>description</p></div>
+    <div><p>How postal services modernize CX…</p></div>
+  </div>
+  <div>
+    <div><p>image</p></div>
+    <div><picture><img src="…" alt="…"/></picture></div>
+  </div>
+  …
 </div>
 ```
 
-Each row is a key/value pair: column 1 is the meta key (`title`, `description`, `image`, `keywords`, etc.); column 2 is the value. Lowercase keys.
+Each row is a 2-column `<div>…<div>…</div></div>`, and **each text cell wraps its content in `<p>`**. Those `<p>` wrappers are load-bearing: a `<div class="metadata">` with bare text inside cell divs is not a recognized block.
+
+### Two-form rule, one sentence
+
+You can write a metadata block as either a `<table>` (preferred — simpler, matches EDS canonical authoring) or a `<div class="metadata">` with `<p>`-wrapped cells; both round-trip cleanly. What you must **not** write is `<div class="metadata">` with bare text in cell divs — that's not a recognized block shape and the save will silently strip and flatten it.
+
+### Validating
+
+Don't preview-publish and look for the metadata table in `<body>` — it won't be there. Validate by reading `document.title` and the `<meta>` tags from `<head>` (see `validation-loop.md`).
 
 ## Images
 
@@ -111,10 +158,11 @@ A complete minimal page:
       </div>
     </div>
 
-    <div class="metadata">
-      <div><div>title</div><div>Title for SEO</div></div>
-      <div><div>description</div><div>One-line description.</div></div>
-    </div>
+    <table>
+      <tr><td>Metadata</td><td></td></tr>
+      <tr><td>title</td><td>Title for SEO</td></tr>
+      <tr><td>description</td><td>One-line description.</td></tr>
+    </table>
   </main>
   <footer></footer>
 </body>

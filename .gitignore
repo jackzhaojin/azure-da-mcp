@@ -12,3 +12,6 @@ ai-docs
 specs
 .playwright-mcp/
 .playwright-cli/
+
+# Packaged Claude skill bundles (regenerated via skill-creator)
+*.skill

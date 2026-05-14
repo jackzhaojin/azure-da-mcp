@@ -16,23 +16,26 @@ If the user gave you a vague ask like "update the metadata", ask which fields. D
 ## Steps
 
 1. **Fetch the current page** — `get_dalive_content("/source/{owner}/{site}/{path}.html")`.
-2. **Locate the metadata block.** It's a `<div class="metadata">` near the bottom of `<main>`. If absent, the page has no metadata block — adding one is fine, but tell the user that's what you're doing.
-3. **Parse the existing rows.** Each row is `<div><div>key</div><div>value</div></div>`. Build a key → value map.
+2. **Locate the metadata block.** What you'll see on a GET is the canonical storage form: `<div class="metadata">…</div>`, conventionally near the bottom of `<main>`. (Confusingly, the canonical *authoring/input* form is a `<table>` — but da.live normalizes that to the div form on save, so a GET always returns the div form. See `references/eds-html-structure.md` for the full rule.) If no metadata block exists, the page has no metadata — adding one is fine, but tell the user that's what you're doing.
+3. **Parse the existing rows.** Each row is `<div><div><p>key</p></div><div><p>value</p></div></div>` (or for image-like values, the second cell contains `<picture><img/></picture>` instead of `<p>`). Build a key → value map.
 4. **Apply changes.** For each change in the user's input:
-   - **Set**: replace the value in the existing row, or create a new row if the key wasn't present.
+   - **Set**: replace the value in the existing row, or append a new row if the key wasn't present.
    - **Add**: same as set on a new key.
    - **Remove**: drop the row entirely.
-5. **Reconstruct the metadata block** in its proper shape (per `references/eds-html-structure.md`):
+5. **Reconstruct the metadata block as a `<table>`** — simpler to build than the div form, and da.live will normalize it to the canonical storage form on save. Per `references/eds-html-structure.md`:
    ```html
-   <div class="metadata">
-     <div><div>title</div><div>...</div></div>
-     <div><div>description</div><div>...</div></div>
+   <table>
+     <tr><td>Metadata</td><td></td></tr>
+     <tr><td>title</td><td>...</td></tr>
+     <tr><td>description</td><td>...</td></tr>
+     <tr><td>image</td><td><picture><img src="..." alt="..."/></picture></td></tr>
      <!-- etc. -->
-   </div>
+   </table>
    ```
-6. **Splice** the new metadata block into the page in place of the old one.
+   (You can also write the div form directly — `<div class="metadata"><div><div><p>key</p></div><div><p>value</p></div></div>…</div>` — both round-trip. Just **never** write bare text in cell divs without `<p>` wrappers; that breaks block recognition.)
+6. **Splice** the new metadata block into the page in place of the old one (or as a new last child of `<main>` if there wasn't one).
 7. **Save** — `save_dalive_content`.
-8. **Preview-publish** — `preview_publish_dalive_content("/source/{owner}/{site}/{path}")` (no `.html`).
+8. **Preview-publish** — `preview_publish_dalive_content("/source/{owner}/{site}/{path}")` (no `.html`). Required — the `.aem.page` URL only reflects published content.
 9. **Validate.** Special validation for metadata, since the changes don't appear in the page body:
    - `browser_navigate(previewUrl)` then `browser_evaluate("document.title")` for the title.
    - `browser_evaluate("document.querySelector('meta[name=description]')?.content")` for description.
