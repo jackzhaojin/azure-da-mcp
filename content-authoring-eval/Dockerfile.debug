@@ -27,7 +27,9 @@ COPY . .
 RUN npm run build
 
 # Pre-install chromium browsers (ARM64 compatible)
-RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium && \
+# Playwright 1.49+ requires chromium-headless-shell to be installed separately
+# from full chromium — both are needed because launch({ headless: true }) uses the shell.
+RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium chromium-headless-shell && \
     mkdir -p /home/appuser/.cache/ms-playwright && \
     cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ && \
     cd /home/appuser/.cache/ms-playwright && \
