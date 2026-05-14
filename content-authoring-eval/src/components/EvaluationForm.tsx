@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,11 +107,18 @@ export function EvaluationForm() {
     }
   };
 
-  // Navigate to results when streaming completes
-  if (finalReport) {
-    addEvaluation(finalReport);
-    router.push(`/results/${finalReport.id}`);
-  }
+  // Navigate to results when streaming completes.
+  // Must run in an effect, not during render — calling addEvaluation (setState) and
+  // router.push during render schedules another render that re-enters this branch,
+  // looping until React throws "Maximum update depth exceeded".
+  const handledReportIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (finalReport && handledReportIdRef.current !== finalReport.id) {
+      handledReportIdRef.current = finalReport.id;
+      addEvaluation(finalReport);
+      router.push(`/results/${finalReport.id}`);
+    }
+  }, [finalReport, addEvaluation, router]);
 
   const isLoading = isSubmitting || isStreaming;
 
