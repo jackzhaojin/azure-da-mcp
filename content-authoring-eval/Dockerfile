@@ -133,34 +133,41 @@ COPY --from=builder --chown=appuser:appuser /app/public ./public
 # Install for BOTH Playwright versions to avoid version mismatch issues
 WORKDIR /app
 
-# Strategy: Install app's Playwright browsers from deps stage, then install @playwright/mcp's version
-# This ensures both chromium-1200 (app) and chromium-1205 (@playwright/mcp) are available
+# Strategy: install app's playwright (1.57.0 → revision 1200) and @playwright/mcp's
+# playwright (1.61.x → revision 1224) into SEPARATE PLAYWRIGHT_BROWSERS_PATH dirs,
+# then merge both into the final destination. We cannot share one cache: `playwright
+# install` runs a GC pass that deletes "unused" revisions (those not in the calling
+# package's browsers.json), so a single shared cache ends up with only the
+# last-installer's revision and the other version's binary is wiped.
+#
+# Also: do NOT use `npx playwright install` from inside the deps node_modules. npx
+# can't resolve a local playwright when CWD is a bare node_modules dir and falls
+# back to fetching the LATEST playwright from npm, installing the wrong revision.
+# Place the deps node_modules at /tmp/pw-installer/node_modules so Node's resolver
+# (which looks for `<parent>/node_modules/<pkg>`) finds it correctly.
+#
+# Install BOTH chromium (full) and chromium-headless-shell — Playwright 1.49+ uses
+# the separate headless_shell binary when launch({ headless: true }) is called.
 
-# First: Install app's Playwright version (1.57.0 = chromium-1200) using its OWN binary.
-# IMPORTANT: do NOT use `npx playwright install` — it silently downloads the LATEST
-# playwright from npm when CWD is a bare node_modules dir, which installs the wrong
-# chromium revision (1223/1224) and leaves the app's expected chromium_headless_shell-1200
-# missing → runtime crash.
-# The deps node_modules must be placed at a path whose immediate parent is searched by
-# Node's resolver (i.e. `<parent>/node_modules/<pkg>` form). Using `temp_node_modules`
-# breaks this because resolution from `temp_node_modules/@playwright/test/cli.js` skips
-# the `temp_node_modules` directory itself. We put it at /tmp/pw-installer/node_modules.
-# Install BOTH chromium (full) and chromium-headless-shell — Playwright 1.49+ uses the
-# separate headless_shell binary when launch({ headless: true }) is called.
+# 1) App's playwright (1.57.0 → chromium 1200) into /root/.cache/pw-app
 COPY --from=deps /app/node_modules /tmp/pw-installer/node_modules
-ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
 RUN cd /tmp/pw-installer && \
+    PLAYWRIGHT_BROWSERS_PATH=/root/.cache/pw-app \
     ./node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps && \
     rm -rf /tmp/pw-installer
 
-# Second: Install @playwright/mcp's version (chromium-1205) — also install headless shell
-RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps
+# 2) @playwright/mcp's playwright (chromium 1224) into /root/.cache/pw-mcp
+RUN PLAYWRIGHT_BROWSERS_PATH=/root/.cache/pw-mcp \
+    /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps
 
-# Third: Copy all installed browsers to appuser directory and cleanup temp cache
+# 3) Merge both caches into the runtime location and hand to appuser.
+# cp -rn used so neither overwrites the other (different revision dirs anyway).
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
 RUN mkdir -p /home/appuser/.cache/ms-playwright && \
-    cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ && \
+    cp -rn /root/.cache/pw-app/. /home/appuser/.cache/ms-playwright/ && \
+    cp -rn /root/.cache/pw-mcp/. /home/appuser/.cache/ms-playwright/ && \
     chown -R appuser:appuser /home/appuser/.cache && \
-    rm -rf /root/.cache/ms-playwright
+    rm -rf /root/.cache/pw-app /root/.cache/pw-mcp
 
 # Copy production node_modules from separate stage (after browser installation)
 COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
