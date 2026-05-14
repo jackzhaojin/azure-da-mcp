@@ -137,26 +137,30 @@ WORKDIR /app
 # This ensures both chromium-1200 (app) and chromium-1205 (@playwright/mcp) are available
 
 # First: Install app's Playwright version (1.57.0 = chromium-1200) using its OWN binary.
-# IMPORTANT: do NOT use `npx playwright install` here — after `cd temp_node_modules`,
-# we're inside a node_modules directory (not a project root), so npx can't resolve a
-# local playwright and silently downloads the LATEST playwright from npm. That installs
-# the wrong chromium revision (e.g. 1223/1224) and leaves the app's expected
-# chromium_headless_shell-1200 missing → runtime crash. Invoke the binary directly.
+# IMPORTANT: do NOT use `npx playwright install` — it silently downloads the LATEST
+# playwright from npm when CWD is a bare node_modules dir, which installs the wrong
+# chromium revision (1223/1224) and leaves the app's expected chromium_headless_shell-1200
+# missing → runtime crash.
+# The deps node_modules must be placed at a path whose immediate parent is searched by
+# Node's resolver (i.e. `<parent>/node_modules/<pkg>` form). Using `temp_node_modules`
+# breaks this because resolution from `temp_node_modules/@playwright/test/cli.js` skips
+# the `temp_node_modules` directory itself. We put it at /tmp/pw-installer/node_modules.
 # Install BOTH chromium (full) and chromium-headless-shell — Playwright 1.49+ uses the
 # separate headless_shell binary when launch({ headless: true }) is called.
-COPY --from=deps /app/node_modules ./temp_node_modules
+COPY --from=deps /app/node_modules /tmp/pw-installer/node_modules
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-RUN /app/temp_node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps
+RUN cd /tmp/pw-installer && \
+    ./node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps && \
+    rm -rf /tmp/pw-installer
 
 # Second: Install @playwright/mcp's version (chromium-1205) — also install headless shell
 RUN /usr/local/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium chromium-headless-shell --with-deps
 
-# Third: Copy all installed browsers to appuser directory and cleanup temp files
+# Third: Copy all installed browsers to appuser directory and cleanup temp cache
 RUN mkdir -p /home/appuser/.cache/ms-playwright && \
     cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ && \
     chown -R appuser:appuser /home/appuser/.cache && \
-    rm -rf /root/.cache/ms-playwright && \
-    rm -rf ./temp_node_modules
+    rm -rf /root/.cache/ms-playwright
 
 # Copy production node_modules from separate stage (after browser installation)
 COPY --from=prod-deps --chown=appuser:appuser /app/node_modules ./node_modules
