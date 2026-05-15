@@ -46,7 +46,10 @@ npm run lint:fix
 Copy `.env.example` to `.env` and configure:
 
 ```bash
-# Required for all operations
+# Optional for local dev only — used as fallback when callers don't send their own
+# Authorization header. Get a fresh value with:
+#   npx github:adobe-rnd/da-auth-helper token
+# (opens a browser, runs Adobe IMS implicit OAuth, caches at ~/.aem/da-token.json)
 DALIVE_BEARER_TOKEN=your-jwt-token-here
 
 # LLM Provider Configuration
@@ -82,7 +85,24 @@ Also update `local.settings.json` with the same values:
 
 **Important**:
 - Never commit `.env` or `local.settings.json` files - both contain secrets and are gitignored
-- When you refresh your da.live Bearer token, update it in BOTH files for local testing
+- When you refresh your local DA token, update it in BOTH files. Prefer `npx github:adobe-rnd/da-auth-helper token` over copy-pasting from DevTools.
+- **Never set `DALIVE_BEARER_TOKEN` in the deployed Azure Function's app settings.** It only exists as a local-dev fallback; in production it would let anonymous callers act as the token's owner (the function silently falls back to it when no `Authorization` header is present — verified 2026-05-15).
+
+## Authentication Model
+
+The function is a **per-request bearer pass-through** to da.live's Adobe IMS surface — it does no token issuance, validation, or persistence of its own. Authentication enters the pipeline in exactly one place:
+
+```js
+// McpStreamableFunction.js / McpSessionFunction.js
+const authHeader = req.headers.get('authorization');
+bearerToken = authHeader ? authHeader.substring(7) : process.env.DALIVE_BEARER_TOKEN || null;
+```
+
+That `bearerToken` is then forwarded verbatim as `Authorization: Bearer …` to `admin.da.live` and `admin.hlx.page` by `DaliveClient.js`. There is no JWT inspection, no audience check, no scope validation — whatever the caller sends gets passed through. da.live itself rejects bad tokens with 401, which the function surfaces unchanged.
+
+**How clients get tokens**: use the [`da-auth-helper`](https://github.com/adobe-rnd/da-auth-helper) CLI (`npx github:adobe-rnd/da-auth-helper token`). It drives Adobe's public `darkalley` IMS app through a localhost OAuth flow, caches at `~/.aem/da-token.json`, and returns a JWT valid for ~24h with all DA scopes. Confirmed end-to-end against the deployed function on 2026-05-15: list, get, save, preview-publish all work with helper-issued tokens.
+
+**The bridge is the right place to automate token refresh**. `mcp-stdio-bridge.js` runs on the user's machine and could call `getValidToken()` from `da-auth-helper` instead of reading `process.env.DALIVE_BEARER_TOKEN`. That's a Day-2 polish — manually-set env vars in the user's Claude Desktop config still work today.
 
 ## Architecture
 

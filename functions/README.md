@@ -6,6 +6,21 @@ AI-powered content editing for da.live via Azure Functions and Model Context Pro
 
 HTTP MCP server providing tools for LLMs to autonomously fetch, edit, and save content on da.live. The LLM decides when to list directories, fetch content, make edits, and save changes - no pre-fetching required.
 
+## Authentication
+
+The deployed function is a **per-request bearer pass-through**. It does not store a da.live token; every MCP request must include `Authorization: Bearer <ims-token>` and that token is forwarded verbatim to `admin.da.live`. There is no server-side OAuth state.
+
+The easiest way for a caller to obtain a valid IMS token is the [`da-auth-helper`](https://github.com/adobe-rnd/da-auth-helper) CLI, which drives Adobe's public `darkalley` IMS app through a local browser OAuth flow and caches the result at `~/.aem/da-token.json`:
+
+```bash
+TOKEN=$(npx github:adobe-rnd/da-auth-helper token)
+# first run opens a browser; subsequent runs return the cached token until expiry
+```
+
+Tokens are valid ~24 hours and carry the full DA scope set (`aem.frontend.all`, `ab.manage`, …) — sufficient for list / get / save / create / preview-publish.
+
+> **Do not set `DALIVE_BEARER_TOKEN` in the deployed Azure Function's app settings.** The function falls back to that variable when callers don't supply their own Authorization header. With it set in production, anyone who knows the function URL can read and write da.live content as whoever owns the token. Local `.env` / `local.settings.json` is fine for development — production should rely solely on per-request bearers.
+
 ## Quick Start
 
 ```bash
@@ -60,12 +75,12 @@ Configure via `LLM_PROVIDER` environment variable or request body.
 
 ## Configuration Files
 
-**IMPORTANT**: Azure Functions requires configuration in TWO places:
+**For local development**, Azure Functions reads configuration from two places:
 
 1. **`.env`** - Used by tests and some modules
 2. **`local.settings.json`** - Used by Azure Functions runtime
 
-Update your da.live Bearer token in BOTH files when it expires.
+A `DALIVE_BEARER_TOKEN` set in either file is only consumed as a fallback for callers that omit the Authorization header — convenient when running E2E tests locally. Refresh it via `npx github:adobe-rnd/da-auth-helper token` rather than digging through DevTools. For the deployed function in Azure, see the [Authentication](#authentication) section — `DALIVE_BEARER_TOKEN` must not be set there.
 
 ## Testing
 
@@ -84,11 +99,16 @@ npm run test:watch
 
 ## Example Usage
 
+```bash
+# Grab an IMS token once per ~24h — opens a browser the first time
+TOKEN=$(npx github:adobe-rnd/da-auth-helper token)
+```
+
 ### List directory contents
 ```bash
 curl -X POST http://localhost:7071/api/mcp-streamable \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -104,7 +124,7 @@ curl -X POST http://localhost:7071/api/mcp-streamable \
 ```bash
 curl -X POST http://localhost:7071/api/mcp-streamable \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -126,7 +146,9 @@ curl -X POST http://localhost:7071/api/mcp-streamable \
 
 **Node Version Error**: Use Node 22+ (check `package.json` engines field)
 
-**Two Config Files**: Remember to update BOTH `.env` and `local.settings.json` when refreshing Bearer tokens
+**Refreshing local tokens**: Run `npx github:adobe-rnd/da-auth-helper token` to mint a fresh IMS bearer; paste it into BOTH `.env` and `local.settings.json` if you use the env-var fallback for local tests. The helper caches at `~/.aem/da-token.json` and re-runs as a no-op while the cached token is valid.
+
+**Azure deploy gotcha**: If `DALIVE_BEARER_TOKEN` ever shows up in the deployed function's app settings, the function silently serves anonymous callers as the token's owner. Keep it unset in Azure — see [Authentication](#authentication).
 
 **Docker Connection**: Use `host.docker.internal:7071` instead of `localhost:7071` when calling from Docker containers (n8n, etc.)
 
@@ -154,5 +176,5 @@ Client → EditContentFunction → LlmClient (router)
 
 ---
 
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-05-15
 **Status**: Production-ready
