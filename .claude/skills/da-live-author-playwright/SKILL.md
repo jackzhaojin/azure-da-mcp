@@ -20,6 +20,19 @@ The skill assumes both are already wired into the host. It does not install or c
 
 If either tool surface is missing when the skill runs, surface that to the user immediately rather than improvising — the value of the skill comes from the two working together.
 
+## Authentication — the bearer token problem
+
+Every DA.live MCP tool call needs an Adobe IMS bearer token (24h lifetime). The server does not store a token of its own; the caller has to supply one on every request. There are two channels for delivering it, and **which one applies depends on the host the skill is running in**:
+
+- **Hosts that send `Authorization: Bearer <token>` natively** (Claude Desktop via stdio bridge, Claude Code, ChatGPT custom actions, curl/Bruno): the token reaches the server through the HTTP header. You don't have to do anything special — call the DA.live MCP tools normally.
+- **Hosts that can't set custom HTTP headers on remote MCP requests** (Claude.ai custom connectors, Make.com MCP modules): the token travels as a `bearerToken` field inside each tool call's `arguments` object. The user puts the current token value in project knowledge / system prompt with an instruction to include it in every tool call. **When such an instruction is present, follow it — pass `bearerToken: "eyJ..."` in every DA.live MCP tool call's arguments.** The server strips that field before the tool implementation runs, so it never leaks into tool error output.
+
+When in doubt, defensively include `bearerToken` if the user supplied one — the server prefers a real header when both are present, so an extra arg-channel value is just ignored when not needed.
+
+**Failure mode**: a tool call that returns `Authentication failed for da.live API`, `Invalid session: No session or Bearer token provided`, or `401 Unauthorized: Invalid or expired Bearer token` means the token has expired or isn't reaching the server. Stop the operation, surface this to the user, and ask them to refresh — the canonical command is `npx github:adobe-rnd/da-auth-helper token`. Don't try to refresh it yourself; the helper requires a browser session on the user's machine.
+
+See `references/authentication.md` for the full model, why it's designed this way, and a deeper triage table.
+
 ## How to use this skill — at a glance
 
 1. **Confirm the working context** (see "Confirmation gate" below) before any tool call.
@@ -86,6 +99,7 @@ Load these on-demand. Don't preload — they bloat context for operations that d
 | `references/validation-loop.md` | After preview-publish on any operation — covers Playwright validation, the 3-iteration refinement loop, and the confidence-scoring rubric. |
 | `references/memory-page.md` | Optional — at start (read) and end (append) of operations, if the user opted into a memory page. |
 | `references/url-conventions.md` | Whenever you need to construct a da.live edit URL, an `aem.page` preview URL, or a `/source/{owner}/{site}/...` path. Especially important: `preview_publish_dalive_content` requires the *full* `/source/{owner}/{site}/...` path. |
+| `references/authentication.md` | Load when a tool call returns 401 / "Authentication failed for da.live API", or when you need to understand how the DA.live MCP server expects bearer tokens (header vs `bearerToken`-in-args). |
 
 A canonical end-to-end shape for da.live HTML lives at `examples/sample-page.html`. Open it when you need a concrete anchor for "what does a clean page look like?"
 
