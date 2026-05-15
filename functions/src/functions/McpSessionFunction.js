@@ -249,6 +249,16 @@ async function handleToolsCall(sessionId, params, id, context) {
   const toolName = params.name;
   const toolArguments = params.arguments || {};
 
+  // Strip Hack 2 arg-bearer if present. This endpoint is used by Claude Desktop
+  // via the stdio bridge, which sets Authorization headers — the arg-channel
+  // isn't needed here. But the shared tool schemas advertise `bearerToken` as
+  // an optional input (for Claude.ai connectors hitting /mcp-streamable), so a
+  // model might pass it here too. Drop it before logging or tool execution so
+  // the JWT doesn't leak into App Insights request logs.
+  if (toolArguments.bearerToken) {
+    delete toolArguments.bearerToken;
+  }
+
   Logger.info('MCP tool call started', {
     sessionId,
     toolName,

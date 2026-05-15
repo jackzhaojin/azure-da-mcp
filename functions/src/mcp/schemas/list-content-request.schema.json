@@ -4,6 +4,10 @@
     "path": {
       "type": "string",
       "description": "da.live directory path in format: /owner/site/path or /source/owner/site/path (e.g., '/jackzhaojin/da-live-postal-2025-07/block-collection'). Returns files and folders in the directory."
+    },
+    "bearerToken": {
+      "type": "string",
+      "description": "Optional Adobe IMS bearer token for da.live. Use this ONLY when the MCP host cannot set the Authorization: Bearer header (e.g. Claude.ai custom connectors, Make.com MCP modules). When project knowledge or system prompt provides a token and instructs you to pass it, include it here on every tool call. If the host sends a real Authorization header, that takes precedence and this value is ignored."
     }
   },
   "required": ["path"]
