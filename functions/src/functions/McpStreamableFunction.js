@@ -106,8 +106,19 @@ app.http('McpStreamable', {
         case 'tools/list':
           return handleToolsList(sessionId, id, context);
 
-        case 'tools/call':
+        case 'tools/call': {
+          // Hack 2 (Claude.ai/Make.com workaround): accept `bearerToken` inside the
+          // tool's arguments for clients that can't set the Authorization header.
+          // Precedence: real Authorization header > arg-bearer > env fallback.
+          // Strip it from arguments so the tool implementation never sees it.
+          if (params.arguments && params.arguments.bearerToken) {
+            if (!authHeader) {
+              bearerToken = params.arguments.bearerToken;
+            }
+            delete params.arguments.bearerToken;
+          }
           return await handleToolsCall(sessionId, params, id, bearerToken, context);
+        }
 
         default:
           return {
