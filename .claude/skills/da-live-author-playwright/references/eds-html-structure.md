@@ -108,7 +108,19 @@ Always wrap images in `<picture>`:
 <picture><img src="/media/your-image.jpg" alt="describe the image"/></picture>
 ```
 
-Image paths in da.live are typically `/media/...` — a CDN convention. If you don't have a real image URL yet (common when migrating from a PDF), leave the `src` as a placeholder path (`/media/placeholder.jpg`) and flag it as a gap in the final report rather than hallucinating a URL.
+The `src` attribute can take **two valid shapes**, and EDS handles both automatically — there is no separate upload step you need to take:
+
+1. **Local media path** — `/media/...`. Already on the site's CDN; served as-is.
+2. **External absolute URL** — any publicly reachable image, e.g. `https://images.unsplash.com/photo-…` or `https://cdn.example.com/headshots/jane.jpg`. On preview-publish, EDS fetches the image, copies it into the site's local media bus (you'll see filenames like `media_1c05794….jpg` once published), generates responsive optimized variants (`?width=…&format=webply&optimize=…`), and the rendered `<img>` at `.aem.page` ends up pointing at the local copy. The author HTML you save keeps the original external URL — the rewrite is invisible to the source.
+
+**Implication for migration**: if the source page (a webpage you're scraping, or any source that has working `https://…` image URLs) already provides reachable image URLs, **paste them straight into the da.live HTML.** Do not:
+- Download the image yourself and try to re-host it somewhere
+- Substitute a placeholder when a real URL is available
+- Add a "TODO upload image" step to the report
+
+EDS does the ingestion at publish time as long as the URL is publicly reachable from the internet. Verified behavior: pages migrated with external image URLs render with local optimized media after `preview_publish_dalive_content`.
+
+**When placeholders are still right**: only when *no* URL exists for the image — typically images embedded inline in a PDF where you can only see the pixels, not a hostable URL. In that case, use `/media/placeholder.jpg` and flag it as a gap in the final report. Don't hallucinate URLs that don't exist.
 
 `alt` text should be derived from the source — caption, surrounding heading, or descriptive context. Don't ship empty alt unless the image is purely decorative.
 

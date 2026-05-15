@@ -21,7 +21,7 @@ Regardless of source type, end up with a structured understanding before transfo
 - **Title / main heading** — the H1 candidate.
 - **Section headings** (H2–H4) and the body content under each.
 - **Lists** (bulleted, numbered) — preserve order.
-- **Images** — note original URLs/positions; for da.live they'll need `/media/...` paths or placeholder flagging (see `eds-html-structure.md`).
+- **Images** — capture the original URL and position. If the source provides a publicly reachable absolute URL (`https://...`), use it directly in the da.live HTML — EDS auto-ingests external images into the local media bus on preview-publish, so no manual download/upload step is needed. Use placeholder paths (`/media/placeholder.jpg`) only when no URL exists at all (e.g., images embedded in a PDF). See `eds-html-structure.md` for the full rules.
 - **Links** — keep destinations exactly.
 - **Tables** — capture row/column structure if any.
 - **CTAs / buttons** — note the call-to-action text and target URL.
@@ -49,6 +49,8 @@ browser_take_screenshot()  # optional, for visual sanity
 ```
 
 The snapshot is usually more useful than a raw HTML dump — it gives you the semantic structure (headings, lists, links) without nav/footer chrome bloat. If the page has lazy-loaded content, you may need to wait or scroll (`browser_evaluate` for `window.scrollTo`) to capture below the fold.
+
+For images on the source page, capture the absolute `https://...` URLs from `<img src>` / `<picture><source srcset>` — those URLs go straight into the da.live HTML, no local re-hosting required (EDS handles ingestion at publish time). If `srcset` lists multiple resolutions, pick a reasonable single URL (the highest non-cropped one usually); EDS will re-derive responsive variants anyway.
 
 ### PDF URL
 
