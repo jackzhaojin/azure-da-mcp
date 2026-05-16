@@ -1,0 +1,20 @@
+{
+  "code": {
+    "owner": "jackzhaojin",
+    "repo": "da-live-postal-2025-07",
+    "source": {
+      "type": "github",
+      "url": "https://github.com/jackzhaojin/da-live-postal-2025-07"
+    }
+  },
+  "content": {
+    "source": {
+      "url": "https://content.da.live/jackzhaojin/da-live-postal-2025-07/",
+      "type": "markup"
+    },
+    "contentBusId": "5eb4108dfa879a50b0b7682b1739d10e9a23cb52aacc77c12cff680eff2"
+  },
+  "lastModified": "2026-05-16T15:50:27.168Z",
+  "created": "2026-05-16T15:50:27.168Z",
+  "version": 1
+}

@@ -1,0 +1,16 @@
+{
+  "sites": [
+    {
+      "path": "/config/jackzhaojin/sites/da-live-postal-2025-07.json",
+      "name": "da-live-postal-2025-07"
+    },
+    {
+      "path": "/config/jackzhaojin/sites/eds-doc-authoring.json",
+      "name": "eds-doc-authoring"
+    },
+    {
+      "path": "/config/jackzhaojin/sites/jack-da-live-harness-built.json",
+      "name": "jack-da-live-harness-built"
+    }
+  ]
+}

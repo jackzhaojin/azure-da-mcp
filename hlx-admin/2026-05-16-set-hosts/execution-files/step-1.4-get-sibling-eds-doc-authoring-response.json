@@ -1,0 +1,24 @@
+{
+  "version": 12,
+  "code": {
+    "owner": "jackzhaojin",
+    "repo": "eds-doc-authoring",
+    "source": {
+      "type": "github",
+      "url": "https://github.com/jackzhaojin/eds-doc-authoring"
+    }
+  },
+  "content": {
+    "contentBusId": "78b2535581512307e3625982752beb58d2b143124d8923c80cbe6cd5b37",
+    "source": {
+      "url": "https://drive.google.com/drive/u/0/folders/1MGzOt7ubUh3gu7zhZIPb7R7dyRzG371j",
+      "type": "google",
+      "id": "1MGzOt7ubUh3gu7zhZIPb7R7dyRzG371j"
+    }
+  },
+  "lastModified": "2026-03-23T03:47:19.211Z",
+  "created": "2025-07-08T03:25:20.061Z",
+  "robots": {
+    "txt": "User-agent: *\nAllow: /\n"
+  }
+}

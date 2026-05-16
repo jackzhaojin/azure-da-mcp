@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-**Azure DA.live MCP** — a monorepo of 5 independent AI-powered content authoring, migration, and evaluation tools for [da.live](https://da.live) (Adobe Edge Delivery Services). Each subproject has its own dependencies, configs, and workflows; this root file orients you to which one to work in.
+**Azure DA.live MCP** — a monorepo of 6 independent AI-powered content authoring, migration, evaluation, and ops tools for [da.live](https://da.live) (Adobe Edge Delivery Services). Each subproject has its own dependencies, configs, and workflows; this root file orients you to which one to work in.
 
 ## Monorepo Structure
 
-This repository contains 5 independent projects:
+This repository contains 6 independent projects:
 
 ### 1. `functions/` - Azure Functions MCP Server
 **Purpose**: Production MCP server for AI-assisted da.live content editing
@@ -70,6 +70,19 @@ This repository contains 5 independent projects:
 - Testing Azure Functions MCP endpoints
 - API debugging and exploration
 
+### 6. `hlx-admin/` - AEM Admin API Execution Logs
+**Purpose**: Auditable, one-at-a-time AEM Edge Delivery Services admin operations (`admin.hlx.page` config service, access control, code/content ops)
+**Tech**: curl + dated working directories with EXECUTION.md plans, JSON request/response files, retrospectives
+**Status**: Active use
+**Skill**: [hlx-admin-api-executor](https://github.com/jackzhaojin/ai-builder-kit/tree/main/skills/hlx-admin-api-executor) — drives the GET/SET/GET pattern and human-in-the-loop approval flow
+
+**When to work here**:
+- Creating or repairing AEM Config Service site records
+- Mutating org/site config, access lists, secrets, API keys
+- Any `admin.hlx.page` operation where mistakes are costly and the audit trail matters
+
+**Auth note**: The skill documents the `X-Auth-Token` cookie path, but the cached DA IMS JWT at `~/.aem/da-token.json` (populated by `npx github:adobe-rnd/da-auth-helper token`, 24h TTL) is also accepted by `admin.hlx.page` as `Authorization: Bearer …`. Faster when available. See `hlx-admin/2026-05-16-set-hosts/EXECUTION.md` for a worked example.
+
 ## Working in This Monorepo
 
 ### Important Instructions
@@ -113,6 +126,13 @@ cd bruno
 # Open collections in Bruno app
 ```
 
+**AEM admin operation** (skill-driven, human-in-the-loop):
+```bash
+cd hlx-admin/<YYYY-MM-DD-description>
+source .env-setup.sh   # loads DA IMS token from ~/.aem/da-token.json
+# Follow EXECUTION.md step-by-step
+```
+
 ### Navigation Tips
 
 When the user asks about:
@@ -121,6 +141,7 @@ When the user asks about:
 - **"Agent SDK"** or **"experiments"** → `agent-claude-sdk/`
 - **"Make.com"** or **"prompts"** → `make-dot-com/`
 - **"API testing"** or **"Bruno"** → `bruno/`
+- **"admin.hlx.page"**, **"AEM Config Service"**, **"site config"**, **"undefined preview URL"** → `hlx-admin/` (invoke the hlx-admin-api-executor skill)
 
 ### Files That Should NOT Be Committed
 
@@ -300,7 +321,7 @@ cp .env.example .env
 
 ---
 
-**Last Updated**: 2026-05-12
+**Last Updated**: 2026-05-16
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
 **Current Version**: v1.0.2 (trunk-based, tag from `main`)

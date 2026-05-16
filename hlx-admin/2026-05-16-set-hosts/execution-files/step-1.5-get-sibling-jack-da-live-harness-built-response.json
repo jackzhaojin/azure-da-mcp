@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "code": {
+    "owner": "jackzhaojin",
+    "repo": "jack-da-live-harness-built",
+    "source": {
+      "type": "github",
+      "url": "https://github.com/jackzhaojin/jack-da-live-harness-built"
+    }
+  },
+  "content": {
+    "source": {
+      "url": "https://content.da.live/jackzhaojin/jack-da-live-harness-built/",
+      "type": "markup"
+    },
+    "contentBusId": "a7dca5ffa5045b0a99165ce7bcde45bccc8766c523b09845a26d538ffaa"
+  },
+  "lastModified": "2026-01-11T18:35:52.692Z",
+  "created": "2026-01-11T18:35:51.628Z"
+}

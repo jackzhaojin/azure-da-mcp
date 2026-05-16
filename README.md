@@ -116,6 +116,23 @@ cd bruno/local-functions
 
 ---
 
+### 6. `hlx-admin/` - AEM Admin API Execution Logs
+**Status**: Active use
+**Purpose**: Auditable, one-at-a-time AEM Edge Delivery Services admin operations
+
+Per-operation working directories (`YYYY-MM-DD-description/`) containing `EXECUTION.md` plans, request/response artifacts, and post-hoc retrospectives. Driven by the [hlx-admin-api-executor skill](https://github.com/jackzhaojin/ai-builder-kit/tree/main/skills/hlx-admin-api-executor), which enforces GET/SET/GET verification and human approval before any mutation against `admin.hlx.page`.
+
+**Quick Start**:
+```bash
+# Skill-driven: from Claude Code, describe the AEM admin operation and the skill creates a new dated folder.
+# Manual: cd hlx-admin/<YYYY-MM-DD-description> && source .env-setup.sh && follow EXECUTION.md
+```
+
+**Operations logged**:
+- `2026-05-16-set-hosts/` — Registered `da-live-postal-2025-07` in the AEM Configuration Service (fixed broken da.live Preview/Publish + Sidekick navigation)
+
+---
+
 ## Repository Structure
 
 ```
@@ -125,6 +142,7 @@ azure-da-mcp/
 ├── agent-claude-sdk/          # Agent SDK experiments (TypeScript)
 ├── make-dot-com/              # Make.com agent prompts (Markdown)
 ├── bruno/                     # API testing collections (Bruno)
+├── hlx-admin/                 # AEM admin API execution logs (skill-driven)
 ├── specs/                     # Feature specs and planning docs
 ├── ai-docs/                   # Implementation insights and learnings
 ├── RELEASES.md                # Release strategy and versioning guide
