@@ -2,6 +2,7 @@ import { app } from '@azure/functions';
 import { randomUUID } from 'crypto';
 import { getAllDefinitions, executeTool } from '../mcp/tools/index.js';
 import * as Logger from '../modules/Logger.js';
+import { getServerToken } from '../modules/AdobeImsClient.js';
 
 /**
  * Azure HTTP Function: POST /api/mcp
@@ -46,14 +47,28 @@ app.http('McpSession', {
       const params = jsonRpcRequest.params || {};
       const id = jsonRpcRequest.id;
 
-      // Extract Bearer token from Authorization header, fallback to environment variable
+      // Auth resolution. Precedence: Authorization header > S2S minted token.
+      // (Hack 2 arg-bearer is supported on the streamable endpoint; not needed here
+      // since Claude Desktop's stdio bridge sets the Authorization header.)
       const authHeader = request.headers.get('authorization');
       let bearerToken = null;
+      let authSource = 'none';
       if (authHeader && authHeader.startsWith('Bearer ')) {
         bearerToken = authHeader.substring(7);
-      } else {
-        // Fallback to environment variable if no Bearer token in header
-        bearerToken = process.env.DALIVE_BEARER_TOKEN || null;
+        authSource = 'header';
+      }
+      if (!bearerToken) {
+        try {
+          const s2s = await getServerToken(context);
+          if (s2s) {
+            bearerToken = s2s;
+            authSource = 's2s';
+          }
+        } catch (err) {
+          Logger.warn('[Auth] S2S mint failed; continuing without S2S fallback', {
+            error: err.message,
+          }, context);
+        }
       }
 
       // Extract or create session ID
@@ -63,6 +78,7 @@ app.http('McpSession', {
         method,
         sessionId: sessionId || 'new',
         hasBearer: !!bearerToken,
+        authSource,
         authHeader: authHeader ? `${authHeader.substring(0, 20)}...` : 'missing',
         bearerTokenLength: bearerToken ? bearerToken.length : 0,
         allHeaders: Object.fromEntries(request.headers.entries()),

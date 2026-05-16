@@ -43,14 +43,14 @@ npm run lint:fix
 1. **`.env`** - Used by tests and some modules
 2. **`local.settings.json`** - Used by Azure Functions runtime
 
-Copy `.env.example` to `.env` and configure:
+Copy `.env.example` to `.env` and `local.settings.json.example` to `local.settings.json`, then configure:
 
 ```bash
-# Optional for local dev only — used as fallback when callers don't send their own
-# Authorization header. Get a fresh value with:
-#   npx github:adobe-rnd/da-auth-helper token
-# (opens a browser, runs Adobe IMS implicit OAuth, caches at ~/.aem/da-token.json)
-DALIVE_BEARER_TOKEN=your-jwt-token-here
+# Adobe IMS Server-to-Server credentials. The function mints its own bearer tokens
+# from these and uses them as the default identity for da.live API calls. Get the
+# pair from developer.adobe.com → your Project → OAuth Server-to-Server credential.
+ADOBE_DEVELOPER_CONSOLE_CLIENT_ID=your-s2s-client-id
+ADOBE_DEVELOPER_CONSOLE_CLIENT_SECRET=your-s2s-client-secret
 
 # LLM Provider Configuration
 LLM_PROVIDER=claude  # Options: 'claude' | 'gemini' | 'azure-ai-foundry'
@@ -76,33 +76,47 @@ Also update `local.settings.json` with the same values:
 {
   "IsEncrypted": false,
   "Values": {
-    "DALIVE_BEARER_TOKEN": "your-jwt-token-here",
+    "ADOBE_DEVELOPER_CONSOLE_CLIENT_ID": "your-s2s-client-id",
+    "ADOBE_DEVELOPER_CONSOLE_CLIENT_SECRET": "your-s2s-client-secret",
     "ANTHROPIC_API_KEY": "sk-ant-api03-...",
     "LLM_PROVIDER": "claude"
   }
 }
 ```
 
+`local.settings.json.example` is committed as the onboarding template; copy it to `local.settings.json` (gitignored) and fill in real values.
+
 **Important**:
-- Never commit `.env` or `local.settings.json` files - both contain secrets and are gitignored
-- When you refresh your local DA token, update it in BOTH files. Prefer `npx github:adobe-rnd/da-auth-helper token` over copy-pasting from DevTools.
-- **Never set `DALIVE_BEARER_TOKEN` in the deployed Azure Function's app settings.** It only exists as a local-dev fallback; in production it would let anonymous callers act as the token's owner (the function silently falls back to it when no `Authorization` header is present — verified 2026-05-15).
+- Never commit `.env` or `local.settings.json` - both contain secrets and are gitignored. The `.example` siblings are safe to commit.
+- **Do not set `DALIVE_BEARER_TOKEN` anywhere.** The variable is no longer read by the code (S2S replaces it). Any presence is misleading — clean it out of `.env`, `local.settings.json`, and deployed app settings. (Historical context: leaving it set in deployed app settings was a silent anonymous-fallback security hole — verified 2026-05-15. The S2S rewrite removed the env-var fallback entirely, but old configs may still have stale values.)
 
 ## Authentication Model
 
-The function is a **per-request bearer pass-through** to da.live's Adobe IMS surface — it does no token issuance, validation, or persistence of its own. Authentication enters the pipeline in exactly one place:
+**S2S by default, caller-supplied tokens override.** The function mints Adobe IMS bearer tokens server-side from OAuth Server-to-Server (S2S) client credentials and forwards them to `admin.da.live` / `admin.hlx.page`. Callers can override by supplying their own token (header or arg-bearer).
 
-```js
-// McpStreamableFunction.js / McpSessionFunction.js
-const authHeader = req.headers.get('authorization');
-bearerToken = authHeader ? authHeader.substring(7) : process.env.DALIVE_BEARER_TOKEN || null;
+### Precedence (every MCP request)
+
+```
+1. Authorization: Bearer header              ← caller-supplied user token
+2. tools/call args.bearerToken (Hack 2)      ← workaround for hosts w/o header support
+3. S2S minted from ADOBE_DEVELOPER_CONSOLE_*  ← default
 ```
 
-That `bearerToken` is then forwarded verbatim as `Authorization: Bearer …` to `admin.da.live` and `admin.hlx.page` by `DaliveClient.js`. There is no JWT inspection, no audience check, no scope validation — whatever the caller sends gets passed through. da.live itself rejects bad tokens with 401, which the function surfaces unchanged.
+Code lives in `src/functions/McpStreamableFunction.js` and `src/functions/McpSessionFunction.js`, both resolving via the same helper logic. The minting/caching lives in `src/modules/AdobeImsClient.js`.
 
-**How clients get tokens**: use the [`da-auth-helper`](https://github.com/adobe-rnd/da-auth-helper) CLI (`npx github:adobe-rnd/da-auth-helper token`). It drives Adobe's public `darkalley` IMS app through a localhost OAuth flow, caches at `~/.aem/da-token.json`, and returns a JWT valid for ~24h with all DA scopes. Confirmed end-to-end against the deployed function on 2026-05-15: list, get, save, preview-publish all work with helper-issued tokens.
+### S2S minting + caching
 
-**The bridge is the right place to automate token refresh**. `mcp-stdio-bridge.js` runs on the user's machine and could call `getValidToken()` from `da-auth-helper` instead of reading `process.env.DALIVE_BEARER_TOKEN`. That's a Day-2 polish — manually-set env vars in the user's Claude Desktop config still work today.
+`AdobeImsClient.getServerToken()` POSTs to `https://ims-na1.adobelogin.com/ims/token/v3` with `grant_type=client_credentials` and caches the resulting JWT in module-scope memory until ~60s before expiry (24h tokens, so effective cache TTL ~23h59m). Concurrent first-callers are deduped onto a single mint via an in-flight promise — verified locally to issue exactly one IMS call for 10 concurrent first-callers.
+
+Cache survives across function invocations on the same instance (verified via `[IMS] cache hit ttl=…` log lines). Cache is lost on cold start or instance recycle — re-mint cost is ~200–300ms once per instance per 24h. No persistent storage layer is needed at this app's scale; see the "stateless storage" discussion in commit history if revisiting.
+
+### Identity tradeoff
+
+Pages saved/published via the S2S path show the technical account email (`<id>@techacct.adobe.com`) as author in da.live. Callers wanting their own attribution must override via Authorization header or arg-bearer. The technical account also needs explicit write access in the da.live permissions sheet for the org/site it's writing to.
+
+### Token introspection
+
+No JWT inspection, audience check, or scope validation in the function — whatever bearer is in hand gets passed through; da.live's 401/403 responses surface back unchanged. This keeps the function thin and lets identity policy live in one place (Adobe IMS + da.live ACLs).
 
 ## Architecture
 

@@ -2,6 +2,7 @@ import { app } from '@azure/functions';
 import { randomUUID } from 'crypto';
 import { getAllDefinitions, executeTool } from '../mcp/tools/index.js';
 import * as Logger from '../modules/Logger.js';
+import { getServerToken } from '../modules/AdobeImsClient.js';
 
 /**
  * Azure HTTP Function: POST /api/mcp-streamable
@@ -59,13 +60,16 @@ app.http('McpStreamable', {
       const params = jsonRpcRequest.params || {};
       const id = jsonRpcRequest.id;
 
-      // Extract Bearer token
+      // Auth resolution. Precedence:
+      //   1. Authorization: Bearer header   — caller brings own identity (e.g. da-auth-helper user token)
+      //   2. tools/call arg-bearer (Hack 2) — resolved later in the tools/call case below
+      //   3. S2S minted token               — Adobe IMS client_credentials, default for unconfigured clients
       const authHeader = request.headers.get('authorization');
       let bearerToken = null;
+      let authSource = 'none';
       if (authHeader && authHeader.startsWith('Bearer ')) {
         bearerToken = authHeader.substring(7);
-      } else {
-        bearerToken = process.env.DALIVE_BEARER_TOKEN || null;
+        authSource = 'header';
       }
 
       // Extract session ID from header (try multiple variations)
@@ -80,10 +84,27 @@ app.http('McpStreamable', {
         allHeaders[key] = value;
       }
 
+      // If no caller-supplied token, fall back to S2S. Arg-bearer (Hack 2) can still
+      // override this below in the tools/call case (arg > S2S, but header > arg).
+      if (!bearerToken) {
+        try {
+          const s2s = await getServerToken(context);
+          if (s2s) {
+            bearerToken = s2s;
+            authSource = 's2s';
+          }
+        } catch (err) {
+          Logger.warn('[Auth] S2S mint failed; continuing without S2S fallback', {
+            error: err.message,
+          }, context);
+        }
+      }
+
       Logger.info('MCP Streamable request received', {
         method,
         sessionId: sessionId || 'new',
         hasBearer: !!bearerToken,
+        authSource,
         headers: allHeaders
       }, context);
 
@@ -109,14 +130,16 @@ app.http('McpStreamable', {
         case 'tools/call': {
           // Hack 2 (Claude.ai/Make.com workaround): accept `bearerToken` inside the
           // tool's arguments for clients that can't set the Authorization header.
-          // Precedence: real Authorization header > arg-bearer > env fallback.
+          // Precedence: real Authorization header > arg-bearer > S2S minted.
           // Strip it from arguments so the tool implementation never sees it.
           if (params.arguments && params.arguments.bearerToken) {
             if (!authHeader) {
               bearerToken = params.arguments.bearerToken;
+              authSource = 'arg-bearer';
             }
             delete params.arguments.bearerToken;
           }
+          Logger.info('[Auth] resolved for tools/call', { authSource }, context);
           return await handleToolsCall(sessionId, params, id, bearerToken, context);
         }
 

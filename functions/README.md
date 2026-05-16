@@ -8,18 +8,42 @@ HTTP MCP server providing tools for LLMs to autonomously fetch, edit, and save c
 
 ## Authentication
 
-The deployed function is a **per-request bearer pass-through**. It does not store a da.live token; every MCP request must include `Authorization: Bearer <ims-token>` and that token is forwarded verbatim to `admin.da.live`. There is no server-side OAuth state.
+The function mints its own Adobe IMS bearer tokens server-side using **OAuth Server-to-Server (S2S) client credentials**, and uses those as the default identity when forwarding requests to `admin.da.live` / `admin.hlx.page`. Callers don't have to supply tokens. Callers *can* supply their own to override S2S — useful when you want pages attributed to a real user identity rather than the technical account.
 
-The easiest way for a caller to obtain a valid IMS token is the [`da-auth-helper`](https://github.com/adobe-rnd/da-auth-helper) CLI, which drives Adobe's public `darkalley` IMS app through a local browser OAuth flow and caches the result at `~/.aem/da-token.json`:
+### Precedence (each MCP request)
+
+```
+1. Authorization: Bearer <token> header     ← caller brings own identity (e.g. da-auth-helper user token)
+2. tools/call arg-bearer (Hack 2)           ← MCP hosts that can't set the Authorization header
+3. S2S minted (default)                     ← server mints from ADOBE_DEVELOPER_CONSOLE_CLIENT_ID/_SECRET
+```
+
+If none yield a token (S2S env vars unset and no caller-supplied), the function returns 401.
+
+### S2S setup
+
+1. In Adobe Developer Console, create a project linked to your Edge Delivery Services product, with an **OAuth Server-to-Server** credential.
+2. Add the technical-account email (e.g. `<id>@techacct.adobe.com`) as a write collaborator on the da.live org/site (via `da.live/config` → permissions sheet).
+3. Set `ADOBE_DEVELOPER_CONSOLE_CLIENT_ID` and `ADOBE_DEVELOPER_CONSOLE_CLIENT_SECRET` in the Azure Function's app settings (or in `local.settings.json` for local dev).
+
+Tokens are minted on demand, cached in process memory for ~23h, refreshed automatically. Concurrent first-callers are deduped onto a single mint.
+
+### Caller-supplied tokens (override path)
+
+The easiest way to mint a user token (so pages are attributed to you rather than the technical account) is [`da-auth-helper`](https://github.com/adobe-rnd/da-auth-helper):
 
 ```bash
 TOKEN=$(npx github:adobe-rnd/da-auth-helper token)
-# first run opens a browser; subsequent runs return the cached token until expiry
+# Then pass as Authorization: Bearer $TOKEN on each MCP request.
 ```
 
-Tokens are valid ~24 hours and carry the full DA scope set (`aem.frontend.all`, `ab.manage`, …) — sufficient for list / get / save / create / preview-publish.
+For MCP hosts that can't set headers (Claude.ai custom connectors, Make.com MCP modules), pass the token as a `bearerToken` argument inside `tools/call` — same effect.
 
-> **Do not set `DALIVE_BEARER_TOKEN` in the deployed Azure Function's app settings.** The function falls back to that variable when callers don't supply their own Authorization header. With it set in production, anyone who knows the function URL can read and write da.live content as whoever owns the token. Local `.env` / `local.settings.json` is fine for development — production should rely solely on per-request bearers.
+### Identity tradeoff
+
+Pages created/saved via S2S show the technical account email as author in da.live. Pages created via a caller-supplied user token show that user. Pick based on whether attribution matters.
+
+> **Do not set `DALIVE_BEARER_TOKEN` anywhere.** The variable is no longer read by the code; it predates the S2S model and only exists in old configs. Leaving it set causes confusion (looks load-bearing but isn't). Remove it from any local `.env`, `local.settings.json`, or deployed app settings.
 
 ## Quick Start
 
@@ -80,7 +104,7 @@ Configure via `LLM_PROVIDER` environment variable or request body.
 1. **`.env`** - Used by tests and some modules
 2. **`local.settings.json`** - Used by Azure Functions runtime
 
-A `DALIVE_BEARER_TOKEN` set in either file is only consumed as a fallback for callers that omit the Authorization header — convenient when running E2E tests locally. Refresh it via `npx github:adobe-rnd/da-auth-helper token` rather than digging through DevTools. For the deployed function in Azure, see the [Authentication](#authentication) section — `DALIVE_BEARER_TOKEN` must not be set there.
+Both need the S2S credentials (`ADOBE_DEVELOPER_CONSOLE_CLIENT_ID` / `_SECRET`) for the local function to mint tokens. Copy `local.settings.json.example` → `local.settings.json` and `.env.example` → `.env` to start. See [Authentication](#authentication) for details.
 
 ## Testing
 

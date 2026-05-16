@@ -1,0 +1,25 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "",
+    "DALIVE_API_URL": "https://admin.da.live",
+
+    "_comment_auth": "Auth model: the function mints Adobe IMS S2S tokens server-side from these client_credentials and uses them as the default bearer when callers don't supply one. Get these from developer.adobe.com → your Project → OAuth Server-to-Server credential. Caller-supplied Authorization headers and Hack 2 arg-bearer still override S2S. DO NOT add DALIVE_BEARER_TOKEN here — it is no longer read by the code, and any presence is misleading.",
+    "ADOBE_DEVELOPER_CONSOLE_CLIENT_ID": "your-s2s-client-id",
+    "ADOBE_DEVELOPER_CONSOLE_CLIENT_SECRET": "your-s2s-client-secret",
+
+    "MCP_SERVER_URL": "http://localhost:7071/api/mcp",
+
+    "LLM_PROVIDER": "claude",
+    "ANTHROPIC_API_KEY": "sk-ant-api03-...",
+    "CLAUDE_MODEL": "claude-sonnet-4-5-20250929",
+    "GEMINI_API_KEY": "your-gemini-key",
+    "GEMINI_MODEL": "gemini-2.5-pro",
+    "AZURE_AI_FOUNDRY_API_KEY": "your-azure-key",
+    "AZURE_AI_FOUNDRY_ENDPOINT": "https://your-endpoint.services.ai.azure.com/",
+    "AZURE_MODEL": "gpt-5-mini",
+
+    "LOG_LEVEL": "debug"
+  }
+}
