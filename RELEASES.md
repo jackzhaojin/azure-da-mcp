@@ -201,6 +201,6 @@ If a future minor version needs an LTS line (e.g., supporting both `v1.x` and `v
 
 ---
 
-**Last Updated**: 2026-05-12
-**Current Version**: v1.0.2
+**Last Updated**: 2026-06-05
+**Current Version**: v1.1.0
 **Branch Model**: Trunk-based (tag from `main`)

@@ -191,7 +191,7 @@ All projects support:
 This monorepo uses **lockstep versioning** + **trunk-based releases** — tag directly from `main`.
 
 ### Current State
-- **Current version**: `v1.0.2` (released 2026-05-12)
+- **Current version**: `v1.1.0` (released 2026-06-05)
 - **Branch model**: Trunk-based; `main` is the only long-lived branch
 - **Strategy doc**: [`RELEASES.md`](./RELEASES.md)
 - **Strategy history**: A `release/1.0` branch existed from 2026-01-01 to 2026-05-12 but was merged into `main` and deleted — that flow added overhead without benefit for a single-maintainer repo
@@ -321,7 +321,7 @@ cp .env.example .env
 
 ---
 
-**Last Updated**: 2026-05-16
+**Last Updated**: 2026-06-05
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
-**Current Version**: v1.0.2 (trunk-based, tag from `main`)
+**Current Version**: v1.1.0 (trunk-based, tag from `main`)
