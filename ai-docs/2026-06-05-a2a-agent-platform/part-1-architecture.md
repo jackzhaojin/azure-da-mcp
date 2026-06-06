@@ -2,15 +2,15 @@
 
 ## Vision
 
-One **unifying interface** (the A2A Task) over **decoupled capabilities** (agents). Anything that can speak HTTP + JSON-RPC can drive any agent: the orchestrator, Make.com, a Claude Code skill, curl, or another agent. Anything that can receive a webhook can be notified when work completes. Run a pipeline once interactively, or fan it out 10x and aggregate — same interface, no code change in the agents.
+One **unifying interface** (the A2A Task) over **decoupled capabilities** (agents). Anything that can speak HTTP + JSON-RPC can drive any agent: the coordinator, Make.com, a Claude Code skill, curl, or another agent. Anything that can receive a webhook can be notified when work completes. Run a pipeline once interactively, or fan it out 10x and aggregate — same interface, no code change in the agents.
 
-The driver above the agents is an **intelligent orchestrator**, not a hard-coded pipeline: given an intent and the current state of the content, it decides which capabilities to invoke (generate, migrate, evaluate — any subset, any order) and stops when the goal is met. Each capability sits behind a single **Agent Card** that can dispatch to pluggable backends (Claude Agent SDK or a Make.com scenario), so the same task contract runs on either runtime.
+The driver above the agents is an **intelligent coordinator**, not a hard-coded pipeline: given an intent and the current state of the content, it decides which capabilities to invoke (generate, migrate, evaluate — any subset, any order) and stops when the goal is met. Capabilities are addressable behind **Agent Cards**; where it helps, a card fronts pluggable backends — the migration agent runs the same `migration.run` contract on Make.com (primary), the Claude Agent SDK, or opencode/Kimi K2.6, while content-gen is a single Agent SDK backend.
 
 ## Goals
 
 1. **Decouple** the eval engine from the Next.js UI, browser localStorage, and in-memory state
 2. **Learn A2A** hands-on: Agent Cards, Task lifecycle, SSE streaming, push notifications, the official JS SDK
-3. **Intelligent orchestration**: a content orchestrator that decides which of generate / migrate / evaluate are needed for a given intent and starting state — the closed loop (generate → migrate → eval) is one route it can take, not a fixed sequence, and it need not end in evaluation
+3. **Intelligent coordination**: a content coordinator that decides which of generate / migrate / evaluate are needed for a given intent and starting state — the closed loop (generate → migrate → eval) is one route it can take, not a fixed sequence, and it need not end in evaluation
 4. **Parallelize**: Nx pipeline runs with bounded browser/CPU concurrency on the 4-CPU Oracle ARM VM
 5. **Measure variance**: same input migrated 10x and evaluated 10x → mean/stddev per eval dimension → migration-agent *consistency* becomes a first-class metric (this is the genuinely novel demo for adaptTo())
 
@@ -27,8 +27,8 @@ The driver above the agents is an **intelligent orchestrator**, not a hard-coded
                                 │            Oracle Cloud ARM VM             │
                                 │            (docker compose)                │
    ┌──────────────┐  A2A tasks  │  ┌──────────────┐      ┌────────────────┐  │
-   │ Orchestrator │────────────────▶│ Content-Gen  │      │  Eval Agent    │  │
-   │ (intelligent │             │  │ (2 backends) │      │  (A2A server,  │  │
+   │ Coordinator  │────────────────▶│ Content-Gen  │      │  Eval Agent    │  │
+   │ (intelligent │             │  │ (Agent SDK)  │      │  (A2A server,  │  │
    │  A2A client) │────────────────────────────────────▶ │  worker pool,  │  │
    └──────┬───────┘             │  └──────────────┘      │  browser pool) │  │
           │                     │  ┌──────────────┐      └───────┬────────┘  │
@@ -57,9 +57,9 @@ The driver above the agents is an **intelligent orchestrator**, not a hard-coded
 | Agent | Status | A2A role | Core capability | Backend |
 |-------|--------|----------|-----------------|---------|
 | **Eval Agent** | Extract from `content-authoring-eval/src/lib/` | Server | 4-dimension page evaluation (structure, accessibility, content, visual), single + batch | Claude Agent SDK + Playwright (deterministic + agentic) |
-| **Migration Agent** | Facade over existing implementations | Server | Source → EDS page on da.live, with self-validation loop | Two pluggable backends: Agent SDK + `da-live-author-playwright` skill; Make.com scenario (multi-model) |
-| **Content Generator Agent** | New | Server | Briefs and synthetic "legacy" source pages | Two pluggable backends: Claude Agent SDK; Make.com scenario (multi-model) |
-| **Orchestrator** | New | Client | Intelligent routing (decides stages from intent + state), pipeline composition, Nx fan-out, aggregation | Plain TypeScript + A2A SDK client (agentic planner) |
+| **Migration Agent** | Facade over existing implementations | Server | Source → EDS page on da.live, with self-validation loop | Three backends: **Make.com scenario (primary)**; Agent SDK + `da-live-author-playwright` skill; opencode CLI / Kimi K2.6 |
+| **Content Generator Agent** | New | Server | Briefs and synthetic "legacy" source pages | Claude Agent SDK (single backend) |
+| **Coordinator** | New | Client | Intelligent routing (decides stages from intent + state), pipeline composition, Nx fan-out, aggregation | Plain TypeScript + A2A SDK client (agentic planner) |
 
 ## The Unifying Interface
 
@@ -76,12 +76,12 @@ Task state machine (A2A standard): `submitted → working → completed | failed
 
 | Caller | Submits via | Receives results via |
 |--------|------------|---------------------|
-| Orchestrator | A2A SDK client (full protocol) | SSE stream or push notification |
+| Coordinator | A2A SDK client (full protocol) | SSE stream or push notification |
 | Make.com | **Edge webhook shim** `POST /hooks/{agent}/{skill}` (flat JSON; see Part 3 — no native A2A connector, no SSE support) | **Custom webhook trigger** (A2A push notifications are plain webhooks on the wire) — solves the 300s scenario timeout |
 | Claude Code skill / curl / cron | Edge webhook shim (or raw JSON-RPC if desired) | Poll `tasks/get` or callback URL |
 | Next.js UI | A2A submit through a thin API route | Supabase Realtime subscription (not SSE — survives reconnects) |
 
-> Edge principle (decided 2026-06-05): **A2A is the internal mesh protocol; external callers speak flat webhooks/REST through one shim in `a2a-common`.** Full A2A (cards, streaming, contextIds) is reserved for agent↔agent and orchestrator↔agent traffic.
+> Edge principle (decided 2026-06-05): **A2A is the internal mesh protocol; external callers speak flat webhooks/REST through one shim in `a2a-common`.** Full A2A (cards, streaming, contextIds) is reserved for agent↔agent and coordinator↔agent traffic.
 
 ## Persistence Layer (Supabase — D3)
 
@@ -90,7 +90,7 @@ Task state machine (A2A standard): `submitted → working → completed | failed
 - **Realtime**: UI subscribes to `tasks` and `eval_reports` changes — replaces bespoke SSE plumbing for the dashboard
 - **MCP server**: Supabase's official MCP server connected to Claude Code → "show me the variance across last night's 10 runs" becomes a conversational query. Demo gold.
 
-Agents own their writes: each agent persists its own task rows and artifacts; the orchestrator writes `runs`. The A2A layer is the source of truth for task *state transitions*; Supabase is the durable mirror + query surface.
+Agents own their writes: each agent persists its own task rows and artifacts; the coordinator writes `runs`. The A2A layer is the source of truth for task *state transitions*; Supabase is the durable mirror + query surface.
 
 ## Monorepo Layout (new subproject)
 
@@ -102,7 +102,7 @@ agents/
   eval-service/        # Part 2 — extracted eval engine + A2A server
   content-gen/         # Part 4
   migration-agent/     # Part 5 — facade + sdk backend
-  orchestrator/        # Part 6 — CLI + pipeline runner
+  coordinator/        # Part 6 — CLI + pipeline runner
   docker-compose.yml   # local dev; production compose lives with the Oracle deploy repo
 ```
 
