@@ -45,9 +45,9 @@ agents/eval-service/
 - Permits are service-wide, so `EVAL_CONCURRENCY=2` × ~3-4 browser needs each still cannot exceed 3 live Chromiums
 - v2 option (deferred): a shared `playwright` server (`browser.connect()` over CDP) so agentic MCP sessions reuse warm browsers; measure first — semaphore may be enough
 
-### Batch = orchestrator concern, not engine concern
+### Batch = coordinator concern, not engine concern
 
-Today's batch routes (`batch/route.ts`, `batch-stream/route.ts`, `import/`, `export/`) are retired. A "batch" becomes a `run` containing N eval tasks, owned by the Orchestrator (Part 6). The eval service only ever sees single-page tasks. This deletes `batch-storage.ts` and the Zod batch import/export plumbing — aggregation moves to SQL over `eval_reports`.
+Today's batch routes (`batch/route.ts`, `batch-stream/route.ts`, `import/`, `export/`) are retired. A "batch" becomes a `run` containing N eval tasks, owned by the Coordinator (Part 6). The eval service only ever sees single-page tasks. This deletes `batch-storage.ts` and the Zod batch import/export plumbing — aggregation moves to SQL over `eval_reports`.
 
 ## Task Contract (`agents/contracts/eval.run.v1.json`)
 
@@ -58,7 +58,7 @@ Today's batch routes (`batch/route.ts`, `batch-stream/route.ts`, `import/`, `exp
   "sourceType": "pdf" | "webpage" | "none",                 // default "none"
   "sourceLocation": "https://... | storage://artifacts/...", // required unless sourceType=none
   "dimensions": ["structure","accessibility","content","visual"], // default all
-  "runId": "uuid",          // optional — links task to an orchestrator run
+  "runId": "uuid",          // optional — links task to an coordinator run
   "labels": { "...": "..." } // optional free-form, flows to eval_reports for grouping
 }
 

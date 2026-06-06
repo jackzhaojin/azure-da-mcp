@@ -34,7 +34,7 @@ Generates a complete **synthetic "legacy" source page** — standalone HTML (opt
   "brief": { /* inline brief, or */ },
   "briefTaskId": "uuid — reuse a content.brief output",
   "legacyStyle": "clean | dated | messy",     // how hostile the markup should be
-  "count": 1                                   // fan-out handled by orchestrator; agent does 1 per task
+  "count": 1                                   // fan-out handled by coordinator; agent does 1 per task
 }
 // artifact: { "sourceUrl": "https://<supabase-storage-public-url>/.../page.html",
 //             "groundTruth": { headings, links, imageAlts, bodyText },   // for eval reference
@@ -42,6 +42,10 @@ Generates a complete **synthetic "legacy" source page** — standalone HTML (opt
 ```
 
 `groundTruth` is the quiet superpower: the eval agent's content dimension can compare against *known-correct* extraction instead of re-parsing the source — a new optional `sourceType: "ground-truth"` input variant worth adding to `eval.run.v2` later. v1: just pass the `sourceUrl` as a normal webpage source.
+
+## Backend — Claude Agent SDK only (single backend)
+
+Unlike the migration agent (three backends, Part 5), content-gen has **one backend: the Claude Agent SDK**. There is no Make.com backend here — generation is a near-pure LLM task with no da.live/MCP dependency, so the multi-backend facade would be pure overhead. One Agent Card, one runtime.
 
 ## Implementation
 
@@ -65,4 +69,4 @@ The separate EDS-site PRD provides: site name/owner, block library, voice/brandi
 ## Definition of Done
 
 - `content.synthesize-source` task via curl produces a publicly fetchable HTML page that the existing Make.com migration prompt accepts as `sourceType=webpage, sourceLocation=<url>` with zero prompt changes
-- One full manual loop executed: synthesize → migrate (Make.com) → eval (new service) — even before the orchestrator exists
+- One full manual loop executed: synthesize → migrate (Make.com) → eval (new service) — even before the coordinator exists
