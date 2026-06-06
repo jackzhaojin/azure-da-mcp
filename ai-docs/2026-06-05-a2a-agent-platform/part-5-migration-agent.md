@@ -67,6 +67,8 @@ Flow:
 
 Required Make.com change: **one added HTTP module** at the end of the scenario (the callback), plus accepting the callback URL as an input var. The 300s timeout stops mattering because the facade, not Make.com, owns task state.
 
+Because the `makecom` backend sits behind the Agent Card, the scenario is free to **fan out across multiple models/agents internally** (e.g. routing some steps to the Kimi K2.6 Chinese model) without changing `migration.run.v1` — see the platform-wide note in [Part 3](./part-3-a2a-protocol-layer.md#platform-wide-note-makecom-as-a-multi-model-backend). The same applies to the content-gen `makecom` backend (Part 4).
+
 ## Multithreading / "agentic eyes" at Nx
 
 - Run isolation already exists via `folderPostfix` (distinct da.live folders per run) — the orchestrator generates unique postfixes per fan-out branch

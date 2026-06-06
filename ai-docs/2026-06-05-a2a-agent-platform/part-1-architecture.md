@@ -4,11 +4,13 @@
 
 One **unifying interface** (the A2A Task) over **decoupled capabilities** (agents). Anything that can speak HTTP + JSON-RPC can drive any agent: the orchestrator, Make.com, a Claude Code skill, curl, or another agent. Anything that can receive a webhook can be notified when work completes. Run a pipeline once interactively, or fan it out 10x and aggregate — same interface, no code change in the agents.
 
+The driver above the agents is an **intelligent orchestrator**, not a hard-coded pipeline: given an intent and the current state of the content, it decides which capabilities to invoke (generate, migrate, evaluate — any subset, any order) and stops when the goal is met. Each capability sits behind a single **Agent Card** that can dispatch to pluggable backends (Claude Agent SDK or a Make.com scenario), so the same task contract runs on either runtime.
+
 ## Goals
 
 1. **Decouple** the eval engine from the Next.js UI, browser localStorage, and in-memory state
 2. **Learn A2A** hands-on: Agent Cards, Task lifecycle, SSE streaming, push notifications, the official JS SDK
-3. **Close the loop**: content generation → migration → evaluation as one automatable pipeline
+3. **Intelligent orchestration**: a content orchestrator that decides which of generate / migrate / evaluate are needed for a given intent and starting state — the closed loop (generate → migrate → eval) is one route it can take, not a fixed sequence, and it need not end in evaluation
 4. **Parallelize**: Nx pipeline runs with bounded browser/CPU concurrency on the 4-CPU Oracle ARM VM
 5. **Measure variance**: same input migrated 10x and evaluated 10x → mean/stddev per eval dimension → migration-agent *consistency* becomes a first-class metric (this is the genuinely novel demo for adaptTo())
 
@@ -26,8 +28,8 @@ One **unifying interface** (the A2A Task) over **decoupled capabilities** (agent
                                 │            (docker compose)                │
    ┌──────────────┐  A2A tasks  │  ┌──────────────┐      ┌────────────────┐  │
    │ Orchestrator │────────────────▶│ Content-Gen  │      │  Eval Agent    │  │
-   │ (A2A client, │             │  │ Agent (A2A)  │      │  (A2A server,  │  │
-   │  CLI/service)│────────────────────────────────────▶ │  worker pool,  │  │
+   │ (intelligent │             │  │ (2 backends) │      │  (A2A server,  │  │
+   │  A2A client) │────────────────────────────────────▶ │  worker pool,  │  │
    └──────┬───────┘             │  └──────────────┘      │  browser pool) │  │
           │                     │  ┌──────────────┐      └───────┬────────┘  │
           │                     │  │ Migration    │              │           │
@@ -55,9 +57,9 @@ One **unifying interface** (the A2A Task) over **decoupled capabilities** (agent
 | Agent | Status | A2A role | Core capability | Backend |
 |-------|--------|----------|-----------------|---------|
 | **Eval Agent** | Extract from `content-authoring-eval/src/lib/` | Server | 4-dimension page evaluation (structure, accessibility, content, visual), single + batch | Claude Agent SDK + Playwright (deterministic + agentic) |
-| **Migration Agent** | Facade over existing implementations | Server | Source → EDS page on da.live, with self-validation loop | Two pluggable backends: Make.com scenario; Agent SDK + `da-live-author-playwright` skill |
-| **Content Generator Agent** | New | Server | Briefs and synthetic "legacy" source pages | Claude Agent SDK |
-| **Orchestrator** | New | Client | Pipeline composition, Nx fan-out, aggregation | Plain TypeScript + A2A SDK client |
+| **Migration Agent** | Facade over existing implementations | Server | Source → EDS page on da.live, with self-validation loop | Two pluggable backends: Agent SDK + `da-live-author-playwright` skill; Make.com scenario (multi-model) |
+| **Content Generator Agent** | New | Server | Briefs and synthetic "legacy" source pages | Two pluggable backends: Claude Agent SDK; Make.com scenario (multi-model) |
+| **Orchestrator** | New | Client | Intelligent routing (decides stages from intent + state), pipeline composition, Nx fan-out, aggregation | Plain TypeScript + A2A SDK client (agentic planner) |
 
 ## The Unifying Interface
 

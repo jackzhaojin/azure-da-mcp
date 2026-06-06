@@ -93,6 +93,15 @@ Make.com scenario B: [custom webhook B] → task result JSON → next action
 
 **Principle: A2A is the internal mesh protocol; the edge speaks flat webhooks/REST through one adapter.** Agents and the orchestrator talk full A2A to each other (cards, streaming, contexts); external callers get the simplest possible surface. (For the talk: demo one raw JSON-RPC call from Make.com as a curiosity, run production flows through the shim.)
 
+### Platform-wide note: Make.com as a multi-model backend
+
+Make.com appears in this platform in **two distinct roles** — don't conflate them:
+
+1. **Edge caller** (above): Make.com *invokes* an agent via the shim and receives the result via a webhook. This is Make.com driving the mesh from outside.
+2. **Backend behind an Agent Card**: the content-gen and migration agents each expose a `backend: "sdk" | "makecom"` switch (Parts 4–5). When `makecom` is selected, the agent facade delegates the work to a Make.com scenario, then completes the same A2A task with the same artifact.
+
+Role 2 is where the **Agent Card abstraction pays off**: a single card hides whichever runtime executes the task. Critically, a Make.com backend can itself **orchestrate multiple models/agents** inside its scenario — e.g. routing across Claude and the **Kimi K2.6** Chinese model, or running a multi-agent ensemble — and **none of that leaks through the A2A contract**. Callers see one skill, one task, one artifact; the model mix is a backend implementation detail. This holds for any current or future Make.com backend in the mesh.
+
 ## Public Exposure
 
 Compose services bind to an internal network. One reverse-proxy (Caddy, already-ish present on the VM) exposes:

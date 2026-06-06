@@ -12,13 +12,15 @@
 
 Reboot the monorepo around **decoupled, independently-addressable AI agents** that communicate via the **A2A protocol** (Linux Foundation, spec v1.0):
 
-- **Content Generator Agent** (new) — generates content briefs and synthetic "legacy" source pages
-- **Migration Agent** (exists as Make.com prompt + skills) — authors content into da.live via the custom MCP server, validates with Playwright "agentic eyes"
+- **Content Generator Agent** (new) — generates content briefs and synthetic "legacy" source pages. One Agent Card, two pluggable backends (Claude Agent SDK; Make.com scenario), mirroring the Migration agent
+- **Migration Agent** (exists as Make.com prompt + skills) — authors content into da.live via the custom MCP server, validates with Playwright "agentic eyes". One Agent Card, two backends (Agent SDK; Make.com)
 - **Eval Agent** (exists, coupled) — extracted from the Next.js app into a headless, job-based, parallelizable service
-- **Orchestrator** (new) — A2A client that runs pipelines 1x or Nx (generate → migrate → eval), with concurrency budgets and variance reporting
+- **Orchestrator** (new) — an **intelligent** A2A client that, given an intent and a starting state, decides *which* of generate / migrate / evaluate are needed — it is not a fixed pipeline. Runs 1x or Nx with concurrency budgets and variance reporting
 - **UI** (exists, rebuilt as pure client) — Next.js reads Supabase; localStorage and in-memory batch Maps are retired
 
-The closed loop — *generate synthetic source → migrate to EDS → eval the result, 10 times in parallel, with aggregate scoring* — is the headline capability.
+The generate → migrate → eval closed loop — *synthesize source → migrate to EDS → eval the result, 10 times in parallel, with aggregate scoring* — is the headline capability, but it is **one route the orchestrator can take, not the only one**: when content already exists it starts at migrate; when content is already migrated it starts at evaluate; and it can stop after any stage once the goal is met.
+
+> **Agent Card pattern (platform-wide)**: a single Agent Card fronts pluggable backends (Agent SDK or Make.com). Any Make.com backend can itself fan out to multiple models/agents — e.g. the Kimi K2.6 Chinese model — without changing the A2A contract.
 
 ## Decisions Log (2026-06-05)
 
@@ -35,9 +37,9 @@ The closed loop — *generate synthetic source → migrate to EDS → eval the r
 | 1 | [part-1-architecture.md](./part-1-architecture.md) | System overview, agent roster, unifying interface, monorepo layout, tech stack |
 | 2 | [part-2-eval-service.md](./part-2-eval-service.md) | Decoupling the eval engine: current coupling audit, headless service, Supabase schema, browser pool, parallelization |
 | 3 | [part-3-a2a-protocol-layer.md](./part-3-a2a-protocol-layer.md) | A2A SDK adoption: Agent Cards, Task lifecycle, streaming, push notifications, Make.com interop, auth |
-| 4 | [part-4-content-generator-agent.md](./part-4-content-generator-agent.md) | New agent: brief mode + synthetic-source mode, contracts, prompts |
-| 5 | [part-5-migration-agent.md](./part-5-migration-agent.md) | Wrapping migration as an A2A agent with two backends (Make.com scenario, Agent SDK + skills); Playwright concurrency |
-| 6 | [part-6-orchestration-ui-rollout.md](./part-6-orchestration-ui-rollout.md) | Orchestrator, Nx fan-out + variance reporting, UI rebuild, milestones to adaptTo(), risks, open questions |
+| 4 | [part-4-content-generator-agent.md](./part-4-content-generator-agent.md) | New agent: brief mode + synthetic-source mode, two backends (Agent SDK / Make.com), contracts, prompts |
+| 5 | [part-5-migration-agent.md](./part-5-migration-agent.md) | Wrapping migration as an A2A agent with two backends (Agent SDK + skills, Make.com scenario); Playwright concurrency |
+| 6 | [part-6-orchestration-ui-rollout.md](./part-6-orchestration-ui-rollout.md) | Orchestrator (intelligent routing + Nx fan-out + variance reporting), UI rebuild, milestones to adaptTo(), risks, open questions |
 
 ## In Scope
 
