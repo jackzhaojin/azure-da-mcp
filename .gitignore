@@ -8,7 +8,6 @@ local-only
 
 # AI files
 .specify
-ai-docs
 specs
 .playwright-mcp/
 .playwright-cli/
