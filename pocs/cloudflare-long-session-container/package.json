@@ -1,0 +1,16 @@
+{
+  "name": "cloudflare-long-session-container-poc",
+  "private": true,
+  "description": "POC: does an open SSE stream keep a Cloudflare Container alive past sleepAfter? (M2 spike, cloudflare/containers #147/#162)",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.98.0"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.7"
+  }
+}

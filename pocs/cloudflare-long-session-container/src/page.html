@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CF Container long-SSE test</title>
+<style>
+  body { font-family: ui-monospace, Menlo, monospace; max-width: 880px; margin: 2rem auto; padding: 0 1rem; background: #0f1115; color: #d8dee9; }
+  h1 { font-size: 1.1rem; }
+  .row { display: flex; gap: 2rem; flex-wrap: wrap; margin: 1rem 0; }
+  .stat { background: #1a1e26; border-radius: 8px; padding: .6rem 1rem; min-width: 150px; }
+  .stat b { display: block; font-size: 1.4rem; }
+  .ok { color: #a3be8c; } .bad { color: #bf616a; } .warn { color: #ebcb8b; }
+  button { font: inherit; padding: .5rem 1rem; border-radius: 6px; border: 1px solid #4c566a; background: #2e3440; color: #eceff4; cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
+  #log { background: #14171e; border-radius: 8px; padding: 1rem; height: 320px; overflow-y: auto; font-size: .8rem; white-space: pre-wrap; }
+  label { font-size: .85rem; }
+</style>
+</head>
+<body>
+<h1>Cloudflare Container long-SSE survival test <span style="opacity:.5">(sleepAfter = 2m)</span></h1>
+<p style="font-size:.85rem;opacity:.7">Question: does an open SSE stream keep the container alive past <code>sleepAfter</code>?
+Pure test = leave the box unchecked. Mitigation test = check it (pings <code>/renew</code> every 60s).</p>
+
+<div class="row">
+  <button id="connect">Connect SSE</button>
+  <button id="disconnect" disabled>Disconnect</button>
+  <button id="stats">Fetch /stats (renews activity!)</button>
+  <label><input type="checkbox" id="renew" /> renew every 60s</label>
+</div>
+
+<div class="row">
+  <div class="stat">state<b id="state" class="warn">idle</b></div>
+  <div class="stat">wall elapsed<b id="elapsed">–</b></div>
+  <div class="stat">ticks<b id="ticks">0</b></div>
+  <div class="stat">last container elapsed<b id="celapsed">–</b></div>
+  <div class="stat">bootId<b id="bootid">–</b></div>
+  <div class="stat">drops / reconnects<b id="drops">0</b></div>
+</div>
+
+<div id="log"></div>
+
+<script>
+let es = null, startedAt = null, ticks = 0, drops = 0, bootId = null, renewTimer = null, clockTimer = null;
+const $ = (id) => document.getElementById(id);
+
+function log(msg, cls) {
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = new Date().toISOString().slice(11, 23) + "  " + msg;
+  $("log").appendChild(line);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function fmt(s) { return Math.floor(s / 60) + "m" + String(Math.floor(s % 60)).padStart(2, "0") + "s"; }
+
+function connect() {
+  startedAt = Date.now(); ticks = 0; bootId = null;
+  $("ticks").textContent = "0";
+  es = new EventSource("/sse");
+  $("state").textContent = "connecting"; $("state").className = "warn";
+  $("connect").disabled = true; $("disconnect").disabled = false;
+  log("EventSource created → /sse");
+
+  es.onopen = () => { $("state").textContent = "open"; $("state").className = "ok"; log("connection OPEN", "ok"); };
+
+  es.addEventListener("hello", (e) => {
+    const d = JSON.parse(e.data);
+    if (bootId && bootId !== d.bootId) {
+      log(`!! bootId CHANGED ${bootId} → ${d.bootId} — container slept & restarted`, "bad");
+    } else {
+      log(`hello: bootId=${d.bootId} bootAt=${d.bootAt} connId=${d.connId}`);
+    }
+    bootId = d.bootId;
+    $("bootid").textContent = d.bootId;
+  });
+
+  es.addEventListener("tick", (e) => {
+    const d = JSON.parse(e.data);
+    ticks++;
+    $("ticks").textContent = ticks;
+    $("celapsed").textContent = fmt(d.elapsedSec);
+    if (d.elapsedSec % 60 === 0) log(`tick #${d.seq} — container says ${fmt(d.elapsedSec)} elapsed`, "ok");
+  });
+
+  es.onerror = () => {
+    drops++;
+    $("drops").textContent = drops;
+    $("state").textContent = "reconnecting"; $("state").className = "bad";
+    log(`connection DROPPED after ${fmt((Date.now() - startedAt) / 1000)} wall time (EventSource will auto-retry)`, "bad");
+  };
+
+  clockTimer = setInterval(() => { $("elapsed").textContent = fmt((Date.now() - startedAt) / 1000); }, 1000);
+
+  if ($("renew").checked) {
+    renewTimer = setInterval(async () => {
+      const r = await fetch("/renew").then((r) => r.json()).catch((e) => ({ error: String(e) }));
+      log("renew ping → " + JSON.stringify(r), "warn");
+    }, 60000);
+    log("renew-every-60s ENABLED (mitigation mode)", "warn");
+  }
+}
+
+function disconnect() {
+  if (es) { es.close(); es = null; }
+  clearInterval(renewTimer); clearInterval(clockTimer);
+  $("state").textContent = "closed by client"; $("state").className = "warn";
+  $("connect").disabled = false; $("disconnect").disabled = true;
+  log(`client closed connection after ${fmt((Date.now() - startedAt) / 1000)}`);
+}
+
+$("connect").onclick = connect;
+$("disconnect").onclick = disconnect;
+$("stats").onclick = async () => {
+  const s = await fetch("/stats").then((r) => r.json()).catch((e) => ({ error: String(e) }));
+  log("/stats → " + JSON.stringify(s));
+};
+
+// auto-connect if ?auto=1
+if (new URLSearchParams(location.search).get("auto") === "1") connect();
+</script>
+</body>
+</html>
