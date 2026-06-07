@@ -59,22 +59,44 @@ async function hello() {
   console.log("\n✔ mesh smoke test complete");
 }
 
+function flag(args: string[], name: string): string | undefined {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+}
+
 async function batch(args: string[]) {
-  const fanOutIdx = args.indexOf("--fan-out");
-  const fanOut = fanOutIdx >= 0 ? Number(args[fanOutIdx + 1]) : 1;
-  const targets = args.filter((a, i) => !a.startsWith("--") && i !== fanOutIdx + 1);
+  const fanOut = Number(flag(args, "--fan-out") ?? 1);
+  const targets = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--fan-out");
   if (!targets.length) {
     console.error("usage: coordinator batch <url> [url...] [--fan-out N]");
     process.exit(1);
   }
+  await submitAndStream({ goal: "evaluate", targets, fanOut });
+}
 
-  console.log(`submitting coordinate.run → ${COORDINATOR_URL} (${targets.length} targets × ${fanOut})`);
+async function loop(args: string[]) {
+  const topic = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--")).join(" ");
+  if (!topic) {
+    console.error("usage: coordinator loop <topic...> [--fan-out N] [--goal full-loop|generate+migrate|auto] [--legacy-style clean|dated|messy] [--backend dryrun|makecom|sdk]");
+    process.exit(1);
+  }
+  await submitAndStream({
+    goal: flag(args, "--goal") ?? "full-loop",
+    topic,
+    fanOut: Number(flag(args, "--fan-out") ?? 1),
+    legacyStyle: flag(args, "--legacy-style") ?? "dated",
+    backend: flag(args, "--backend") ?? "dryrun",
+  });
+}
+
+async function submitAndStream(data: Record<string, unknown>) {
+  console.log(`submitting coordinate.run → ${COORDINATOR_URL}\n${JSON.stringify(data)}`);
   const client = await meshClientFactory().createFromUrl(COORDINATOR_URL);
   const t0 = Date.now();
   let stats: Record<string, unknown> | undefined;
 
   for await (const event of client.sendMessageStream({
-    message: userMessage([{ kind: "data", data: { goal: "evaluate", targets, fanOut } }]),
+    message: userMessage([{ kind: "data", data }]),
   })) {
     const dt = `+${((Date.now() - t0) / 1000).toFixed(1)}s`;
     if (event.kind === "task") {
@@ -96,9 +118,9 @@ async function batch(args: string[]) {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
-const run = cmd === "hello" ? hello() : cmd === "batch" ? batch(rest) : null;
+const run = cmd === "hello" ? hello() : cmd === "batch" ? batch(rest) : cmd === "loop" ? loop(rest) : null;
 if (!run) {
-  console.log("usage: coordinator hello | coordinator batch <url...> [--fan-out N]");
+  console.log("usage: coordinator hello | batch <url...> [--fan-out N] | loop <topic...> [--goal G] [--fan-out N] [--legacy-style S] [--backend B]");
   process.exit(1);
 }
 run.catch((err) => {

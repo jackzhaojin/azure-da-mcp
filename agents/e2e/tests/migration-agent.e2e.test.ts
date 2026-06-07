@@ -65,7 +65,7 @@ describe("migration agent (facade + backend seam)", () => {
 
     // the artifact mirrors the Make.com final-report contract exactly
     expect(artifact!.pageUrl).toContain("da.live/edit#/jackzhaojin/demo-site/");
-    expect(artifact!.previewUrl).toBe("https://main--demo-site--jackzhaojin.aem.page/migration-batch-dryrun-e2e/legacy-page");
+    expect(artifact!.previewUrl).toBe(VALID.sourceLocation); // dryrun = perfect simulated migration
     expect(["PASS", "NEEDS-REFINEMENT", "FAIL"]).toContain(artifact!.status);
     expect(artifact!.confidence).toBeGreaterThanOrEqual(80);
     expect(Array.isArray(artifact!.blocksUsed)).toBe(true);

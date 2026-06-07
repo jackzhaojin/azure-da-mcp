@@ -1,29 +1,87 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "coordinate.run.v1",
-  "title": "coordinate.run task payload (v1 — M2: eval-only batch)",
-  "description": "Input for the coordinator's coordinate.run skill. M2 scope: goal=evaluate fan-out over a URL list (feature parity with the legacy batch mode). Generate/migrate routes land at M3.",
+  "title": "coordinate.run task payload (v1 \u2014 M3: routed pipelines)",
+  "description": "Input for the coordinator's coordinate.run skill. Routes: evaluate | migrate | generate+migrate | full-loop | auto (deterministic state-table routing; LLM planner upgrades 'auto' later). Any subset, any order \u2014 no mandatory start or end (PRD part-6).",
   "type": "object",
-  "required": ["goal", "targets"],
+  "required": [
+    "goal"
+  ],
   "properties": {
     "goal": {
-      "enum": ["evaluate"],
-      "description": "M2: evaluate only. M3 adds migrate | generate+migrate | full-loop | auto."
+      "enum": [
+        "evaluate",
+        "migrate",
+        "generate+migrate",
+        "full-loop",
+        "auto"
+      ],
+      "description": "Which route to run; 'auto' infers from state: alreadyMigratedUrl\u2192evaluate, sourceLocation\u2192migrate\u2192evaluate, topic\u2192full loop."
     },
     "targets": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "format": "uri" },
-      "description": "Pages to evaluate. Each target × fanOut becomes one eval.run child task."
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "description": "Evaluate route: pages to score. Each target \u00d7 fanOut becomes one eval.run child."
     },
     "fanOut": {
       "type": "integer",
       "minimum": 1,
       "default": 1,
-      "description": "Repeat count per target — run-once vs run-10x is just this number (variance experiments)."
+      "description": "Repeat count per target \u2014 run-once vs run-10x is just this number (variance experiments)."
     },
-    "sourceType": { "enum": ["pdf", "webpage", "none"], "default": "none" },
-    "sourceLocation": { "type": "string" },
-    "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+    "sourceType": {
+      "enum": [
+        "pdf",
+        "webpage",
+        "none"
+      ],
+      "default": "none"
+    },
+    "sourceLocation": {
+      "type": "string"
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "alreadyMigratedUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Auto route hint: page already migrated \u2192 evaluate only"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Generative routes: what to synthesize"
+    },
+    "legacyStyle": {
+      "enum": [
+        "clean",
+        "dated",
+        "messy"
+      ],
+      "default": "dated"
+    },
+    "site": {
+      "type": "string",
+      "default": "demo-site"
+    },
+    "owner": {
+      "type": "string",
+      "default": "jackzhaojin"
+    },
+    "pageSlug": {
+      "type": "string",
+      "description": "Migration slug base; '-b{branch}' appended per branch"
+    },
+    "backend": {
+      "type": "string",
+      "description": "Migration backend hint (dryrun | makecom | sdk | opencode)"
+    }
   }
 }

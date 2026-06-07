@@ -31,7 +31,10 @@ export const dryrunBackend: MigrationBackend = {
 
     return {
       pageUrl: `https://da.live/edit#/${base}`,
-      previewUrl: `https://main--${payload.site}--${payload.owner}.aem.page/${folder}/${payload.pageSlug}`,
+      // A dryrun is a PERFECT simulated migration: the "migrated" page is the
+      // source itself. Downstream eval then has a real, reachable page to score —
+      // this is what makes the closed loop runnable before real backends land.
+      previewUrl: payload.sourceLocation,
       status: confidence >= 85 ? "PASS" : "NEEDS-REFINEMENT",
       confidence,
       blocksUsed: ["hero", "cards", "columns"],

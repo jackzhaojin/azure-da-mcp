@@ -138,7 +138,7 @@ describe("chain: synthesize-source → migration (dryrun)", () => {
     });
     expect(migrated.finalState).toBe("completed");
     const report = migrated.artifact as unknown as { previewUrl: string; status: string };
-    expect(report.previewUrl).toContain("sourdough-starter-troubleshooting");
+    expect(report.previewUrl).toBe(sourceUrl); // dryrun = perfect simulated migration
     expect(["PASS", "NEEDS-REFINEMENT"]).toContain(report.status);
   });
 });

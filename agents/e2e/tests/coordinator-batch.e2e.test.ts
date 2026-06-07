@@ -130,6 +130,6 @@ describe("coordinator: eval-only batch via coordinate.run", () => {
       }
     }
     expect(finalState).toBe("failed");
-    expect(note).toContain("goal='evaluate'");
+    expect(note).toContain("unknown goal"); // route engine lists the valid routes
   });
 });

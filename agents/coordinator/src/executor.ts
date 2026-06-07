@@ -1,4 +1,4 @@
-import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, Message } from "@a2a-js/sdk";
+import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from "@a2a-js/sdk";
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
 import type Database from "better-sqlite3";
 import { meshClientFactory, createLogger } from "@agents/a2a-common";
@@ -7,52 +7,100 @@ import { randomUUID } from "node:crypto";
 
 const log = createLogger("da-coordinator");
 const EVAL_AGENT_URL = process.env.EVAL_AGENT_URL ?? "http://localhost:4001";
+const CONTENT_GEN_URL = process.env.CONTENT_GEN_URL ?? "http://localhost:4002";
+const MIGRATION_AGENT_URL = process.env.MIGRATION_AGENT_URL ?? "http://localhost:4003";
 const FANOUT_CONCURRENCY = Number(process.env.COORD_FANOUT_CONCURRENCY ?? 2);
 const PASS_THRESHOLD = 75; // matches the engine's passedDimensions rule (PRD part-2)
 
+export type Stage = "generate" | "migrate" | "evaluate";
+
 /** coordinate.run payload — contract: agents/contracts/coordinate.run.v1.json */
 export interface CoordinateRunPayload {
-  goal: "evaluate";
-  targets: string[];
-  fanOut?: number;
-  sourceType?: "pdf" | "webpage" | "none";
+  goal: "evaluate" | "migrate" | "generate+migrate" | "full-loop" | "auto";
+  // evaluate route
+  targets?: string[];
+  alreadyMigratedUrl?: string;
+  // generative routes
+  topic?: string;
+  legacyStyle?: "clean" | "dated" | "messy";
+  // migrate route
   sourceLocation?: string;
+  sourceType?: "pdf" | "webpage" | "none";
+  site?: string;
+  owner?: string;
+  pageSlug?: string;
+  backend?: string;
+  fanOut?: number;
   labels?: Record<string, string>;
+}
+
+interface StageResult {
+  stage: Stage;
+  agent: string;
+  taskId?: string;
+  state: string;
+  durationMs: number;
+  error?: string;
 }
 
 interface BranchResult {
   branch: number;
-  target: string;
+  target?: string; // what was (or would be) evaluated
+  sourceUrl?: string;
   evalTaskId?: string;
-  state: string;
+  state: string; // completed | failed
   overallScore?: number;
   dimensionScores?: Record<string, number>;
+  confidence?: number; // migration confidence, when the route migrated
+  stages: StageResult[];
   error?: string;
 }
 
-function extractPayload(message: Message): CoordinateRunPayload {
-  for (const part of message.parts) {
-    if (part.kind === "data") return part.data as unknown as CoordinateRunPayload;
-    if (part.kind === "text") {
-      try {
-        return JSON.parse(part.text) as CoordinateRunPayload;
-      } catch {
-        /* keep looking */
-      }
-    }
+/**
+ * Deterministic routing (PRD part-6 state table). `goal: auto` infers the route
+ * from the request's state — the agentic LLM planner (M3) only replaces this
+ * for genuinely ambiguous intents; the table stays as its fallback.
+ */
+export function resolveRoute(p: CoordinateRunPayload): Stage[] {
+  switch (p.goal) {
+    case "evaluate":
+      return ["evaluate"];
+    case "migrate":
+      return ["migrate"];
+    case "generate+migrate":
+      return ["generate", "migrate"]; // stops without eval — no mandatory end
+    case "full-loop":
+      return ["generate", "migrate", "evaluate"];
+    case "auto":
+      if (p.alreadyMigratedUrl) return ["evaluate"]; // already migrated → just score it
+      if (p.sourceLocation) return ["migrate", "evaluate"]; // source exists → skip generate
+      if (p.topic) return ["generate", "migrate", "evaluate"]; // net-new → the full loop
+      throw new Error("coordinate.run.v1: goal 'auto' needs alreadyMigratedUrl, sourceLocation, or topic to infer a route");
+    default:
+      throw new Error(`coordinate.run.v1: unknown goal '${p.goal as string}' — evaluate | migrate | generate+migrate | full-loop | auto`);
   }
-  throw new Error("coordinate.run payload not found: send a data part matching coordinate.run.v1");
 }
 
-function validate(p: CoordinateRunPayload): void {
-  if (p.goal !== "evaluate") throw new Error("coordinate.run.v1 (M2): only goal='evaluate' is supported");
-  if (!Array.isArray(p.targets) || p.targets.length === 0) throw new Error("coordinate.run.v1: 'targets' must be a non-empty URL array");
-  for (const t of p.targets) {
-    if (typeof t !== "string" || !/^https?:\/\//.test(t)) throw new Error(`coordinate.run.v1: invalid target '${t}'`);
+export function validateForRoute(p: CoordinateRunPayload, route: Stage[]): void {
+  const evaluateOnly = route.length === 1 && route[0] === "evaluate";
+  if (evaluateOnly) {
+    const targets = p.targets ?? (p.alreadyMigratedUrl ? [p.alreadyMigratedUrl] : []);
+    if (!targets.length) throw new Error("coordinate.run.v1: evaluate route needs 'targets' (or 'alreadyMigratedUrl')");
+    for (const t of targets) if (!/^https?:\/\//.test(t)) throw new Error(`coordinate.run.v1: invalid target '${t}'`);
+  }
+  if (route.includes("generate") && !p.topic) {
+    throw new Error("coordinate.run.v1: generative routes need 'topic'");
+  }
+  if (route.includes("migrate") && !route.includes("generate") && !p.sourceLocation) {
+    throw new Error("coordinate.run.v1: migrate route needs 'sourceLocation' (or a generate stage before it)");
   }
   if (p.fanOut !== undefined && (!Number.isInteger(p.fanOut) || p.fanOut < 1)) {
     throw new Error("coordinate.run.v1: 'fanOut' must be a positive integer");
   }
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "page";
 }
 
 function mean(xs: number[]): number {
@@ -66,102 +114,174 @@ function stddev(xs: number[]): number {
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+function summarize(xs: number[]) {
+  return {
+    mean: round2(mean(xs)),
+    stddev: round2(stddev(xs)),
+    min: xs.length ? Math.min(...xs) : 0,
+    max: xs.length ? Math.max(...xs) : 0,
+  };
+}
 
 /** Variance stats — the adaptTo() headline metric (PRD part-6). */
-export function computeStats(branches: BranchResult[]) {
-  const completed = branches.filter((b) => b.state === "completed" && typeof b.overallScore === "number");
-  const overallScores = completed.map((b) => b.overallScore!);
-  const perDimension: Record<string, { mean: number; stddev: number; min: number; max: number; n: number }> = {};
-  for (const b of completed) {
-    for (const [dim, score] of Object.entries(b.dimensionScores ?? {})) {
-      (perDimension[dim] ??= { mean: 0, stddev: 0, min: 0, max: 0, n: 0 });
-    }
-  }
-  for (const dim of Object.keys(perDimension)) {
+export function computeStats(branches: BranchResult[], route: Stage[]) {
+  const completed = branches.filter((b) => b.state === "completed");
+  const evalScores = completed.map((b) => b.overallScore).filter((s): s is number => typeof s === "number");
+  const confidences = completed.map((b) => b.confidence).filter((c): c is number => typeof c === "number");
+
+  const perDimension: Record<string, ReturnType<typeof summarize> & { n: number }> = {};
+  const dims = new Set(completed.flatMap((b) => Object.keys(b.dimensionScores ?? {})));
+  for (const dim of dims) {
     const scores = completed.map((b) => b.dimensionScores?.[dim]).filter((s): s is number => typeof s === "number");
-    perDimension[dim] = {
-      mean: round2(mean(scores)),
-      stddev: round2(stddev(scores)),
-      min: Math.min(...scores),
-      max: Math.max(...scores),
-      n: scores.length,
-    };
+    perDimension[dim] = { ...summarize(scores), n: scores.length };
   }
+
   return {
+    route: route.join("→"),
     branches: branches.length,
     completed: completed.length,
     failed: branches.length - completed.length,
-    overall: {
-      mean: round2(mean(overallScores)),
-      stddev: round2(stddev(overallScores)),
-      min: overallScores.length ? Math.min(...overallScores) : 0,
-      max: overallScores.length ? Math.max(...overallScores) : 0,
-    },
-    passRate: round2(completed.length ? overallScores.filter((s) => s >= PASS_THRESHOLD).length / overallScores.length : 0),
+    overall: summarize(evalScores.length ? evalScores : confidences), // eval scores when the route evaluated, else migration confidence
+    passRate: round2(
+      evalScores.length
+        ? evalScores.filter((s) => s >= PASS_THRESHOLD).length / evalScores.length
+        : confidences.length
+          ? confidences.filter((c) => c >= PASS_THRESHOLD).length / confidences.length
+          : 0
+    ),
+    ...(confidences.length ? { migrationConfidence: summarize(confidences) } : {}),
     perDimension,
   };
 }
 
-/** Run one eval.run child task and harvest its terminal state + artifact. */
-async function runBranch(
-  branch: number,
-  target: string,
-  contextId: string,
-  payload: CoordinateRunPayload,
-  runId: string
-): Promise<BranchResult> {
+/** Send one task to an agent and harvest its terminal state + first data artifact. */
+async function callAgent(
+  agentUrl: string,
+  data: Record<string, unknown>,
+  contextId: string
+): Promise<{ taskId?: string; state: string; artifact?: Record<string, never>; error?: string }> {
   try {
-    const client = await meshClientFactory().createFromUrl(EVAL_AGENT_URL);
-    let evalTaskId: string | undefined;
+    const client = await meshClientFactory().createFromUrl(agentUrl);
+    let taskId: string | undefined;
     let state = "unknown";
-    let artifactData: { overallScore?: number; dimensionScores?: Record<string, number> } | undefined;
-
-    const stream = client.sendMessageStream({
-      message: {
-        kind: "message",
-        messageId: randomUUID(),
-        role: "user",
-        contextId, // thread the pipeline: children share the coordinate task's contextId
-        parts: [
-          {
-            kind: "data",
-            data: {
-              targetUrl: target,
-              sourceType: payload.sourceType ?? "none",
-              ...(payload.sourceLocation ? { sourceLocation: payload.sourceLocation } : {}),
-              runId,
-            },
-          },
-        ],
-      },
-    });
-
-    for await (const event of stream) {
-      if (event.kind === "task") evalTaskId = event.id;
-      if (event.kind === "status-update") state = event.status.state;
+    let artifact: Record<string, never> | undefined;
+    let failNote = "";
+    for await (const event of client.sendMessageStream({
+      message: { kind: "message", messageId: randomUUID(), role: "user", contextId, parts: [{ kind: "data", data }] },
+    })) {
+      if (event.kind === "task") taskId = event.id;
+      if (event.kind === "status-update") {
+        state = event.status.state;
+        if (event.final && state === "failed") {
+          failNote = event.status.message?.parts.find((p) => p.kind === "text")?.text ?? "";
+        }
+      }
       if (event.kind === "artifact-update") {
         const part = event.artifact.parts[0];
-        if (part?.kind === "data") artifactData = part.data as typeof artifactData;
+        if (part?.kind === "data") artifact = part.data as Record<string, never>;
       }
     }
-    return {
-      branch,
-      target,
-      evalTaskId,
-      state,
-      overallScore: artifactData?.overallScore as number | undefined,
-      dimensionScores: artifactData?.dimensionScores,
-    };
+    return { taskId, state, artifact, ...(failNote ? { error: failNote } : {}) };
   } catch (err) {
-    return { branch, target, state: "failed", error: String(err) };
+    return { state: "failed", error: String(err) };
   }
 }
 
+/** Run one branch through the route's stages, threading artifacts forward. */
+async function runPipelineBranch(opts: {
+  branch: number;
+  route: Stage[];
+  payload: CoordinateRunPayload;
+  contextId: string;
+  runId: string;
+  target?: string; // evaluate-only routes: the page to score
+  onStage: (note: string) => void;
+}): Promise<BranchResult> {
+  const { branch, route, payload, contextId, runId, target, onStage } = opts;
+  const result: BranchResult = { branch, state: "completed", stages: [], target };
+  let sourceUrl = payload.sourceLocation;
+  let targetUrl = target ?? payload.alreadyMigratedUrl;
+
+  for (const stage of route) {
+    const t0 = Date.now();
+    let call: Awaited<ReturnType<typeof callAgent>>;
+    let agent = "";
+
+    if (stage === "generate") {
+      agent = "content-gen";
+      call = await callAgent(
+        CONTENT_GEN_URL,
+        {
+          skill: "content.synthesize-source",
+          topic: payload.topic,
+          legacyStyle: payload.legacyStyle ?? "dated",
+          runId,
+        },
+        contextId
+      );
+      if (call.state === "completed") sourceUrl = (call.artifact as { sourceUrl?: string } | undefined)?.sourceUrl;
+    } else if (stage === "migrate") {
+      agent = "migration";
+      call = await callAgent(
+        MIGRATION_AGENT_URL,
+        {
+          sourceType: payload.sourceType === "pdf" ? "pdf" : "webpage",
+          sourceLocation: sourceUrl,
+          site: payload.site ?? "demo-site",
+          owner: payload.owner ?? "jackzhaojin",
+          pageSlug: `${payload.pageSlug ?? slugify(payload.topic ?? sourceUrl ?? "page")}-b${branch}`,
+          folderPostfix: runId.slice(0, 8),
+          ...(payload.backend ? { backend: payload.backend } : {}),
+          runId,
+        },
+        contextId
+      );
+      if (call.state === "completed") {
+        const a = call.artifact as { previewUrl?: string; confidence?: number } | undefined;
+        targetUrl = a?.previewUrl;
+        result.confidence = a?.confidence;
+      }
+    } else {
+      agent = "eval";
+      call = await callAgent(
+        EVAL_AGENT_URL,
+        {
+          targetUrl,
+          sourceType: sourceUrl ? "webpage" : (payload.sourceType ?? "none"),
+          ...(sourceUrl ? { sourceLocation: sourceUrl } : {}),
+          runId,
+        },
+        contextId
+      );
+      if (call.state === "completed") {
+        const a = call.artifact as { overallScore?: number; dimensionScores?: Record<string, number> } | undefined;
+        result.overallScore = a?.overallScore;
+        result.dimensionScores = a?.dimensionScores;
+        result.evalTaskId = call.taskId;
+      }
+    }
+
+    result.stages.push({ stage, agent, taskId: call.taskId, state: call.state, durationMs: Date.now() - t0, ...(call.error ? { error: call.error } : {}) });
+    onStage(`branch ${branch} · ${stage}: ${call.state}${call.error ? ` — ${call.error.slice(0, 120)}` : ""}`);
+
+    if (call.state !== "completed") {
+      result.state = "failed";
+      result.error = call.error ?? `${stage} stage ${call.state}`;
+      break; // failFast within the branch; other branches continue
+    }
+  }
+
+  result.sourceUrl = sourceUrl;
+  result.target = targetUrl ?? result.target;
+  return result;
+}
+
 /**
- * coordinate.run executor (M2: eval-only batch). Writes the runs row, fans out
- * target × fanOut eval.run children (concurrency-capped), aggregates variance
- * stats, completes with a run-stats artifact. Coordinator is an A2A client AND
- * server (PRD part-6).
+ * coordinate.run executor — the intelligent content coordinator (PRD part-6).
+ * Routes: evaluate | migrate | generate+migrate | full-loop | auto (deterministic
+ * state-table routing; the LLM planner upgrades 'auto' at M3). Any subset, any
+ * order, no mandatory start or end. Fans out branches at capped concurrency,
+ * threads ONE contextId through every child task, aggregates variance stats.
  */
 export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
   return {
@@ -191,7 +311,6 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
         final,
       });
 
-      let payload: CoordinateRunPayload;
       bus.publish({
         kind: "task",
         id: taskId,
@@ -199,9 +318,15 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
         status: { state: "submitted", timestamp: new Date().toISOString() },
         history: [userMessage],
       } satisfies Task);
+
+      let payload: CoordinateRunPayload;
+      let route: Stage[];
       try {
-        payload = extractPayload(userMessage);
-        validate(payload);
+        const part = userMessage.parts.find((p) => p.kind === "data");
+        if (!part) throw new Error("coordinate.run payload not found: send a data part matching coordinate.run.v1");
+        payload = part.data as unknown as CoordinateRunPayload;
+        route = resolveRoute(payload);
+        validateForRoute(payload, route);
       } catch (err) {
         bus.publish(status("failed", String(err), true));
         bus.finished();
@@ -210,48 +335,48 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
 
       const fanOut = payload.fanOut ?? 1;
       const runId = randomUUID();
-      db.prepare("insert into runs (id, kind, config, status) values (?, 'eval-batch', ?, 'running')").run(
+      db.prepare("insert into runs (id, kind, config, status) values (?, ?, ?, 'running')").run(
         runId,
+        route.length > 1 || route[0] !== "evaluate" ? "pipeline" : "eval-batch",
         JSON.stringify(payload)
       );
-      log.info("coordinate.run started", {
-        a2a_task_id: taskId,
-        context_id: contextId,
-        run_id: runId,
-        targets: payload.targets.length,
-        fanOut,
-      });
 
-      const branches: Array<{ branch: number; target: string }> = [];
+      // evaluate-only fans out per target; pipeline routes fan out per fanOut
+      const evaluateOnly = route.length === 1 && route[0] === "evaluate";
+      const targets = evaluateOnly ? (payload.targets ?? [payload.alreadyMigratedUrl!]) : [undefined];
+      const branches: Array<{ branch: number; target?: string }> = [];
       let n = 0;
-      for (const target of payload.targets) for (let i = 0; i < fanOut; i++) branches.push({ branch: ++n, target });
+      for (const target of targets) for (let i = 0; i < fanOut; i++) branches.push({ branch: ++n, target });
 
-      bus.publish(status("working", `run ${runId}: ${branches.length} branches (${payload.targets.length} targets × ${fanOut})`));
+      log.info("coordinate.run started", { a2a_task_id: taskId, context_id: contextId, run_id: runId, route: route.join("→"), branches: branches.length });
+      bus.publish(status("working", `run ${runId}: route ${route.join("→")} × ${branches.length} branches`));
 
       try {
         const queue = new PQueue({ concurrency: FANOUT_CONCURRENCY });
         const results = await Promise.all(
-          branches.map((b) =>
-            queue.add(async () => {
-              const result = await runBranch(b.branch, b.target, contextId, payload, runId);
-              bus.publish(
-                status(
-                  "working",
-                  `branch ${result.branch}/${branches.length}: ${result.state}` +
-                    (result.overallScore !== undefined ? ` (score ${result.overallScore})` : "") +
-                    ` — ${result.target}`
-                )
-              );
-              return result;
-            }) as Promise<BranchResult>
+          branches.map(
+            (b) =>
+              queue.add(() =>
+                runPipelineBranch({
+                  branch: b.branch,
+                  route,
+                  payload,
+                  contextId,
+                  runId,
+                  target: b.target,
+                  onStage: (note) => bus.publish(status("working", note)),
+                })
+              ) as Promise<BranchResult>
           )
         );
 
-        const stats = computeStats(results);
+        const stats = computeStats(results, route);
         const runStatus = stats.failed === 0 ? "completed" : "completed_with_failures";
-        db.prepare(
-          "update runs set status = ?, stats = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?"
-        ).run(runStatus, JSON.stringify(stats), runId);
+        db.prepare("update runs set status = ?, stats = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(
+          runStatus,
+          JSON.stringify(stats),
+          runId
+        );
 
         bus.publish({
           kind: "artifact-update",
@@ -260,16 +385,11 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
           artifact: {
             artifactId: randomUUID(),
             name: "run-stats",
-            parts: [
-              {
-                kind: "data",
-                data: { runId, ...stats, branchResults: results } as unknown as Record<string, unknown>,
-              },
-            ],
+            parts: [{ kind: "data", data: { runId, ...stats, branchResults: results } as unknown as Record<string, unknown> }],
           },
         } satisfies TaskArtifactUpdateEvent);
         bus.publish(status("completed", undefined, true));
-        log.info("coordinate.run completed", { a2a_task_id: taskId, run_id: runId, ...stats.overall, failed: stats.failed });
+        log.info("coordinate.run completed", { a2a_task_id: taskId, run_id: runId, route: route.join("→"), ...stats.overall, failed: stats.failed });
       } catch (err) {
         db.prepare("update runs set status = 'failed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(runId);
         bus.publish(status("failed", String(err), true));
