@@ -1,0 +1,20 @@
+{
+  "name": "@agents/store-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server over the A2A platform store (read-only stdio) — conversational queries about runs and eval reports (PRD part-6 open question #8)",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "better-sqlite3": "^12.10.0",
+    "zod": "^3.25.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

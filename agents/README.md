@@ -15,6 +15,7 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 | `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
 | `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), **`makecom` (primary — fully implemented: webhook out → `/callbacks/makecom/{taskId}` in, restart-tolerant; needs only the tunnel + scenario URLs)**, `sdk` (M3), `opencode` (M3+) |
 | `ui/` | 3000 | Next.js dashboard: shared-secret auth (middleware), Runs list + **run detail (branch grid, stage states, variance tables)**, Trigger (server-side A2A client → `coordinate.run`) |
+| `store-mcp/` | — | Read-only MCP server (stdio) over the coordinator + eval stores: conversational store queries via MCP (oq #8) — `list_runs` / `get_run` / `list_eval_reports` / `query_store` (single-SELECT escape hatch). The adaptTo() "ask Claude about run results in natural language" moment |
 | `e2e/` | 14xxx | E2E suite (vitest) — real servers, real A2A over HTTP, no mocks |
 
 ## Run the walking skeleton
@@ -76,6 +77,10 @@ Fast tier (`tests/`, stub engine pins the A2A contract):
 - `makecom-roundtrip` — fake Make.com speaking the exact wire protocol: webhook trigger with
   1:1 runtime vars + callbackUrl → final-report callback completes the task; clean timeout;
   **callback after a restart completes the task from the store** (scenario outlives our process)
+- `store-mcp` — spawns the real `store-mcp` server over stdio (MCP SDK `Client`): `tools/list`
+  returns the 4 store tools, `list_runs`/`list_eval_reports` parse JSON columns from seeded
+  SQLite, `query_store` runs a SELECT but rejects `DELETE` and stacked `select 1; delete …`,
+  `get_run` on an unknown id returns not-found (no crash)
 
 Live tier (`tests-live/`, real engine, API keys stripped → agentic falls back to
 deterministic; real browsers, zero spend):

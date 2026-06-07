@@ -4,7 +4,8 @@
     "a2a-common/src/**/*.ts",
     "content-gen/src/**/*.ts",
     "migration-agent/src/**/*.ts",
-    "coordinator/src/**/*.ts"
+    "coordinator/src/**/*.ts",
+    "store-mcp/src/**/*.ts"
   ]
   // eval-service has its own tsconfig (engine `@/` path aliases) — checked via
   // `npm run typecheck -w eval-service`; root `npm run typecheck` runs both.
