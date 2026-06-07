@@ -1,0 +1,23 @@
+{
+  "name": "@agents/a2a-common",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared A2A bootstrap: server factory, SQLite/D1 store adapter, task store, logging",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "0.3.13",
+    "better-sqlite3": "^12.4.1",
+    "express": "^4.21.2",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^4.17.23",
+    "@types/node": "^20.19.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

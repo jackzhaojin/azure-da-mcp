@@ -1,0 +1,17 @@
+{
+  "name": "@agents/eval-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Eval agent — A2A server :4001 (skeleton: stub eval.run; engine lands at M1)",
+  "scripts": {
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@agents/a2a-common": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

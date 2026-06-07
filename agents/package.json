@@ -1,0 +1,22 @@
+{
+  "name": "agents",
+  "private": true,
+  "description": "A2A agent platform (PRD: ai-docs/2026-06-05-a2a-agent-platform/) — one Express A2A server per agent",
+  "type": "module",
+  "workspaces": [
+    "a2a-common",
+    "eval-service",
+    "content-gen",
+    "coordinator",
+    "e2e"
+  ],
+  "scripts": {
+    "dev:eval": "npm run dev -w eval-service",
+    "dev:content-gen": "npm run dev -w content-gen",
+    "hello": "npm run hello -w coordinator",
+    "test:e2e": "npm run test -w e2e"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

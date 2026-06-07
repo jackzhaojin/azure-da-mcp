@@ -1,0 +1,17 @@
+{
+  "name": "@agents/content-gen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Content generator agent — A2A server :4002 (skeleton: stub content.brief; real backend lands at M3)",
+  "scripts": {
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@agents/a2a-common": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}
