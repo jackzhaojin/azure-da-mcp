@@ -3,15 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Coordinator — A2A client (CLI-first; server face :4004 lands at M2)",
+  "description": "Coordinator — A2A client AND server (:4004, coordinate.run). CLI-first; M2: eval-only batch with variance stats",
   "scripts": {
-    "hello": "tsx src/cli.ts hello"
+    "dev": "tsx src/index.ts",
+    "hello": "tsx src/cli.ts hello",
+    "batch": "tsx src/cli.ts batch"
   },
   "dependencies": {
     "@a2a-js/sdk": "0.3.13",
-    "@agents/a2a-common": "*"
+    "@agents/a2a-common": "*",
+    "p-queue": "^9.0.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "tsx": "^4.20.0",
     "typescript": "^5.8.0"
   }

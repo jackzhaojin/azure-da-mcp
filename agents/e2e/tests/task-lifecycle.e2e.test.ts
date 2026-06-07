@@ -65,8 +65,8 @@ describe("task lifecycle (message/stream → tasks/get → store row)", () => {
     const part = artifacts[0].artifact.parts[0];
     expect(part.kind).toBe("data");
     const data = (part as { kind: "data"; data: Record<string, unknown> }).data;
-    expect(typeof data.overall).toBe("number");
-    expect(Object.keys(data.dimensions as object)).toEqual(
+    expect(typeof data.overallScore).toBe("number");
+    expect(Object.keys(data.dimensionScores as object)).toEqual(
       expect.arrayContaining(["structure", "accessibility", "content", "visual"])
     );
 

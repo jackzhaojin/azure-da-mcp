@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coordinate.run.v1",
+  "title": "coordinate.run task payload (v1 — M2: eval-only batch)",
+  "description": "Input for the coordinator's coordinate.run skill. M2 scope: goal=evaluate fan-out over a URL list (feature parity with the legacy batch mode). Generate/migrate routes land at M3.",
+  "type": "object",
+  "required": ["goal", "targets"],
+  "properties": {
+    "goal": {
+      "enum": ["evaluate"],
+      "description": "M2: evaluate only. M3 adds migrate | generate+migrate | full-loop | auto."
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "format": "uri" },
+      "description": "Pages to evaluate. Each target × fanOut becomes one eval.run child task."
+    },
+    "fanOut": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Repeat count per target — run-once vs run-10x is just this number (variance experiments)."
+    },
+    "sourceType": { "enum": ["pdf", "webpage", "none"], "default": "none" },
+    "sourceLocation": { "type": "string" },
+    "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+  }
+}

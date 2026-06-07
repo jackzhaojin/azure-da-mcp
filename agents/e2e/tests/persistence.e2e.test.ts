@@ -44,6 +44,6 @@ describe("restart survival (sleep-tolerance rule)", () => {
     expect(recovered.status.state).toBe("completed");
     expect(recovered.artifacts?.length).toBe(1);
     const data = recovered.artifacts![0].parts[0] as { kind: "data"; data: Record<string, unknown> };
-    expect(typeof data.data.overall).toBe("number");
+    expect(typeof data.data.overallScore).toBe("number");
   });
 });

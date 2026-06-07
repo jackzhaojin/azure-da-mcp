@@ -16,7 +16,8 @@
     "hello": "npm run hello -w coordinator",
     "test:e2e": "npm run test -w e2e",
     "typecheck": "tsc -p tsconfig.json && tsc -p eval-service/tsconfig.json",
-    "test:live": "npm run test:live -w e2e"
+    "test:live": "npm run test:live -w e2e",
+    "dev:coordinator": "npm run dev -w coordinator"
   },
   "engines": {
     "node": ">=20"

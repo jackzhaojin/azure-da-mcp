@@ -22,7 +22,7 @@ export interface AgentHandle {
  * the same processes `npm run dev:*` starts.
  */
 export async function startAgent(
-  service: "eval-service" | "content-gen",
+  service: "eval-service" | "content-gen" | "coordinator",
   port: number,
   opts: { dbPath?: string; env?: Record<string, string> } = {}
 ): Promise<AgentHandle> {

@@ -54,6 +54,7 @@ export const stubExecutor: AgentExecutor = {
       Object.values(scores).reduce((a, b) => a + b, 0) / DIMENSIONS.length
     );
 
+    // same artifact contract as the real executor (eval.run.v1 result shape)
     const artifact: TaskArtifactUpdateEvent = {
       kind: "artifact-update",
       taskId,
@@ -61,7 +62,7 @@ export const stubExecutor: AgentExecutor = {
       artifact: {
         artifactId: randomUUID(),
         name: "eval-report",
-        parts: [{ kind: "data", data: { overall, dimensions: scores, stub: true } }],
+        parts: [{ kind: "data", data: { overallScore: overall, grade: "good", dimensionScores: scores, stub: true } }],
       },
     };
     bus.publish(artifact);

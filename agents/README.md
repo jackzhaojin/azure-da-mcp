@@ -8,11 +8,11 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 
 | Package | Port | What |
 |---|---|---|
-| `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), SQLite/D1 store adapter + migrations, structured logging. Edge shim + push sender land at M2. |
-| `eval-service/` | 4001 | Eval agent — **skeleton stub** (fake 4-dimension scores); real engine copied in at M1 |
+| `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), SQLite/D1 store adapter + migrations, **push notifications (SQLite-backed config store)**, **mesh bearer auth** (`A2A_MESH_TOKEN`), **edge webhook shim** (`POST /hooks/{agent}/{skill}`), mesh-aware client factory, structured logging. |
+| `eval-service/` | 4001 | Eval agent — real engine (copied from frozen app), job queue, browser semaphore, `eval.run` executor; `EVAL_ENGINE=stub` for the fake |
 | `content-gen/` | 4002 | Content generator — **skeleton stub**; real Agent SDK backend at M3 |
-| `coordinator/` | 4004 | A2A client, CLI-first; server face (`coordinate.run`) at M2 |
-| `contracts/` | — | JSON Schemas for task payloads (lands with M1) |
+| `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): eval-only batch fan-out with **variance stats** (mean/stddev/min/max/pass-rate per dimension); CLI `hello` + `batch` |
+| `contracts/` | — | JSON Schemas for task payloads: `eval.run.v1`, `coordinate.run.v1` |
 | `migration-agent/` | 4003 | Lands at M3 |
 | `ui/` | 3000 | Next.js dashboard, lands at M4 |
 | `e2e/` | 14xxx | E2E suite (vitest) — real servers, real A2A over HTTP, no mocks |
@@ -21,10 +21,21 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 
 ```bash
 npm install
-npm run dev:eval          # terminal 1 → :4001
+npm run dev:eval          # terminal 1 → :4001 (real engine; EVAL_ENGINE=stub for fakes)
 npm run dev:content-gen   # terminal 2 → :4002
-npm run hello             # terminal 3 — coordinator: discovers cards, streams a task
-                          #   through each agent, verifies tasks/get persistence
+npm run dev:coordinator   # terminal 3 → :4004
+npm run hello             # mesh smoke: cards + one task through each agent
+npm run batch -- https://example.com https://example.org --fan-out 2
+                          # eval-only batch via coordinate.run → variance stats
+```
+
+External callers skip A2A entirely via the edge shim (one flat POST, webhook back):
+
+```bash
+curl -X POST localhost:4001/hooks/eval/eval.run \
+  -H 'Content-Type: application/json' \
+  -d '{"targetUrl":"https://example.com","sourceType":"none","callbackUrl":"https://hook.make.com/xyz"}'
+# → 202 {"taskId":...}; the completed task POSTs to callbackUrl (A2A push notification)
 ```
 
 Each agent writes its store to `<package>/data/store.db` (schema: `a2a-common/migrations/`,
@@ -48,6 +59,10 @@ Fast tier (`tests/`, stub engine pins the A2A contract):
   Part-2 store row mapping, A2A `-32001` error shape
 - `persistence` — restart survival: completed tasks outlive the process
 - `browser-semaphore` — 10 concurrent acquisitions cap at exactly 3 permits
+- `push-notifications` — webhook delivery of completed tasks + config restart survival
+- `mesh-auth` — `/a2a` 401s without the bearer; card/health stay public
+- `edge-shim` — flat POST → 202 → callback round-trip; 404/401 paths
+- `coordinator-batch` — 3 targets × fanOut 2 → 6 children, one contextId, variance stats, runs row
 
 Live tier (`tests-live/`, real engine, API keys stripped → agentic falls back to
 deterministic; real browsers, zero spend):
@@ -55,6 +70,8 @@ deterministic; real browsers, zero spend):
 - **restart mid-queue** (Part-2 DoD): kill the server mid-eval, boot rebuild re-enqueues
   from the store, task completes
 - **5 concurrent evals** (Part-2 DoD): all complete, live Chromiums never exceed 3 permits
+- **coordinator batch over the real engine**: 2 branches, genuine scores aggregated into
+  variance stats, `eval_reports` joined through one contextId
 
 Full agentic runs (with `CLAUDE_CODE_OAUTH_TOKEN`) are manual for now — same code path,
 the fallback just doesn't trigger.
@@ -71,4 +88,5 @@ the fallback just doesn't trigger.
 - [x] Walking skeleton: cards, `message/stream` (SSE), `tasks/get`, store-backed task store, restart survival — verified 2026-06-07
 - [x] M1 core: engine copied (model bump → `claude-sonnet-4-6`), job queue (concurrency 2), browser semaphore (3 permits), real `eval.run` executor, `eval_reports` writes, restart rebuild-from-store — Part-2 DoD tests green 2026-06-07
 - [ ] M1 remainder: R2 artifact uploads (blocked on account R2 enable), full-agentic smoke run
-- [ ] M2: push notifications, edge shim + `cloudflared` tunnel, coordinator server face, mesh bearer auth, Make.com round-trip
+- [x] M2 core: push notifications (store-backed), mesh bearer auth, edge webhook shim, coordinator server face (`coordinate.run`) + CLI batch + variance stats — 24/24 tests green 2026-06-07
+- [ ] M2 remainder: `cloudflared` tunnel + Make.com round-trip (needs tunnel + Make.com scenario), container→D1 spike (open question #7)
