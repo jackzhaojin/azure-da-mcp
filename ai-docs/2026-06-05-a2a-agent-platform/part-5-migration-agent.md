@@ -69,7 +69,7 @@ The default runtime: the existing, battle-tested Make.com scenario. Flow:
 
 1. Facade receives A2A task → POSTs to a Make.com **custom webhook** (scenario trigger) with the contract payload + a per-task callback URL
 2. Make.com scenario runs the existing AI-Agent module (unchanged prompt, unchanged MCP integration via the `args.bearerToken` hack)
-3. Final scenario module: HTTP POST of the final report to the facade's callback URL (`/callbacks/makecom/{taskId}`, bearer-gated)
+3. Final scenario module: HTTP POST of the final report to the facade's callback URL (`/callbacks/makecom/{taskId}`, bearer-gated — reachable from Make.com via the `cloudflared` tunnel during local dev, Part 3)
 4. Facade completes the A2A task with the report artifact; push notifications fire
 
 Required Make.com change: **one added HTTP module** at the end of the scenario (the callback), plus accepting the callback URL as an input var. The 300s timeout stops mattering because the facade, not Make.com, owns task state.
@@ -90,18 +90,18 @@ A second non-Make.com path that swaps the *model vendor* while keeping the same 
 - Gives a non-Anthropic cost/quality datapoint — and, paired with the eval agent's variance reporting, a head-to-head: *"Claude vs Kimi K2.6 on the same 10 migrations"* is a genuinely novel adaptTo() result
 - Shares the Playwright "agentic eyes" validation loop and browser-permit handling with the `sdk` backend
 
-The agent memory page (`agent-memory.html` on da.live) read/append behavior is preserved across **all three** backends — cross-run learning stays in da.live, deliberately NOT moved to Supabase (it's content, and every backend shares it).
+The agent memory page (`agent-memory.html` on da.live) read/append behavior is preserved across **all three** backends — cross-run learning stays in da.live, deliberately NOT moved into the store (it's content, and every backend shares it).
 
 ## Multithreading / "agentic eyes" at Nx
 
 - Run isolation already exists via `folderPostfix` (distinct da.live folders per run) — the coordinator generates unique postfixes per fan-out branch
 - `makecom` backend parallelism = Make.com's own scenario concurrency (configurable there); the facade just tracks N in-flight tasks
 - `sdk` and `opencode` backend parallelism = worker pool (start `MIGRATION_CONCURRENCY=1`, browser-bound) — Playwright MCP per run gives each an isolated browser context by construction
-- Validation screenshots from the agentic-eyes loop become Supabase Storage artifacts on the task — today they're lost inside the Make.com run log
+- Validation screenshots from the agentic-eyes loop become R2 artifacts on the task — today they're lost inside the Make.com run log
 
 ## Definition of Done
 
 - Same `migration.run` payload executed against all three backends (`makecom`, `sdk`, `opencode`) produces a published page + contract-conformant artifact
-- 3 concurrent `sdk`-backend migrations on the VM complete without browser contention failures
+- 3 concurrent `sdk`-backend migrations on the dev machine complete without browser contention failures
 - Make.com scenario survives a >300s migration via the callback pattern
 - `opencode`/Kimi K2.6 backend completes one migration end-to-end against the same MCP server and prompt

@@ -31,7 +31,7 @@ Decision D2: **full official A2A SDK from day one**. This part defines how the s
 {
   "name": "da-eval-agent",
   "description": "Evaluates EDS page migrations across structure, accessibility, content, visual dimensions",
-  "url": "http://eval-service:4001/a2a",
+  "url": "http://localhost:4001/a2a",   // dev; Worker-routed container URL at deploy (M5)
   "version": "1.0.0",
   "capabilities": { "streaming": true, "pushNotifications": true },
   "defaultInputModes": ["application/json"],
@@ -50,16 +50,16 @@ Decision D2: **full official A2A SDK from day one**. This part defines how the s
 }
 ```
 
-Skills per agent: eval-service → `eval.run`; content-gen → `content.brief`, `content.synthesize-source`; migration-agent → `migration.run`.
+Skills per agent: eval-service → `eval.run`; content-gen → `content.brief`, `content.synthesize-source`; migration-agent → `migration.run`; coordinator → `coordinate.run` (the coordinator is a server too — decided 2026-06-06, Part 6).
 
 ## `a2a-common` Package
 
 Shared bootstrap so each agent is ~50 lines of wiring:
 
 - **Server factory**: Express + A2A SDK request handler, Agent Card serving, health endpoint
-- **Task store adapter**: implements the SDK's task-store interface backed by Supabase `tasks` (the SDK ships an in-memory store; ours must survive restarts — this is the one place we go beyond SDK defaults)
+- **Task store adapter**: implements the SDK's task-store interface over the SQLite-dialect store (local SQLite in dev, Cloudflare D1 at deploy). The SDK ships an in-memory store; ours must survive restarts — this is the one place we go beyond SDK defaults, and it doubles as the sleep-tolerance requirement Cloudflare Containers' scale-to-zero imposes later
 - **Push-notification sender**: POSTs task-completion payloads to caller-registered webhook URLs with retry (3x, exponential); supports a static bearer token per registration
-- **Auth middleware**: shared-secret bearer (`A2A_MESH_TOKEN` env) on all A2A endpoints. The mesh is compose-internal; the only public exposure is via reverse proxy for Make.com callbacks (see below). Real OAuth is explicitly out of scope v1.
+- **Auth middleware**: shared-secret bearer (`A2A_MESH_TOKEN` env) on all A2A endpoints. The mesh is localhost in dev; the only public exposure is the `cloudflared` tunnel for Make.com traffic (see below). Real OAuth is explicitly out of scope v1.
 - **Telemetry**: structured logs with `a2a_task_id` + `context_id` on every line
 
 ## Event Mapping (today's SSE → A2A)
@@ -104,14 +104,18 @@ Role 2 is where the **Agent Card abstraction pays off**: a single card hides whi
 
 ## Public Exposure
 
-Compose services bind to an internal network. One reverse-proxy (Caddy, already-ish present on the VM) exposes:
-- `POST /a2a/{agent}` routes → internal agents (bearer-gated) — needed for Make.com as a *caller*
-- Nothing else; UI talks to Supabase directly and to agents via its own server-side routes
+**Dev (now)**: agents bind to localhost. One `cloudflared tunnel` with a stable hostname exposes only what Make.com needs:
+- `POST /hooks/{agent}/{skill}` → that agent's edge shim (bearer-gated) — Make.com as a *caller*
+- `POST /callbacks/makecom/{taskId}` → migration-agent (bearer-gated) — the `makecom` backend's return path
+
+**Deploy (M5, D6)**: a fronting Worker replaces the tunnel — same two route families into the Containers; everything else stays mesh-internal. `agents/ui` talks to the store and to agents from its own server-side routes only — never from the browser.
 
 ## Risks Specific to This Layer
 
 | Risk | Mitigation |
 |---|---|
 | JS SDK maturity gaps (task-store interface churn, v1.0 spec drift) | Pin SDK version; isolate all SDK touchpoints in `a2a-common` so churn is one-package surgery |
-| Over-investing in protocol plumbing before the demo | Time-box: if the Supabase task-store adapter fights the SDK > 2 days, ship SDK in-memory store + our own Supabase mirror writes, converge later |
-| Webhook delivery to Make.com flaking | Retry in push sender; task state in Supabase remains queryable as fallback (Make.com can poll `tasks/get`) |
+| Over-investing in protocol plumbing before the demo | Time-box: if the task-store adapter fights the SDK > 2 days, ship SDK in-memory store + our own mirror writes to the store, converge later |
+| Webhook delivery to Make.com flaking | Retry in push sender; task state in the store remains queryable as fallback (Make.com can poll `tasks/get`) |
+| Tunnel hostname churn breaking Make.com configs | Use a named `cloudflared` tunnel (stable hostname tied to the Cloudflare account), not quick tunnels |
+| Long SSE streams (10+ min) through Cloudflare Containers at M5 | SSE comment keep-alives every 15–30s in `a2a-common` (avoids idle timeouts); fronting DO sets `sleepAfter` ≥ max task duration + `renewActivityTimeout()` before long tasks (containers #147/#162). SSE is a convenience channel by design — push notifications + `tasks/get` are the durable contract, so a severed stream loses nothing. Tested in the M2 spike. |

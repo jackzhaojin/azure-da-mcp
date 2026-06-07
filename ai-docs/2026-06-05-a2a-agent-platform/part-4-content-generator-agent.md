@@ -12,7 +12,7 @@ Generates a structured **content brief**: page intent, audience, outline, copy b
 **Use case**: AI-driven net-new content creation for the EDS site (the user's "have AI drive content creation" goal).
 
 ### Mode 2 — `content.synthesize-source`
-Generates a complete **synthetic "legacy" source page** — standalone HTML (optionally deliberately messy: table layouts, inline styles, non-semantic markup, configurable "legacy-ness") that mimics a real-world migration source. Uploaded to Supabase Storage and served at a public URL.
+Generates a complete **synthetic "legacy" source page** — standalone HTML (optionally deliberately messy: table layouts, inline styles, non-semantic markup, configurable "legacy-ness") that mimics a real-world migration source. Uploaded to R2 (public bucket) and served at a public URL — real and public even during local dev, since R2 is remote.
 
 **Use case**: feeds the migration agent exactly like a real `sourceType: webpage` input. This is what makes the closed loop *closed*: generate 10 synthetic pages → migrate 10x → eval 10x, with full knowledge of ground truth (we generated the source, so the eval's content-fidelity dimension has a perfect reference).
 
@@ -36,7 +36,7 @@ Generates a complete **synthetic "legacy" source page** — standalone HTML (opt
   "legacyStyle": "clean | dated | messy",     // how hostile the markup should be
   "count": 1                                   // fan-out handled by coordinator; agent does 1 per task
 }
-// artifact: { "sourceUrl": "https://<supabase-storage-public-url>/.../page.html",
+// artifact: { "sourceUrl": "https://<r2-public-url>/.../page.html",
 //             "groundTruth": { headings, links, imageAlts, bodyText },   // for eval reference
 //             "artifacts": [{ "type": "source-html", "path": "..." }] }
 ```
@@ -55,7 +55,7 @@ agents/content-gen/
     a2a/          # standard wiring from a2a-common
     skills/       # brief.ts, synthesize.ts — each a Claude Agent SDK query() invocation
     prompts/      # versioned JSON prompt files, same convention as eval-service prompts
-    publish.ts    # Supabase Storage upload + public URL resolution
+    publish.ts    # R2 upload (S3 API) + public URL resolution (r2.dev or custom domain)
 ```
 
 - Claude Agent SDK `query()` with model `claude-sonnet-4-6`; `WebFetch`-style access only for reading the block library page; **no Playwright needed** (cheapest agent in the mesh — no browser permits required)

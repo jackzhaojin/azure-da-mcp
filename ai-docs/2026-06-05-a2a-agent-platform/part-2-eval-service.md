@@ -21,21 +21,23 @@ The highest-value extraction in the platform. Everything else composes around a 
 agents/eval-service/
   src/
     a2a/            # A2A server wiring (from a2a-common): Agent Card, task handlers
-    engine/         # MOVED from content-authoring-eval/src/lib:
+    engine/         # COPIED from content-authoring-eval/src/lib (source frozen, D5):
                     #   evaluator.ts, agents/*, prompts/*, mcp-config.ts, constants.ts
     jobs/           # queue + worker pool (in-process, p-queue or similar; no Redis in v1)
+                    #   queue is rebuildable from the store on restart (sleep-tolerance rule, Part 1)
     browser/        # global browser semaphore + lifecycle (see below)
-    store/          # Supabase adapter: tasks, eval_reports, artifacts
-  Dockerfile
+    store/          # SQLite-dialect store adapter: local SQLite file (dev) / Cloudflare D1 (deploy)
+                    #   + R2 client for artifacts
+  # no Dockerfile until the deployment milestone (D6)
 ```
 
 ### Execution model
 
 1. A2A `message/send` arrives with an `eval.run` payload → validate against contract schema → insert `tasks` row (`submitted`) → enqueue → return Task immediately
-2. Worker pool (concurrency `EVAL_CONCURRENCY`, default **2** on the 4-CPU VM) picks up the job → state `working` (Supabase row updated; A2A status event emitted; SSE subscribers notified)
+2. Worker pool (concurrency `EVAL_CONCURRENCY`, default **2**) picks up the job → state `working` (store row updated; A2A status event emitted; SSE subscribers notified)
 3. `runEvaluation()` runs exactly as today — 4 dimensions in parallel — but every browser acquisition goes through the **global semaphore**
 4. Per-dimension completion → A2A `TaskStatusUpdate` events (replaces today's `agent-start`/`agent-complete` SSE vocabulary)
-5. Completion → `eval_reports` row + screenshot uploads to Supabase Storage → A2A Artifact emitted → task `completed` → push notifications fired to registered webhooks
+5. Completion → `eval_reports` row + screenshot uploads to R2 → A2A Artifact emitted → task `completed` → push notifications fired to registered webhooks
 6. Failure → 3-retry with backoff (port the logic from `batch-stream/route.ts`), then `failed` with error detail on the task
 
 ### Browser concurrency (the critical resource constraint)
@@ -56,7 +58,7 @@ Today's batch routes (`batch/route.ts`, `batch-stream/route.ts`, `import/`, `exp
 {
   "targetUrl": "https://main--site--owner.aem.page/path",   // required
   "sourceType": "pdf" | "webpage" | "none",                 // default "none"
-  "sourceLocation": "https://... | storage://artifacts/...", // required unless sourceType=none
+  "sourceLocation": "https://... | r2://artifacts/...",      // required unless sourceType=none
   "dimensions": ["structure","accessibility","content","visual"], // default all
   "runId": "uuid",          // optional — links task to an coordinator run
   "labels": { "...": "..." } // optional free-form, flows to eval_reports for grouping
@@ -73,60 +75,62 @@ Today's batch routes (`batch/route.ts`, `batch-stream/route.ts`, `import/`, `exp
 
 Weights stay in `constants.ts` (`DIMENSION_WEIGHTS`); the content dimension still auto-skips when `sourceType=none` (today's behavior at `evaluator.ts:187`).
 
-## Supabase Schema (v1)
+## Store Schema (v1) — SQLite dialect (local SQLite in dev, Cloudflare D1 at deploy)
+
+One set of migration files runs unchanged on both: D1 *is* SQLite, so local dev uses a plain SQLite file (better-sqlite3 or libsql) behind the same `a2a-common` store adapter. UUIDs are generated app-side; JSON lives in `text` columns queried with SQLite's `json_*()` functions (supported by D1).
 
 ```sql
 create table runs (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,                 -- uuid v4, generated app-side
   kind text not null,                  -- 'eval-batch' | 'pipeline' | 'single'
-  config jsonb not null,               -- pipeline spec / batch input
+  config text not null,                -- JSON: pipeline spec / batch input
   status text not null default 'running',
-  stats jsonb,                         -- filled on completion: mean/stddev/pass-rate per dimension
-  created_at timestamptz default now(),
-  completed_at timestamptz
+  stats text,                          -- JSON, filled on completion: mean/stddev/pass-rate per dimension
+  created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  completed_at text
 );
 
 create table tasks (
-  id uuid primary key default gen_random_uuid(),
-  run_id uuid references runs(id),
-  agent text not null,                 -- 'eval' | 'migration' | 'content-gen'
+  id text primary key,
+  run_id text references runs(id),
+  agent text not null,                 -- 'eval' | 'migration' | 'content-gen' | 'coordinator'
   a2a_task_id text unique not null,
   context_id text,                     -- A2A contextId — groups pipeline steps
   state text not null,                 -- submitted|working|completed|failed|canceled
-  payload jsonb not null,
-  error jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  payload text not null,               -- JSON
+  error text,                          -- JSON
+  created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 create table eval_reports (
-  id uuid primary key default gen_random_uuid(),
-  task_id uuid references tasks(id) not null,
+  id text primary key,
+  task_id text not null references tasks(id),
   target_url text not null,
-  overall_score numeric,
-  dimension_scores jsonb,
-  report jsonb not null,               -- full EvaluationReport
-  created_at timestamptz default now()
+  overall_score real,
+  dimension_scores text,               -- JSON
+  report text not null,                -- JSON: full EvaluationReport
+  created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 create table artifacts (
-  id uuid primary key default gen_random_uuid(),
-  task_id uuid references tasks(id) not null,
+  id text primary key,
+  task_id text not null references tasks(id),
   type text not null,                  -- screenshot|source-html|diff|brief
-  storage_path text not null,          -- Supabase Storage object path
-  metadata jsonb
+  storage_path text not null,          -- R2 object key
+  metadata text                        -- JSON
 );
--- Realtime enabled on tasks + eval_reports. RLS: permissive single-user policy in v1.
+-- No Realtime: agents/ui polls (v1). No RLS: access is server-side only (mesh services + ui API routes).
 ```
 
 ## Migration Plan (extraction steps)
 
-1. Scaffold `agents/eval-service` + `agents/a2a-common`; Supabase project + schema + storage bucket
-2. **Move** `src/lib/{agents,prompts,evaluator.ts,mcp-config.ts,constants.ts,...}` from `content-authoring-eval` into `eval-service/src/engine/` (git `mv` to keep history); fix imports; model bump to `claude-sonnet-4-6`
+1. Scaffold `agents/eval-service` + `agents/a2a-common`; shared SQL migration files (SQLite dialect) + local SQLite db; R2 bucket + access keys
+2. **Copy** `src/lib/{agents,prompts,evaluator.ts,mcp-config.ts,constants.ts,...}` from `content-authoring-eval` into `eval-service/src/engine/` — copy, **not** move: the source folder is frozen (D5) and its copy simply never changes again; fix imports; model bump to `claude-sonnet-4-6`
 3. Add browser semaphore around all Playwright entry points (deterministic `chromium.launch` call sites + `getMCPServersConfig` consumers)
-4. Wrap with job queue + Supabase store; smoke test headless via curl before any A2A wiring
+4. Wrap with job queue + store; smoke test headless via curl before any A2A wiring
 5. A2A server wiring (Part 3) — Agent Card, handlers, SSE, push notifications
-6. Rewire Next.js UI (Part 6): API routes become thin A2A submit proxies; results pages read Supabase; delete localStorage hooks, batch routes, `batch-storage.ts`
-7. Deploy to Oracle compose alongside the existing eval app; run both side-by-side for one week; then strip the engine from the Next.js image
+6. `agents/ui` (Part 6) reads the store and submits via A2A — the old Next.js app is **not** rewired (frozen, D5)
+7. No deploy step in this part — everything runs locally until the deployment milestone (D6 / M5)
 
-**Definition of done**: a curl-submitted eval task survives a service restart mid-queue (resumes or fails cleanly with state in Supabase), results visible in UI without localStorage, and 5 concurrent evals complete on the VM without exceeding 3 live browsers.
+**Definition of done**: a curl-submitted eval task survives a service restart mid-queue (resumes or fails cleanly with state in the store), results visible via CLI or `agents/ui` reading the store (no localStorage anywhere in the new platform), and 5 concurrent evals complete on the dev machine without exceeding 3 live browsers.

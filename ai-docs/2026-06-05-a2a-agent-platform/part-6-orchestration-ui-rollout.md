@@ -2,10 +2,11 @@
 
 ## Coordinator
 
-An **A2A client**, not a server — plain TypeScript that composes the three agents. But it is **not a fixed pipeline**: it is an *intelligent content coordinator* that, given an intent and the current state of the content, decides which capabilities to invoke. Two faces:
+An **A2A client *and* server** (revised 2026-06-06 — open question #3 resolved "yes, from day one") — plain TypeScript that composes the three agents. It is **not a fixed pipeline**: it is an *intelligent content coordinator* that, given an intent and the current state of the content, decides which capabilities to invoke. Three faces:
 
 1. **CLI** (`agents/coordinator`) — primary interface for development and the adaptTo() demo terminal moments
-2. **Thin HTTP trigger** — one endpoint so the UI (and Make.com, and cron) can launch pipelines
+2. **A2A server face** (`:4004`, skill `coordinate.run`) — pipelines as tasks, with the same lifecycle/streaming/push semantics as every other agent; this is what `agents/ui` (and any A2A client) submits to
+3. **Edge webhook shim** (from `a2a-common`, like every agent) — so Make.com, cron, and curl can launch pipelines with one flat POST
 
 ### What goes in, and how it's kicked off
 
@@ -22,9 +23,9 @@ An **A2A client**, not a server — plain TypeScript that composes the three age
 }
 ```
 
-**Kicked off by**: a **CLI command** (`coordinator run <request.json>`) or a **single thin HTTP trigger** (so the UI, cron, or Make.com can launch it). Nothing else — there is no separate coordinator service to stand up.
+**Kicked off by**: a **CLI command** (`coordinator run <request.json>`), an **A2A `coordinate.run` task** (from `agents/ui` or any A2A client), or the **edge shim** (Make.com, cron, curl).
 
-**MVP / talk build**: the coordinator is **CLI-first** — do *not* build a fancy coordinator UI for the demo. The Runs/variance dashboard (below) is post-MVP polish on the eval side; the coordinator itself is driven from the terminal.
+**MVP / talk build**: the coordinator is **CLI-first** — the server face is thin wiring from `a2a-common`, not a separate build effort. The `agents/ui` dashboard (below) lands at M4; until then the coordinator is driven from the terminal.
 
 ### What the coordinator can do (four routes)
 
@@ -88,29 +89,29 @@ State detection inputs the planner reads: presence/type of `sourceLocation`, whe
 
 For `fanOut ≥ 2`, `runs.stats` includes per-dimension **mean, stddev, min/max** and pass-rate across branches, plus migration confidence variance. Story: *"the migration agent scores 87±3 on structure but 78±11 on visual — visual fidelity is where the agent is least consistent."* Nobody at adaptTo() will be showing eval *variance* of an agentic migration pipeline; this is the differentiator. Implemented as plain SQL over `eval_reports` joined through `tasks.run_id`.
 
-## UI Rebuild (`content-authoring-eval` → pure client)
+## New UI (`agents/ui`) — the old app is frozen (D5, revised 2026-06-06)
 
-| Today | Target |
+The original plan here (slim `content-authoring-eval` to a pure client) is **dropped**: that folder is frozen, keeps running on Oracle untouched, and its deploy workflow never fires. Its localStorage/batch plumbing is no longer anyone's problem — it serves the legacy flows as-is. The new platform gets its own thin app instead:
+
+| Concern | `agents/ui` answer |
 |---|---|
-| `useEvaluations` / `useLocalStorage` (50-cap, per-browser) | Supabase queries; history is global and durable. **Delete the hooks.** |
-| `useEvaluationStream` / `useBatchEvaluationStream` (bespoke SSE parsing) | Supabase **Realtime** subscriptions on `tasks` + `eval_reports` — survives reconnects/restarts for free |
-| API routes importing `runEvaluation` in-process | One thin route: validate form → A2A `message/send` to eval-service (or coordinator for pipelines) → return task id |
-| Batch import/export JSON + `batch-storage.ts` | Runs dashboard: list `runs`, drill into branches/tasks, variance charts |
-| Engine code in the Next.js image | Removed — image shrinks, deploys decouple from engine changes |
-
-New pages: **Runs** (pipeline history + stats), **Run detail** (branch grid: synthesize → migrate → eval per row, live states via Realtime), **Variance view** (per-dimension distribution across branches). Existing single-eval form stays as the simple entry point, now submitting an A2A task.
-
-Versioning/deploy: keeps riding the existing tag-driven Oracle deploy (`deploy-content-authoring-eval.yml`); `agents/*` services get a parallel workflow building to GHCR and joining the same compose.
+| Framework | Next.js (App Router) — backend logic lives in API routes / server actions, so secrets and the mesh bearer token never reach the browser |
+| Auth | Required from day one (the app will eventually be public); mechanism is open question #6 — Cloudflare Access vs Auth.js vs simple shared-secret login. Pick the cheapest that protects a public deployment |
+| Trigger | Form → API route → A2A `coordinate.run` to the coordinator (or a direct single-agent task) — the UI is an A2A client with a browser face |
+| Live runs | Pages poll the store (local SQLite in dev, Cloudflare D1 deployed) via API routes — v1 is polling; upgrade to SSE/WebSockets only if polling chafes |
+| Pages | **Runs** (history + status), **Run detail** (branch grid: synthesize → migrate → eval per row, live states), **Variance view** (per-dimension distribution across branches), **Trigger** (manual run launcher) |
+| Deploy | Last, with everything else (M5): OpenNext on Workers or a small container — decide then |
 
 ## Rollout Plan (June → adaptTo, ~mid/late September 2026)
 
 | Milestone | Target | Delivers | Exit criteria |
 |---|---|---|---|
-| **M1 — Headless eval core** | end of June | `agents/eval-service` with engine moved, job queue, Supabase persistence, browser semaphore. A2A server with minimal `message/send` + `tasks/get`. | Part 2 definition of done |
-| **M2 — A2A complete + coordinator MVP** | mid-July | `a2a-common` hardened: SSE streaming, push notifications, Supabase task store. Coordinator CLI runs an eval-only batch (fanOut over a URL list — feature parity with today's batch mode). Make.com webhook round-trip proven on one toy task. | Old batch routes deletable; Make.com callback demo recorded |
-| **M3 — Closed loop 1x + intelligent routing** | mid-August | Content-gen agent (both skills, `sdk` backend). Migration facade with `sdk` backend; `makecom` backend callback wired. One full synthesize → migrate → eval chain via coordinator, **plus the agentic planner** that skips stages by state (source supplied → migrate→eval; already migrated → eval only; brief-only → stop). | Part 4 + Part 5 definitions of done; coordinator demonstrates ≥3 distinct routes incl. a non-eval-terminating one |
-| **M4 — Nx + variance + UI v2** | end of August | `fanOut: 10` stable within concurrency budget; variance stats; Runs/Run-detail/Variance UI on Realtime; localStorage deleted. | 10x run completes unattended overnight; UI shows it live |
-| **M5 — Hardening + demo** | early September | Failure-path polish, seed demo content, scripted demo (CLI + UI + Supabase-MCP conversational query), talk materials. | Dry-run demo end-to-end twice without manual intervention |
+| **M1 — Headless eval core (local)** | end of June | `agents/eval-service` with engine **copied** in, job queue, SQLite store (+ R2 from day one), browser semaphore. A2A server with minimal `message/send` + `tasks/get`. | Part 2 definition of done, on the dev machine |
+| **M2 — A2A complete + coordinator MVP** | mid-July | `a2a-common` hardened: SSE streaming, push notifications, store-backed task store. Coordinator CLI **+ server face** runs an eval-only batch (fanOut over a URL list — feature parity with today's batch mode). Make.com webhook round-trip proven through the `cloudflared` tunnel. **Cloudflare spike**: hello-world container + Cloudflare D1 + R2 round-trip, **plus a 10-minute SSE stream survival test** (sleepAfter/renewActivityTimeout behavior — cloudflare/containers #147/#162) — de-risks M5 without committing to deploy. | Eval-only batch submitted via `coordinate.run`; Make.com callback demo recorded; spike findings written up (container→D1 access pattern) |
+| **M3 — Closed loop 1x + intelligent routing** | mid-August | Content-gen agent (both skills). Migration facade with `sdk` backend; `makecom` backend callback wired. One full synthesize → migrate → eval chain via coordinator, **plus the agentic planner** that skips stages by state (source supplied → migrate→eval; already migrated → eval only; brief-only → stop). | Part 4 + Part 5 definitions of done; coordinator demonstrates ≥3 distinct routes incl. a non-eval-terminating one |
+| **M4 — Nx + variance + UI v1 (still local)** | end of August | `fanOut: 10` stable within concurrency budget; variance stats; `agents/ui` (auth, Runs, Run detail, Variance, Trigger) polling the store. | 10x run completes unattended overnight on the dev machine; UI shows it live |
+| **M5 — Cloudflare deployment (D6: deploy last)** | early September | 4 containers + fronting Worker router; Cloudflare D1 migrations applied (R2 already live since M1); `agents/ui` deployed; tunnel retired. | The same closed loop + a 10x run green on Cloudflare |
+| **M6 — Hardening + demo** | mid-September | Failure-path polish, seed demo content, scripted demo (CLI + UI + conversational store query), talk materials. **Fallback rehearsed: laptop + tunnel** in case anything regresses on Cloudflare. | Dry-run demo end-to-end twice without manual intervention — once on Cloudflare, once local |
 
 Sequencing note: the EDS site build (separate PRD) should land its block library before M3, or M3 develops against the existing demo site.
 
@@ -118,17 +119,21 @@ Sequencing note: the EDS site build (separate PRD) should land its block library
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| 4-CPU ARM VM can't sustain concurrency 2 × multi-browser | Medium | Semaphore is tunable to worst-case (1 chain, 2 permits); demo still works at fanOut 10 / concurrency 1, just slower. Escape hatch: temporarily resize VM for demo week. |
-| A2A JS SDK rough edges eat schedule | Medium | Time-boxed (Part 3); fallback = SDK in-memory store + Supabase mirror |
+| Deployment compressed into M5, right before the conference | High | The platform is local-first by construction — laptop + `cloudflared` tunnel is a full-fidelity demo fallback; the M2 Cloudflare spike pulls the unknowns (container→D1 access pattern, instance sizing, sleep/wake) forward by two months |
+| Cloudflare Containers scale-to-zero kills in-flight/queued work or long SSE streams | Medium | Sleep-tolerance rule enforced from M1 (store is authoritative; queues rebuild on wake). Known library bugs as of early 2026: WS activity doesn't renew the sleep timer (containers #147), sleepAfter can fire mid-`containerFetch` (#162) — mitigate by setting `sleepAfter` ≥ max task duration + `renewActivityTimeout()` before long tasks. SSE is a convenience channel anyway: push notifications + `tasks/get` polling are the durable contract. Verified in the M2 spike. |
+| A2A JS SDK rough edges eat schedule | Medium | Time-boxed (Part 3); fallback = SDK in-memory store + mirror writes to the store |
 | Scope creep vs EDS site build competing for the same calendar | High | M-gates are hard; anything not demoable by M4 is cut. The EDS site only *needs* a block library + 2-3 page templates for this platform's purposes. |
-| Supabase free tier limits (500MB DB / 1GB storage) | Low | Screenshots are the only heavy artifact; retention job deletes artifacts of runs older than 30 days |
+| Cloudflare D1/R2 limits or instance sizing surprises | Low | R2 free tier (10GB) + Workers Paid D1 allotments dwarf this workload; eval container sized `standard-3`, with Cloudflare's Browser Rendering API as a deferred alternative to in-container Chromium; retention job deletes artifacts of runs older than 30 days |
 | Make.com backend drift (prompt edited in UI, repo copy stale) | Medium | Existing risk, now contract-tested: M3 adds a conformance check that the callback payload matches `migration.run.v1` |
 | Claude API spend on 10x agentic runs | Medium | `claude-sonnet-4-6` for all agents; coordinator records per-run token usage in `runs.stats`; budget alarm threshold documented before M4 |
 
-## Open Questions (to resolve before/at M1)
+## Open Questions
 
-1. **Confirm D3**: Supabase vs Cosmos DB — this PRD assumes Supabase; flipping later means rewriting `store/` adapters only (they're isolated by design), but flip before M2.
+1. ~~Confirm D3: Supabase vs Cosmos DB~~ — **Resolved 2026-06-06: Cloudflare D1 + R2** (D3 revised). Store adapters stay isolated in `a2a-common` regardless, so a future flip remains cheap.
 2. Eval `ground-truth` source mode (Part 4) — v2 of `eval.run`, worth slotting into M4 if M3 lands early?
-3. Should the coordinator itself be an A2A *server* too (pipelines as tasks)? Partially answered 2026-06-05: external callers (incl. Make.com) launch pipelines via the edge webhook shim (Part 3), so an A2A server face on the coordinator is purely for mesh-internal symmetry/learning — optional M4 stretch, not needed for any caller.
-4. Public URL strategy for content-gen synthetic sources: Supabase Storage public bucket vs serving via the VM proxy (Storage assumed).
-5. adaptTo() exact dates/format — anchor M5 precisely once confirmed.
+3. ~~Should the coordinator itself be an A2A *server* too?~~ — **Resolved 2026-06-06: yes, from day one** — `coordinate.run` server face (this part); it's thin wiring from `a2a-common`.
+4. ~~Public URL strategy for content-gen synthetic sources~~ — **Resolved 2026-06-06: R2 public bucket** (r2.dev or custom domain).
+5. adaptTo() exact dates/format — anchor M5/M6 precisely once confirmed.
+6. **Auth for `agents/ui`**: Cloudflare Access vs Auth.js vs simple shared-secret login — decide by M4.
+7. **Container → Cloudflare D1 access pattern**: Worker-proxy binding vs D1 REST API vs libsql driver — answer in the M2 spike, before any M5 commitment.
+8. **Conversational store queries for the demo**: Cloudflare's official MCP servers (verify D1 query support) vs a ~50-line custom MCP server over the store — decide during M6 demo prep.
