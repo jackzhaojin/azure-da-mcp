@@ -15,6 +15,8 @@ export interface AgentServerOptions {
   executor: AgentExecutor;
   /** Path to the local SQLite file (default: ./data/store.db relative to cwd). */
   dbPath?: string;
+  /** Extra fields merged into the /health response (queue depth, semaphore stats, …). */
+  healthExtras?: () => Record<string, unknown>;
 }
 
 /**
@@ -54,7 +56,12 @@ export function startAgentServer(opts: AgentServerOptions) {
     jsonRpcHandler({ requestHandler, userBuilder: UserBuilder.noAuthentication })
   );
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, agent: opts.name, ts: new Date().toISOString() });
+    res.json({
+      ok: true,
+      agent: opts.name,
+      ts: new Date().toISOString(),
+      ...(opts.healthExtras?.() ?? {}),
+    });
   });
 
   const server = app.listen(opts.port, () => {

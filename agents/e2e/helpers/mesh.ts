@@ -24,12 +24,12 @@ export interface AgentHandle {
 export async function startAgent(
   service: "eval-service" | "content-gen",
   port: number,
-  dbPath?: string
+  opts: { dbPath?: string; env?: Record<string, string> } = {}
 ): Promise<AgentHandle> {
-  const db = dbPath ?? join(mkdtempSync(join(tmpdir(), "a2a-e2e-")), "store.db");
+  const db = opts.dbPath ?? join(mkdtempSync(join(tmpdir(), "a2a-e2e-")), "store.db");
   const proc = spawn(TSX, ["src/index.ts"], {
     cwd: join(ROOT, service),
-    env: { ...process.env, PORT: String(port), STORE_DB_PATH: db },
+    env: { ...process.env, PORT: String(port), STORE_DB_PATH: db, ...(opts.env ?? {}) },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let out = "";

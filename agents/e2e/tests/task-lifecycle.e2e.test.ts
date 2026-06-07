@@ -28,7 +28,7 @@ describe("task lifecycle (message/stream → tasks/get → store row)", () => {
 
   beforeAll(async () => {
     [evalAgent, contentGen] = await Promise.all([
-      startAgent("eval-service", 14011),
+      startAgent("eval-service", 14011, { env: { EVAL_ENGINE: "stub" } }),
       startAgent("content-gen", 14012),
     ]);
   });

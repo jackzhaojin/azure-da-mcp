@@ -9,7 +9,7 @@ describe("agent cards + health", () => {
 
   beforeAll(async () => {
     [evalAgent, contentGen] = await Promise.all([
-      startAgent("eval-service", 14001),
+      startAgent("eval-service", 14001, { env: { EVAL_ENGINE: "stub" } }),
       startAgent("content-gen", 14002),
     ]);
   });

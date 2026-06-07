@@ -1,7 +1,7 @@
 {
   "name": "agents",
   "private": true,
-  "description": "A2A agent platform (PRD: ai-docs/2026-06-05-a2a-agent-platform/) — one Express A2A server per agent",
+  "description": "A2A agent platform (PRD: ai-docs/2026-06-05-a2a-agent-platform/) \u2014 one Express A2A server per agent",
   "type": "module",
   "workspaces": [
     "a2a-common",
@@ -14,7 +14,9 @@
     "dev:eval": "npm run dev -w eval-service",
     "dev:content-gen": "npm run dev -w content-gen",
     "hello": "npm run hello -w coordinator",
-    "test:e2e": "npm run test -w e2e"
+    "test:e2e": "npm run test -w e2e",
+    "typecheck": "tsc -p tsconfig.json && tsc -p eval-service/tsconfig.json",
+    "test:live": "npm run test:live -w e2e"
   },
   "engines": {
     "node": ">=20"

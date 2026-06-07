@@ -1,113 +1,83 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from "@a2a-js/sdk";
-import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
-import { startAgentServer, createLogger } from "@agents/a2a-common";
-import { randomUUID } from "node:crypto";
+import { startAgentServer, createLogger, SqliteTaskStore, openDb } from "@agents/a2a-common";
+import { mkdirSync } from "node:fs";
+import { stubExecutor } from "./stub-executor";
+import { createEvalExecutor, runEvalJob, type EvalRunPayload } from "./executor";
+import { evalQueue, queueStats } from "./jobs/queue";
+import { browserSemaphoreStats } from "./browser/semaphore";
 
 const log = createLogger("da-eval-agent");
-const DIMENSIONS = ["structure", "accessibility", "content", "visual"] as const;
+const DB_PATH = process.env.STORE_DB_PATH ?? "./data/store.db";
+const ENGINE = process.env.EVAL_ENGINE ?? "real"; // "real" | "stub"
 
-/**
- * Walking-skeleton executor: fakes the 4-dimension evaluation with realistic
- * A2A event traffic (working updates per dimension, artifact, completed).
- * The real engine (copied from content-authoring-eval, D5) replaces the
- * fake loop at M1 — the event choreography stays identical.
- */
-const evalExecutor: AgentExecutor = {
-  async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
-    const { taskId, contextId, userMessage } = ctx;
-    log.info("eval.run received", { a2a_task_id: taskId, context_id: contextId });
+// the engine's accessibility scan writes to <cwd>/.tmp via shell redirect — must pre-exist
+mkdirSync("./.tmp", { recursive: true });
+mkdirSync("./output/screenshots", { recursive: true });
 
-    const initial: Task = {
-      kind: "task",
-      id: taskId,
-      contextId,
-      status: { state: "submitted", timestamp: new Date().toISOString() },
-      history: [userMessage],
-    };
-    bus.publish(initial);
-
-    const scores: Record<string, number> = {};
-    for (const dim of DIMENSIONS) {
-      const working: TaskStatusUpdateEvent = {
-        kind: "status-update",
-        taskId,
-        contextId,
-        status: {
-          state: "working",
-          timestamp: new Date().toISOString(),
-          message: {
-            kind: "message",
-            messageId: randomUUID(),
-            role: "agent",
-            parts: [{ kind: "text", text: `evaluating dimension: ${dim}` }],
-            taskId,
-            contextId,
-          },
-        },
-        final: false,
-      };
-      bus.publish(working);
-      await new Promise((r) => setTimeout(r, 750)); // pretend to work
-      scores[dim] = 70 + Math.floor(Math.random() * 30);
-      log.info("dimension done", { a2a_task_id: taskId, dimension: dim, score: scores[dim] });
-    }
-
-    const overall = Math.round(
-      Object.values(scores).reduce((a, b) => a + b, 0) / DIMENSIONS.length
-    );
-
-    const artifact: TaskArtifactUpdateEvent = {
-      kind: "artifact-update",
-      taskId,
-      contextId,
-      artifact: {
-        artifactId: randomUUID(),
-        name: "eval-report",
-        parts: [{ kind: "data", data: { overall, dimensions: scores, stub: true } }],
-      },
-    };
-    bus.publish(artifact);
-
-    const done: TaskStatusUpdateEvent = {
-      kind: "status-update",
-      taskId,
-      contextId,
-      status: { state: "completed", timestamp: new Date().toISOString() },
-      final: true,
-    };
-    bus.publish(done);
-    bus.finished();
-    log.info("eval.run completed", { a2a_task_id: taskId, overall });
-  },
-
-  async cancelTask(taskId: string, bus: ExecutionEventBus): Promise<void> {
-    bus.publish({
-      kind: "status-update",
-      taskId,
-      contextId: "",
-      status: { state: "canceled", timestamp: new Date().toISOString() },
-      final: true,
-    } satisfies TaskStatusUpdateEvent);
-    bus.finished();
-  },
-};
+const db = openDb(DB_PATH);
+const executor = ENGINE === "stub" ? stubExecutor : createEvalExecutor(db);
 
 startAgentServer({
   name: "da-eval-agent",
   description:
-    "Evaluates EDS page migrations across structure, accessibility, content, visual dimensions (skeleton stub)",
+    "Evaluates EDS page migrations across structure, accessibility, content, visual dimensions" +
+    (ENGINE === "stub" ? " (stub mode)" : ""),
   port: Number(process.env.PORT ?? 4001),
-  dbPath: process.env.STORE_DB_PATH ?? "./data/store.db",
+  dbPath: DB_PATH,
   skills: [
     {
       id: "eval.run",
       name: "Evaluate page",
       description:
-        "Run a 4-dimension migration-quality evaluation against a published EDS page (stub: returns fake scores)",
+        "Run a 4-dimension migration-quality evaluation against a published EDS page. Payload contract: eval.run.v1",
       tags: ["eval", "eds"],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
     },
   ],
-  executor: evalExecutor,
+  executor,
+  healthExtras: () => ({
+    engine: ENGINE,
+    queue: queueStats(),
+    browser: browserSemaphoreStats(),
+  }),
 });
+
+/**
+ * Restart rebuild (sleep-tolerance rule, PRD part-1/part-2 DoD): any task that was
+ * submitted/working when the previous process died is re-enqueued from the store.
+ * No A2A subscribers exist for these (their SSE died with the old process), so
+ * events are applied straight to the stored Task — clients poll tasks/get.
+ */
+if (ENGINE === "real") {
+  const taskStore = new SqliteTaskStore(db, "da-eval-agent");
+  const pending = db
+    .prepare("select a2a_task_id, payload from tasks where agent = ? and state in ('submitted','working')")
+    .all("da-eval-agent") as { a2a_task_id: string; payload: string }[];
+
+  for (const row of pending) {
+    const task = JSON.parse(row.payload) as Task;
+    const payload = task.metadata?.payload as EvalRunPayload | undefined;
+    if (!payload) {
+      log.warn("rebuild: task has no payload metadata — marking failed", { a2a_task_id: task.id });
+      task.status = { state: "failed", timestamp: new Date().toISOString() };
+      void taskStore.save(task);
+      continue;
+    }
+    log.info("rebuild: re-enqueueing task from store", { a2a_task_id: task.id, targetUrl: payload.targetUrl });
+
+    const applyAndSave = (event: TaskStatusUpdateEvent | TaskArtifactUpdateEvent) => {
+      if (event.kind === "status-update") {
+        task.status = event.status;
+      } else {
+        task.artifacts = [...(task.artifacts ?? []), event.artifact];
+      }
+      void taskStore.save(task);
+    };
+
+    void evalQueue.add(() =>
+      runEvalJob({ db, taskId: task.id, contextId: task.contextId, payload, publish: applyAndSave })
+    );
+  }
+  if (pending.length) log.info("rebuild complete", { reenqueued: pending.length });
+}

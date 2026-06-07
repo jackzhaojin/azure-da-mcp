@@ -3,14 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Eval agent — A2A server :4001 (skeleton: stub eval.run; engine lands at M1)",
+  "description": "Eval agent — A2A server :4001; engine copied from content-authoring-eval (frozen, D5)",
   "scripts": {
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@agents/a2a-common": "*"
+    "@agents/a2a-common": "*",
+    "@anthropic-ai/claude-agent-sdk": "^0.1.76",
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@axe-core/playwright": "^4.11.0",
+    "cheerio": "^1.1.2",
+    "image-size": "^2.0.2",
+    "p-queue": "^9.3.0",
+    "pixelmatch": "^6.0.0",
+    "playwright": "^1.57.0",
+    "pngjs": "^7.0.0",
+    "unpdf": "^1.4.0"
   },
   "devDependencies": {
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
     "tsx": "^4.20.0",
     "typescript": "^5.8.0"
   }

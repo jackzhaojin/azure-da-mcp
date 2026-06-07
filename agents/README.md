@@ -34,19 +34,30 @@ point of the SQLite task store (and the sleep-tolerance rule for Containers late
 ## Tests
 
 ```bash
-npm run test:e2e
+npm run test:e2e    # fast tier (~5s): protocol contract, stub engine
+npm run test:live   # live tier (~15s): REAL engine — Chromium, axe, screenshots; $0 (no API keys)
 ```
 
 Monorepo philosophy: **real tests only, no mocks.** Each suite spawns the actual agent
 servers as child processes (isolated ports 14xxx + throwaway SQLite files) and drives
-them with the real `@a2a-js/sdk` client over HTTP:
+them with the real `@a2a-js/sdk` client over HTTP.
 
+Fast tier (`tests/`, stub engine pins the A2A contract):
 - `agent-card` — well-known card discovery, skill enumeration, health
-- `task-lifecycle` — full SSE choreography (submitted → 4× working → artifact →
-  completed final), contextId threading, `tasks/get`, the Part-2 store row mapping,
-  and the A2A `-32001` TaskNotFound error shape
-- `persistence` — **restart survival**: kill the server, restart on the same store
-  file, the completed task must still be served (sleep-tolerance rule)
+- `task-lifecycle` — full SSE choreography, contextId threading, `tasks/get`,
+  Part-2 store row mapping, A2A `-32001` error shape
+- `persistence` — restart survival: completed tasks outlive the process
+- `browser-semaphore` — 10 concurrent acquisitions cap at exactly 3 permits
+
+Live tier (`tests-live/`, real engine, API keys stripped → agentic falls back to
+deterministic; real browsers, zero spend):
+- live page eval: streamed dimension progress, real axe/screenshot scores, `eval_reports` row
+- **restart mid-queue** (Part-2 DoD): kill the server mid-eval, boot rebuild re-enqueues
+  from the store, task completes
+- **5 concurrent evals** (Part-2 DoD): all complete, live Chromiums never exceed 3 permits
+
+Full agentic runs (with `CLAUDE_CODE_OAUTH_TOKEN`) are manual for now — same code path,
+the fallback just doesn't trigger.
 
 ## Cloudflare resources (provisioned 2026-06-07)
 
@@ -58,5 +69,6 @@ them with the real `@a2a-js/sdk` client over HTTP:
 ## Status
 
 - [x] Walking skeleton: cards, `message/stream` (SSE), `tasks/get`, store-backed task store, restart survival — verified 2026-06-07
-- [ ] M1: copy eval engine (from frozen `content-authoring-eval/src/lib/`), job queue, browser semaphore, R2 artifacts
+- [x] M1 core: engine copied (model bump → `claude-sonnet-4-6`), job queue (concurrency 2), browser semaphore (3 permits), real `eval.run` executor, `eval_reports` writes, restart rebuild-from-store — Part-2 DoD tests green 2026-06-07
+- [ ] M1 remainder: R2 artifact uploads (blocked on account R2 enable), full-agentic smoke run
 - [ ] M2: push notifications, edge shim + `cloudflared` tunnel, coordinator server face, mesh bearer auth, Make.com round-trip

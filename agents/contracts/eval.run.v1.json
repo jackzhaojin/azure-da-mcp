@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eval.run.v1",
+  "title": "eval.run task payload (v1)",
+  "description": "Input payload for the eval agent's eval.run skill — PRD part-2. Sent as an A2A data part (or a JSON text part).",
+  "type": "object",
+  "required": ["targetUrl"],
+  "properties": {
+    "targetUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "The migrated page being evaluated, e.g. https://main--site--owner.aem.page/path"
+    },
+    "sourceType": {
+      "enum": ["pdf", "webpage", "none"],
+      "default": "none",
+      "description": "What the page is compared against. 'none' auto-skips the content dimension."
+    },
+    "sourceLocation": {
+      "type": "string",
+      "description": "PDF or webpage URL (or r2://artifacts/... key). Required unless sourceType=none."
+    },
+    "dimensions": {
+      "type": "array",
+      "items": { "enum": ["structure", "accessibility", "content", "visual"] },
+      "description": "Subset of dimensions to run. Default: all. (v1 engine runs all regardless; honored from v2.)"
+    },
+    "runId": {
+      "type": "string",
+      "description": "Optional — links the task to a coordinator run"
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Optional free-form labels, flow to eval_reports for grouping"
+    }
+  }
+}

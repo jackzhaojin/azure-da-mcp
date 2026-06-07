@@ -1,0 +1,247 @@
+import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, Message, Artifact } from "@a2a-js/sdk";
+import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
+import type Database from "better-sqlite3";
+import { createLogger } from "@agents/a2a-common";
+import { randomUUID } from "node:crypto";
+import { runEvaluation } from "./engine/evaluator";
+import type { EvaluationRequest, EvaluationReport } from "@/types/evaluation";
+import { evalQueue } from "./jobs/queue";
+
+const log = createLogger("da-eval-agent");
+const MAX_ATTEMPTS = Number(process.env.EVAL_MAX_ATTEMPTS ?? 3);
+const RETRY_BACKOFF_MS = [2_000, 8_000];
+
+/** eval.run payload — contract: agents/contracts/eval.run.v1.json */
+export interface EvalRunPayload {
+  targetUrl: string;
+  sourceType?: "pdf" | "webpage" | "none";
+  sourceLocation?: string;
+  dimensions?: string[];
+  runId?: string;
+  labels?: Record<string, string>;
+}
+
+export function extractPayload(message: Message): EvalRunPayload {
+  for (const part of message.parts) {
+    if (part.kind === "data") return part.data as unknown as EvalRunPayload;
+    if (part.kind === "text") {
+      try {
+        return JSON.parse(part.text) as EvalRunPayload;
+      } catch {
+        /* not JSON — keep looking */
+      }
+    }
+  }
+  throw new Error("eval.run payload not found: send a data part (or JSON text part) matching eval.run.v1");
+}
+
+export function validatePayload(p: EvalRunPayload): void {
+  if (!p.targetUrl || typeof p.targetUrl !== "string" || !/^https?:\/\//.test(p.targetUrl)) {
+    throw new Error("eval.run.v1: 'targetUrl' (http/https URL) is required");
+  }
+  const sourceType = p.sourceType ?? "none";
+  if (sourceType !== "none" && !p.sourceLocation) {
+    throw new Error(`eval.run.v1: 'sourceLocation' is required when sourceType='${sourceType}'`);
+  }
+}
+
+export function toEvaluationRequest(p: EvalRunPayload): EvaluationRequest {
+  const sourceType = p.sourceType ?? "none";
+  return {
+    migratedUrl: p.targetUrl,
+    expectedUrl: sourceType === "webpage" ? p.sourceLocation : undefined,
+    pdfPath: sourceType === "pdf" ? p.sourceLocation : undefined,
+  };
+}
+
+export function reportToArtifact(report: EvaluationReport): Artifact {
+  const dimensionScores: Record<string, number> = {};
+  for (const [dim, res] of Object.entries(report.results)) {
+    if (res) dimensionScores[dim] = res.score;
+  }
+  return {
+    artifactId: randomUUID(),
+    name: "eval-report",
+    parts: [
+      {
+        kind: "data",
+        data: {
+          overallScore: report.summary.overallScore,
+          grade: report.summary.grade,
+          dimensionScores,
+          report: report as unknown as Record<string, unknown>,
+        },
+      },
+    ],
+  };
+}
+
+/** Persist the eval_reports row (Part-2 schema). task_id = our tasks-table row id. */
+export function writeEvalReport(db: Database.Database, a2aTaskId: string, report: EvaluationReport): void {
+  const row = db.prepare("select id from tasks where a2a_task_id = ?").get(a2aTaskId) as
+    | { id: string }
+    | undefined;
+  if (!row) {
+    log.warn("eval_reports write skipped — no tasks row yet", { a2a_task_id: a2aTaskId });
+    return;
+  }
+  const dimensionScores: Record<string, number> = {};
+  for (const [dim, res] of Object.entries(report.results)) {
+    if (res) dimensionScores[dim] = res.score;
+  }
+  db.prepare(
+    `insert into eval_reports (id, task_id, target_url, overall_score, dimension_scores, report)
+     values (?, ?, ?, ?, ?, ?)`
+  ).run(
+    randomUUID(),
+    row.id,
+    report.request.migratedUrl,
+    report.summary.overallScore,
+    JSON.stringify(dimensionScores),
+    JSON.stringify(report)
+  );
+}
+
+/** Run one evaluation with retry; emits A2A events via `publish`, persists the report row. */
+export async function runEvalJob(opts: {
+  db: Database.Database;
+  taskId: string;
+  contextId: string;
+  payload: EvalRunPayload;
+  publish: (event: TaskStatusUpdateEvent | TaskArtifactUpdateEvent) => void;
+}): Promise<void> {
+  const { db, taskId, contextId, payload, publish } = opts;
+
+  const statusEvent = (state: "working" | "completed" | "failed", text?: string, final = false): TaskStatusUpdateEvent => ({
+    kind: "status-update",
+    taskId,
+    contextId,
+    status: {
+      state,
+      timestamp: new Date().toISOString(),
+      ...(text
+        ? {
+            message: {
+              kind: "message" as const,
+              messageId: randomUUID(),
+              role: "agent" as const,
+              parts: [{ kind: "text" as const, text }],
+              taskId,
+              contextId,
+            },
+          }
+        : {}),
+    },
+    final,
+  });
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      publish(statusEvent("working", attempt === 1 ? "evaluation started" : `retry ${attempt}/${MAX_ATTEMPTS}`));
+
+      const report = await runEvaluation(toEvaluationRequest(payload), (event) => {
+        // map engine progress → A2A status updates (replaces the old SSE vocabulary, PRD part-2)
+        if (event.type === "agent-start" && event.dimension) {
+          publish(statusEvent("working", `dimension ${event.dimension}: started`));
+        } else if (event.type === "agent-complete" && event.dimension) {
+          publish(
+            statusEvent("working", `dimension ${event.dimension}: complete (score ${event.result?.score ?? "n/a"})`)
+          );
+        }
+      });
+
+      writeEvalReport(db, taskId, report);
+      publish({ kind: "artifact-update", taskId, contextId, artifact: reportToArtifact(report) });
+      publish(statusEvent("completed", undefined, true));
+      log.info("eval.run completed", { a2a_task_id: taskId, overall: report.summary.overallScore });
+      return;
+    } catch (err) {
+      lastError = err;
+      log.warn("eval attempt failed", { a2a_task_id: taskId, attempt, error: String(err) });
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1] ?? 8_000));
+      }
+    }
+  }
+  publish(statusEvent("failed", `evaluation failed after ${MAX_ATTEMPTS} attempts: ${String(lastError)}`, true));
+  log.error("eval.run failed", { a2a_task_id: taskId, error: String(lastError) });
+}
+
+/**
+ * Real executor: validate → Task(submitted) → enqueue → return. The A2A response
+ * (message/send) returns immediately with the submitted task; message/stream
+ * subscribers keep receiving events as the queued job runs (submit-and-detach,
+ * PRD part-2 execution model).
+ */
+export function createEvalExecutor(db: Database.Database): AgentExecutor {
+  return {
+    async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
+      const { taskId, contextId, userMessage } = ctx;
+
+      let payload: EvalRunPayload;
+      try {
+        payload = extractPayload(userMessage);
+        validatePayload(payload);
+      } catch (err) {
+        bus.publish({
+          kind: "task",
+          id: taskId,
+          contextId,
+          status: { state: "submitted", timestamp: new Date().toISOString() },
+          history: [userMessage],
+        } satisfies Task);
+        bus.publish({
+          kind: "status-update",
+          taskId,
+          contextId,
+          status: {
+            state: "failed",
+            timestamp: new Date().toISOString(),
+            message: {
+              kind: "message",
+              messageId: randomUUID(),
+              role: "agent",
+              parts: [{ kind: "text", text: String(err) }],
+              taskId,
+              contextId,
+            },
+          },
+          final: true,
+        } satisfies TaskStatusUpdateEvent);
+        bus.finished();
+        return;
+      }
+
+      log.info("eval.run accepted", { a2a_task_id: taskId, context_id: contextId, targetUrl: payload.targetUrl });
+      bus.publish({
+        kind: "task",
+        id: taskId,
+        contextId,
+        status: { state: "submitted", timestamp: new Date().toISOString() },
+        history: [userMessage],
+        metadata: { payload: payload as unknown as Record<string, unknown> },
+      } satisfies Task);
+
+      void evalQueue.add(async () => {
+        try {
+          await runEvalJob({ db, taskId, contextId, payload, publish: (e) => bus.publish(e) });
+        } finally {
+          bus.finished();
+        }
+      });
+    },
+
+    async cancelTask(taskId: string, bus: ExecutionEventBus): Promise<void> {
+      // v1: best-effort — queued jobs aren't individually removable; mark canceled.
+      bus.publish({
+        kind: "status-update",
+        taskId,
+        contextId: "",
+        status: { state: "canceled", timestamp: new Date().toISOString() },
+        final: true,
+      } satisfies TaskStatusUpdateEvent);
+      bus.finished();
+    },
+  };
+}

@@ -2,8 +2,9 @@
   "extends": "./tsconfig.base.json",
   "include": [
     "a2a-common/src/**/*.ts",
-    "eval-service/src/**/*.ts",
     "content-gen/src/**/*.ts",
     "coordinator/src/**/*.ts"
   ]
+  // eval-service has its own tsconfig (engine `@/` path aliases) — checked via
+  // `npm run typecheck -w eval-service`; root `npm run typecheck` runs both.
 }

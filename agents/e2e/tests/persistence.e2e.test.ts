@@ -16,7 +16,7 @@ describe("restart survival (sleep-tolerance rule)", () => {
   });
 
   it("a completed task survives a full server restart", async () => {
-    agent = await startAgent("eval-service", 14021);
+    agent = await startAgent("eval-service", 14021, { env: { EVAL_ENGINE: "stub" } });
     const dbPath = agent.dbPath;
 
     // run one task to completion
@@ -36,7 +36,7 @@ describe("restart survival (sleep-tolerance rule)", () => {
 
     // hard restart: kill the process, start a NEW one on the same store file
     await stopAgent(agent);
-    agent = await startAgent("eval-service", 14021, dbPath);
+    agent = await startAgent("eval-service", 14021, { dbPath, env: { EVAL_ENGINE: "stub" } });
 
     // the new process must serve the old task from SQLite
     const client2 = await new ClientFactory().createFromUrl(agent.url);

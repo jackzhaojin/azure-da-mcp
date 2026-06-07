@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "E2E tests for the agent mesh — real servers, real A2A protocol over HTTP, no mocks (monorepo testing philosophy)",
+  "description": "E2E tests for the agent mesh \u2014 real servers, real A2A protocol over HTTP, no mocks (monorepo testing philosophy)",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:live": "vitest run --config vitest.live.config.ts"
   },
   "devDependencies": {
     "@a2a-js/sdk": "0.3.13",
