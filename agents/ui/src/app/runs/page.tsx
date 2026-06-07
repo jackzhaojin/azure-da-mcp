@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface Run {
   id: string;
@@ -79,7 +80,11 @@ function RunRow({ run, expanded, onToggle }: { run: Run; expanded: boolean; onTo
   return (
     <>
       <tr onClick={onToggle} style={{ cursor: "pointer" }}>
-        <td>{run.createdAt?.slice(0, 19).replace("T", " ")}</td>
+        <td>
+          <Link href={`/runs/${run.id}`} onClick={(e) => e.stopPropagation()}>
+            {run.createdAt?.slice(0, 19).replace("T", " ")}
+          </Link>
+        </td>
         <td>{run.kind}</td>
         <td>
           {targets} × {fanOut}

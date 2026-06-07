@@ -13,8 +13,8 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 | `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources served at public URLs (local static stand-in for R2) |
 | `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): **routed pipelines** — `evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto` (deterministic state-table routing) with fan-out + **variance stats**; CLI `hello` + `batch` + `loop` |
 | `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
-| `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation, working now), `makecom` (primary — pending tunnel), `sdk` (M3), `opencode` (M3+) |
-| `ui/` | 3000 | Next.js dashboard: shared-secret auth (middleware), Runs + per-dimension variance view (3s polling), Trigger (server-side A2A client → `coordinate.run`) |
+| `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), **`makecom` (primary — fully implemented: webhook out → `/callbacks/makecom/{taskId}` in, restart-tolerant; needs only the tunnel + scenario URLs)**, `sdk` (M3), `opencode` (M3+) |
+| `ui/` | 3000 | Next.js dashboard: shared-secret auth (middleware), Runs list + **run detail (branch grid, stage states, variance tables)**, Trigger (server-side A2A client → `coordinate.run`) |
 | `e2e/` | 14xxx | E2E suite (vitest) — real servers, real A2A over HTTP, no mocks |
 
 ## Run the walking skeleton
@@ -73,6 +73,9 @@ Fast tier (`tests/`, stub engine pins the A2A contract):
 - `closed-loop` — all four servers: full-loop × 2 with one contextId across 3 agents' stores,
   generate+migrate stops without eval (no mandatory end), migrate-only (no mandatory start),
   deterministic auto routing, per-branch failure isolation
+- `makecom-roundtrip` — fake Make.com speaking the exact wire protocol: webhook trigger with
+  1:1 runtime vars + callbackUrl → final-report callback completes the task; clean timeout;
+  **callback after a restart completes the task from the store** (scenario outlives our process)
 
 Live tier (`tests-live/`, real engine, API keys stripped → agentic falls back to
 deterministic; real browsers, zero spend):
@@ -106,7 +109,7 @@ the fallback just doesn't trigger.
 - [x] M2 core: push notifications (store-backed), mesh bearer auth, edge webhook shim, coordinator server face (`coordinate.run`) + CLI batch + variance stats — tests green 2026-06-07
 - [x] M3 scaffolding: migration facade (backend seam + dryrun), content-gen real contracts (template tier) + public synthetic sources, synthesize→migrate chain test — 2026-06-07
 - [x] M4 head start: `agents/ui` scaffold — auth middleware, Runs + variance view (polling), Trigger; `next build` clean + live smoke — 2026-06-07
-- [ ] M2 remainder: `cloudflared` tunnel + Make.com round-trip (needs tunnel + Make.com scenario), container→D1 spike (open question #7)
+- [ ] M2 remainder — **config only, agent code done**: enable R2 (dashboard), `cloudflared` named tunnel, paste the Make.com webhook URL → `MAKECOM_WEBHOOK_URL` + add the scenario's final HTTP module POSTing to our `callbackUrl`; container→D1 spike (open question #7)
 - [x] M3 routes: coordinator route engine — `full-loop`/`generate+migrate`/`migrate`/`evaluate`/`auto` (deterministic state table), ≥3 routes incl. non-eval-terminating demonstrated by tests; closed loop runs end-to-end locally (CLI: `npm run loop`) — 2026-06-07
 - [ ] M3 real backends: migration `sdk` backend, content-gen Agent SDK generator, opencode/Kimi; LLM planner upgrade for `goal: auto`
-- [ ] Full suite: 44 tests (35 fast ~15s + 9 live ~29s)
+- [ ] Full suite: 47 tests (38 fast + 9 live)

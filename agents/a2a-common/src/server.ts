@@ -33,6 +33,8 @@ export interface AgentServerOptions {
    * Local stand-in for the R2 public bucket until the account enables R2.
    */
   staticRoutes?: Array<{ route: string; dir: string }>;
+  /** Agent-specific routes (e.g. backend callback receivers), registered before listen. */
+  extraRoutes?: (ctx: { app: express.Express; db: import("better-sqlite3").Database; edgeToken?: string }) => void;
 }
 
 function bearerToken(req: express.Request): string | undefined {
@@ -156,6 +158,8 @@ export function startAgentServer(opts: AgentServerOptions) {
   for (const { route, dir } of opts.staticRoutes ?? []) {
     app.use(route, express.static(dir));
   }
+
+  opts.extraRoutes?.({ app, db, edgeToken });
 
   app.get("/health", (_req, res) => {
     res.json({

@@ -30,9 +30,14 @@ export interface MigrationResult {
  * runtime behind it is an implementation detail. This is what makes
  * "Claude vs Kimi K2.6 on the same 10 migrations" a no-contract-change experiment.
  */
+export interface BackendContext {
+  taskId: string;
+  onProgress: (note: string) => void;
+}
+
 export interface MigrationBackend {
   readonly name: string;
   /** Throws with a setup hint when env/config is missing (callers surface it on the task). */
   assertConfigured(): void;
-  run(payload: MigrationRunPayload, onProgress: (note: string) => void): Promise<MigrationResult>;
+  run(payload: MigrationRunPayload, ctx: BackendContext): Promise<MigrationResult>;
 }

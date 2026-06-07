@@ -117,5 +117,15 @@ describe("agents/ui (Next.js scaffold)", () => {
     expect(runs[0].id).toBe(runId);
     expect(runs[0].status).toBe("completed");
     expect(runs[0].stats.overall.mean).toBe(66); // stats JSON parsed through
+
+    // run detail endpoint serves the full stats incl. branch grid
+    const detail = await fetch(`${UI_URL}/api/runs/${runId}`, { headers: { cookie } });
+    expect(detail.status).toBe(200);
+    const { run } = (await detail.json()) as { run: { id: string; stats: { perDimension: Record<string, unknown> } } };
+    expect(run.id).toBe(runId);
+    expect(Object.keys(run.stats.perDimension)).toContain("structure");
+
+    const missing = await fetch(`${UI_URL}/api/runs/${randomUUID()}`, { headers: { cookie } });
+    expect(missing.status).toBe(404);
   }, 60_000);
 });

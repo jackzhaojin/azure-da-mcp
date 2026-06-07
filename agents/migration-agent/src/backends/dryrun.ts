@@ -1,4 +1,4 @@
-import type { MigrationBackend, MigrationRunPayload, MigrationResult } from "./types.ts";
+import type { MigrationBackend, MigrationRunPayload, MigrationResult, BackendContext } from "./types.ts";
 
 /**
  * Dry-run backend: simulates a migration with the real artifact contract and
@@ -13,7 +13,7 @@ export const dryrunBackend: MigrationBackend = {
     /* always available */
   },
 
-  async run(payload: MigrationRunPayload, onProgress): Promise<MigrationResult> {
+  async run(payload: MigrationRunPayload, { onProgress }: BackendContext): Promise<MigrationResult> {
     const folder = `migration-batch-dryrun${payload.folderPostfix ? `-${payload.folderPostfix}` : ""}`;
     const base = `${payload.owner}/${payload.site}/${folder}/${payload.pageSlug}`;
 

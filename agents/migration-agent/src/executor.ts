@@ -88,7 +88,7 @@ export const migrationExecutor: AgentExecutor = {
       log.info("migration.run started", { a2a_task_id: taskId, context_id: contextId, backend: backendName, slug: payload.pageSlug });
       bus.publish(status("working", `migration started (backend: ${backendName})`));
 
-      const result = await backend.run(payload, (note) => bus.publish(status("working", note)));
+      const result = await backend.run(payload, { taskId, onProgress: (note) => bus.publish(status("working", note)) });
 
       bus.publish({
         kind: "artifact-update",

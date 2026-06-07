@@ -1,4 +1,4 @@
-import type { MigrationBackend, MigrationRunPayload, MigrationResult } from "./types.ts";
+import type { MigrationBackend, MigrationRunPayload, MigrationResult, BackendContext } from "./types.ts";
 
 /**
  * Claude Agent SDK backend — scaffold (lands at M3 per PRD part-5).
@@ -16,7 +16,7 @@ export const sdkBackend: MigrationBackend = {
     throw new Error("sdk backend: implementation lands at M3 (PRD part-5). Use backend:'dryrun' meanwhile.");
   },
 
-  async run(_payload: MigrationRunPayload, _onProgress): Promise<MigrationResult> {
+  async run(_payload: MigrationRunPayload, _ctx: BackendContext): Promise<MigrationResult> {
     throw new Error("sdk backend: not implemented until M3");
   },
 };
