@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cf-d1-container-poc",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "observability": { "enabled": true },
+  "containers": [
+    {
+      "class_name": "D1ProbeContainer",
+      "image": "./container/Dockerfile",
+      "max_instances": 1,
+      "instance_type": "lite"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "D1_PROBE_CONTAINER", "class_name": "D1ProbeContainer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["D1ProbeContainer"] }],
+  // D1 binding lives on the WORKER. The container CANNOT see env.DB (containers
+  // get no native bindings — only string env vars). The whole point of this POC.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "a2a-agents",
+      "database_id": "db84ebfc-2132-45ac-902d-7ef7117786e8"
+    }
+  ],
+  // Throwaway POC: shared secret as a plaintext var. Tradeoff noted in README —
+  // for production use `wrangler secret put` so it never lands in source/config.
+  "vars": {
+    "D1_PROXY_SECRET": "poc-d1-proxy-7f3a9c21e4b06d58"
+  }
+}

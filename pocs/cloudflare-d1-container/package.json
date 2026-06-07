@@ -1,0 +1,16 @@
+{
+  "name": "cloudflare-d1-container-poc",
+  "private": true,
+  "description": "POC: how does code INSIDE a Cloudflare Container reach D1? (A2A platform PRD open question #7 / M2 spike). Tests the Worker-proxy access pattern and documents the D1 REST API + native-binding findings.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.98.0"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.7"
+  }
+}
