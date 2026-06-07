@@ -3,6 +3,7 @@
   "include": [
     "a2a-common/src/**/*.ts",
     "content-gen/src/**/*.ts",
+    "migration-agent/src/**/*.ts",
     "coordinator/src/**/*.ts"
   ]
   // eval-service has its own tsconfig (engine `@/` path aliases) — checked via

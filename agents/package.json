@@ -7,6 +7,7 @@
     "a2a-common",
     "eval-service",
     "content-gen",
+    "migration-agent",
     "coordinator",
     "e2e"
   ],
@@ -17,7 +18,8 @@
     "test:e2e": "npm run test -w e2e",
     "typecheck": "tsc -p tsconfig.json && tsc -p eval-service/tsconfig.json",
     "test:live": "npm run test:live -w e2e",
-    "dev:coordinator": "npm run dev -w coordinator"
+    "dev:coordinator": "npm run dev -w coordinator",
+    "dev:migration": "npm run dev -w migration-agent"
   },
   "engines": {
     "node": ">=20"

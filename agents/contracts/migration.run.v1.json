@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "migration.run.v1",
+  "title": "migration.run task payload (v1)",
+  "description": "Input for the migration agent's migration.run skill — PRD part-5. Fields are deliberately 1:1 with the Make.com runtime vars so the makecom backend is a pure pass-through.",
+  "type": "object",
+  "required": ["sourceType", "sourceLocation", "site", "owner", "pageSlug"],
+  "properties": {
+    "sourceType": { "enum": ["pdf", "webpage"] },
+    "sourceLocation": {
+      "type": "string",
+      "format": "uri",
+      "description": "Source to migrate — incl. content-gen synthetic source URLs"
+    },
+    "site": { "type": "string" },
+    "owner": { "type": "string" },
+    "pageSlug": { "type": "string" },
+    "folderPostfix": { "type": "string", "description": "Run isolation — maps to {{5.folderPostfix}}" },
+    "blockLibraryUrl": { "type": "string", "format": "uri" },
+    "backend": {
+      "enum": ["makecom", "sdk", "opencode", "dryrun"],
+      "default": "makecom",
+      "description": "Which runtime executes the migration. The Agent Card hides this — same skill, same artifact. 'dryrun' simulates (scaffold/testing)."
+    },
+    "maxRefinementIterations": { "type": "integer", "minimum": 0, "default": 3 },
+    "runId": { "type": "string" },
+    "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+  }
+}

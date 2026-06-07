@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "content.brief.v1",
+  "title": "content.brief task payload (v1)",
+  "description": "Input for the content generator's content.brief skill — PRD part-4. Produces a structured content brief (page intent, audience, outline, copy blocks, target EDS blocks).",
+  "type": "object",
+  "required": ["topic"],
+  "properties": {
+    "skill": { "const": "content.brief", "description": "Skill discriminator (content-gen serves two skills)" },
+    "topic": { "type": "string" },
+    "pageType": { "enum": ["landing", "article", "product", "event", "custom"], "default": "article" },
+    "siteBrief": { "type": "string", "description": "The site's concept/voice (from the EDS site project)" },
+    "blockLibraryUrl": { "type": "string", "format": "uri" },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "wordCount": { "type": "integer", "minimum": 100 },
+        "imageCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "runId": { "type": "string" }
+  }
+}

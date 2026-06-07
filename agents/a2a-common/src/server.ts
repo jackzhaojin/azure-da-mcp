@@ -28,6 +28,11 @@ export interface AgentServerOptions {
    * Defaults to the agent name with the "da-"/"-agent" affixes stripped.
    */
   shimAgentId?: string;
+  /**
+   * Static dirs to serve, e.g. [{ route: "/artifacts", dir: "./output/artifacts" }].
+   * Local stand-in for the R2 public bucket until the account enables R2.
+   */
+  staticRoutes?: Array<{ route: string; dir: string }>;
 }
 
 function bearerToken(req: express.Request): string | undefined {
@@ -147,6 +152,10 @@ export function startAgentServer(opts: AgentServerOptions) {
       res.status(500).json({ error: String(err) });
     }
   });
+
+  for (const { route, dir } of opts.staticRoutes ?? []) {
+    app.use(route, express.static(dir));
+  }
 
   app.get("/health", (_req, res) => {
     res.json({

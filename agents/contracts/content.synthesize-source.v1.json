@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "content.synthesize-source.v1",
+  "title": "content.synthesize-source task payload (v1)",
+  "description": "Input for the content generator's content.synthesize-source skill — PRD part-4. Produces a complete synthetic 'legacy' source page (standalone HTML) at a public URL, plus groundTruth for eval reference. This is what closes the loop: generated source → migrate → eval with known-correct reference.",
+  "type": "object",
+  "properties": {
+    "skill": { "const": "content.synthesize-source" },
+    "brief": { "type": "object", "description": "Inline brief (from content.brief's artifact), or provide briefTaskId" },
+    "briefTaskId": { "type": "string", "description": "Reuse a prior content.brief task's artifact" },
+    "topic": { "type": "string", "description": "Shortcut: synthesize directly from a topic without a full brief" },
+    "legacyStyle": {
+      "enum": ["clean", "dated", "messy"],
+      "default": "dated",
+      "description": "How hostile the markup should be: clean=semantic, dated=tables+fonts, messy=inline styles + non-semantic soup"
+    },
+    "runId": { "type": "string" }
+  },
+  "anyOf": [{ "required": ["brief"] }, { "required": ["briefTaskId"] }, { "required": ["topic"] }]
+}
