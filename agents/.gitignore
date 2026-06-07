@@ -8,3 +8,5 @@ data/
 *.log
 output/
 .tmp/
+.next/
+next-env.d.ts
