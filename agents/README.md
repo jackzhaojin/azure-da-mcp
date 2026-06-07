@@ -10,11 +10,11 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 |---|---|---|
 | `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), SQLite/D1 store adapter + migrations, **push notifications (SQLite-backed config store)**, **mesh bearer auth** (`A2A_MESH_TOKEN`), **edge webhook shim** (`POST /hooks/{agent}/{skill}`), mesh-aware client factory, structured logging. |
 | `eval-service/` | 4001 | Eval agent — real engine (copied from frozen app), job queue, browser semaphore, `eval.run` executor; `EVAL_ENGINE=stub` for the fake |
-| `content-gen/` | 4002 | Content generator — **skeleton stub**; real Agent SDK backend at M3 |
+| `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources served at public URLs (local static stand-in for R2) |
 | `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): eval-only batch fan-out with **variance stats** (mean/stddev/min/max/pass-rate per dimension); CLI `hello` + `batch` |
-| `contracts/` | — | JSON Schemas for task payloads: `eval.run.v1`, `coordinate.run.v1` |
-| `migration-agent/` | 4003 | Lands at M3 |
-| `ui/` | 3000 | Next.js dashboard, lands at M4 |
+| `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
+| `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation, working now), `makecom` (primary — pending tunnel), `sdk` (M3), `opencode` (M3+) |
+| `ui/` | 3000 | Next.js dashboard: shared-secret auth (middleware), Runs + per-dimension variance view (3s polling), Trigger (server-side A2A client → `coordinate.run`) |
 | `e2e/` | 14xxx | E2E suite (vitest) — real servers, real A2A over HTTP, no mocks |
 
 ## Run the walking skeleton
@@ -23,7 +23,9 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 npm install
 npm run dev:eval          # terminal 1 → :4001 (real engine; EVAL_ENGINE=stub for fakes)
 npm run dev:content-gen   # terminal 2 → :4002
-npm run dev:coordinator   # terminal 3 → :4004
+npm run dev:migration     # terminal 3 → :4003 (dryrun backend by default)
+npm run dev:coordinator   # terminal 4 → :4004
+npm run dev:ui            # terminal 5 → :3000 (set UI_PASSWORD to enable auth)
 npm run hello             # mesh smoke: cards + one task through each agent
 npm run batch -- https://example.com https://example.org --fan-out 2
                           # eval-only batch via coordinate.run → variance stats
@@ -63,6 +65,9 @@ Fast tier (`tests/`, stub engine pins the A2A contract):
 - `mesh-auth` — `/a2a` 401s without the bearer; card/health stay public
 - `edge-shim` — flat POST → 202 → callback round-trip; 404/401 paths
 - `coordinator-batch` — 3 targets × fanOut 2 → 6 children, one contextId, variance stats, runs row
+- `migration-agent` — dryrun contract artifact, per-slug determinism, makecom/unknown/invalid failure paths
+- `content-gen` — brief structure, fetchable synthetic source matching its own groundTruth, skill inference,
+  **chain: synthesize-source → migration.run** over real HTTP (first two-agent composition)
 
 Live tier (`tests-live/`, real engine, API keys stripped → agentic falls back to
 deterministic; real browsers, zero spend):
@@ -72,6 +77,8 @@ deterministic; real browsers, zero spend):
 - **5 concurrent evals** (Part-2 DoD): all complete, live Chromiums never exceed 3 permits
 - **coordinator batch over the real engine**: 2 branches, genuine scores aggregated into
   variance stats, `eval_reports` joined through one contextId
+- **ui smoke**: real `next dev` — middleware 401/redirect, login, authenticated read of a
+  seeded runs row with parsed variance stats
 
 Full agentic runs (with `CLAUDE_CODE_OAUTH_TOKEN`) are manual for now — same code path,
 the fallback just doesn't trigger.
@@ -88,5 +95,9 @@ the fallback just doesn't trigger.
 - [x] Walking skeleton: cards, `message/stream` (SSE), `tasks/get`, store-backed task store, restart survival — verified 2026-06-07
 - [x] M1 core: engine copied (model bump → `claude-sonnet-4-6`), job queue (concurrency 2), browser semaphore (3 permits), real `eval.run` executor, `eval_reports` writes, restart rebuild-from-store — Part-2 DoD tests green 2026-06-07
 - [ ] M1 remainder: R2 artifact uploads (blocked on account R2 enable), full-agentic smoke run
-- [x] M2 core: push notifications (store-backed), mesh bearer auth, edge webhook shim, coordinator server face (`coordinate.run`) + CLI batch + variance stats — 24/24 tests green 2026-06-07
+- [x] M2 core: push notifications (store-backed), mesh bearer auth, edge webhook shim, coordinator server face (`coordinate.run`) + CLI batch + variance stats — tests green 2026-06-07
+- [x] M3 scaffolding: migration facade (backend seam + dryrun), content-gen real contracts (template tier) + public synthetic sources, synthesize→migrate chain test — 2026-06-07
+- [x] M4 head start: `agents/ui` scaffold — auth middleware, Runs + variance view (polling), Trigger; `next build` clean + live smoke — 2026-06-07
 - [ ] M2 remainder: `cloudflared` tunnel + Make.com round-trip (needs tunnel + Make.com scenario), container→D1 spike (open question #7)
+- [ ] M3 real backends: migration `sdk` backend, content-gen Agent SDK generator, opencode/Kimi; intelligent routing (`goal: auto`)
+- [ ] Full suite: 38 tests (30 fast ~11s + 8 live ~22s)
