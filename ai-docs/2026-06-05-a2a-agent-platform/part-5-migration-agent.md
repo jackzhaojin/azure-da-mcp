@@ -86,7 +86,14 @@ A pure in-repo alternative — useful when Make.com is unavailable/rate-limited,
 
 A second non-Make.com path that swaps the *model vendor* while keeping the same migration prompt and MCP tools — the cleanest demonstration of "decoupled capabilities, swappable runtimes".
 
-- Runs the [opencode](https://github.com/sst/opencode) CLI as a subprocess, configured with the **Kimi K2.6** model (Moonshot), pointed at the same custom `functions/` MCP server (CRUD + preview/publish) and the ported migration prompt
+> **PoC validated (2026-06-08)** — headless integration proven end-to-end. See
+> [kimi-k2.6-opencode-backend-findings.md](./kimi-k2.6-opencode-backend-findings.md) for the working recipe and gotchas;
+> reference code in [`references/kimi/`](../../references/kimi/). Key results: drive K2.6 via **`opencode serve` + REST**
+> (`POST /session/:id/message`) — **not** `opencode run` (which emits no body for this reasoning model); one credential
+> `$MOONSHOT_API_KEY` (a Kimi-For-Coding subscription key, $0/call); opencode passes the endpoint's coding-agent
+> allowlist automatically.
+
+- Runs the [opencode](https://github.com/sst/opencode) CLI as a **headless server** (`opencode serve`), configured with the **Kimi K2.6** model (`kimi-code/kimi-for-coding`), pointed at the same custom `functions/` MCP server (CRUD + preview/publish) and the ported migration prompt — opencode's native **skills** support lets it reuse `da-live-author-playwright` directly
 - Gives a non-Anthropic cost/quality datapoint — and, paired with the eval agent's variance reporting, a head-to-head: *"Claude vs Kimi K2.6 on the same 10 migrations"* is a genuinely novel adaptTo() result
 - Shares the Playwright "agentic eyes" validation loop and browser-permit handling with the `sdk` backend
 

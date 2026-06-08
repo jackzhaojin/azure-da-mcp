@@ -43,6 +43,7 @@ The coordinator can do any of four things per request: **just migrate**, **gener
 | 4 | [part-4-content-generator-agent.md](./part-4-content-generator-agent.md) | New agent: brief mode + synthetic-source mode, single Agent SDK backend, contracts, prompts |
 | 5 | [part-5-migration-agent.md](./part-5-migration-agent.md) | Wrapping migration as an A2A agent with three backends (Make.com primary; Agent SDK + skills; opencode/Kimi K2.6); Playwright concurrency |
 | 6 | [part-6-orchestration-ui-rollout.md](./part-6-orchestration-ui-rollout.md) | Coordinator (intelligent routing + Nx fan-out + variance reporting + A2A server face), new `agents/ui` app, milestones to adaptTo(), risks, open questions |
+| — | [kimi-k2.6-opencode-backend-findings.md](./kimi-k2.6-opencode-backend-findings.md) | **PoC findings (2026-06-08)** for Part 5 Backend C: validated headless Kimi K2.6 via `opencode serve` + REST; credential/UA-gate notes; gotchas. Code in [`references/kimi/`](../../references/kimi/). |
 
 > **Diagram note**: `a2a-agent-platform-architecture.{png,excalidraw}` predates the 2026-06-06 revision (it shows Oracle compose + Supabase) — regenerate before sharing. The closed-loop pipeline diagram remains conceptually accurate.
 

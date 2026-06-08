@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Print-mode raw JSONL stream logs
+print/output/
+output/
+
+# OS / IDE
+.DS_Store
+*.log
