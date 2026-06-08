@@ -79,9 +79,12 @@ describe("content-gen: brief + synthesize-source", () => {
       sourceUrl: string;
       legacyStyle: string;
       groundTruth: { title: string; headings: string[]; imageAlts: string[]; bodyText: string };
+      artifacts: Array<{ type: string; path: string; storage: string }>;
     };
     expect(data.legacyStyle).toBe("messy");
     expect(data.groundTruth.headings.length).toBeGreaterThanOrEqual(4);
+    // artifact store reports its backend; CI has no R2 env → local filesystem stand-in
+    expect(data.artifacts[0]).toMatchObject({ type: "source-html", storage: "local" });
 
     // the synthetic source is REALLY served — this is what migration backends will fetch
     const page = await fetch(data.sourceUrl);

@@ -10,7 +10,7 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 |---|---|---|
 | `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), SQLite/D1 store adapter + migrations, **push notifications (SQLite-backed config store)**, **mesh bearer auth** (`A2A_MESH_TOKEN`), **edge webhook shim** (`POST /hooks/{agent}/{skill}`), mesh-aware client factory, structured logging. |
 | `eval-service/` | 4001 | Eval agent — real engine (copied from frozen app), job queue, browser semaphore, `eval.run` executor; `EVAL_ENGINE=stub` for the fake |
-| `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources served at public URLs (local static stand-in for R2) |
+| `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources stored to R2 (public r2.dev) when configured, else a local stand-in |
 | `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): **routed pipelines** — `evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto` (deterministic state-table routing) with fan-out + **variance stats**; CLI `hello` + `batch` + `loop` |
 | `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
 | `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), **`makecom` (primary — fully implemented: webhook out → `/callbacks/makecom/{taskId}` in, restart-tolerant; needs only the tunnel + scenario URLs)**, `sdk` (M3), `opencode` (M3+) |
@@ -104,17 +104,18 @@ the fallback just doesn't trigger.
 | Resource | Name / ID |
 |---|---|
 | D1 database | `a2a-agents` — `db84ebfc-2132-45ac-902d-7ef7117786e8` (same migration files apply at M5) |
-| R2 bucket | `a2a-agents-artifacts` — **pending**: account needs one-time R2 enable in the dashboard |
+| R2 bucket | `a2a-agents-artifacts` — public at `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev`; content-gen sources wired (S3 API). See [docs/r2-setup.md](docs/r2-setup.md) — mint an API token to flip dev from the local stand-in to real R2 |
 
 ## Status
 
 - [x] Walking skeleton: cards, `message/stream` (SSE), `tasks/get`, store-backed task store, restart survival — verified 2026-06-07
 - [x] M1 core: engine copied (model bump → `claude-sonnet-4-6`), job queue (concurrency 2), browser semaphore (3 permits), real `eval.run` executor, `eval_reports` writes, restart rebuild-from-store — Part-2 DoD tests green 2026-06-07
-- [ ] M1 remainder: R2 artifact uploads (blocked on account R2 enable), full-agentic smoke run
+- [x] R2 artifact storage: `createArtifactStore()` (S3 API / local fallback), content-gen sources wired, bucket public, round-trip proven, env-gated live test — 2026-06-08 (mint an API token to use real R2 in dev; eval screenshots next)
+- [ ] M1 remainder: eval screenshots → R2, full-agentic smoke run
 - [x] M2 core: push notifications (store-backed), mesh bearer auth, edge webhook shim, coordinator server face (`coordinate.run`) + CLI batch + variance stats — tests green 2026-06-07
 - [x] M3 scaffolding: migration facade (backend seam + dryrun), content-gen real contracts (template tier) + public synthetic sources, synthesize→migrate chain test — 2026-06-07
 - [x] M4 head start: `agents/ui` scaffold — auth middleware, Runs + variance view (polling), Trigger; `next build` clean + live smoke — 2026-06-07
-- [ ] M2 remainder — **config only, agent code done**: enable R2 (dashboard), `cloudflared` named tunnel, paste the Make.com webhook URL → `MAKECOM_WEBHOOK_URL` + add the scenario's final HTTP module POSTing to our `callbackUrl`; container→D1 spike (open question #7)
+- [ ] M2 remainder — **config only, agent code done**: `cloudflared` named tunnel, paste the Make.com webhook URL → `MAKECOM_WEBHOOK_URL` + add the scenario's final HTTP module POSTing to our `callbackUrl` (R2 done; mint an API token per docs/r2-setup.md to use real R2 in dev)
 - [x] M3 routes: coordinator route engine — `full-loop`/`generate+migrate`/`migrate`/`evaluate`/`auto` (deterministic state table), ≥3 routes incl. non-eval-terminating demonstrated by tests; closed loop runs end-to-end locally (CLI: `npm run loop`) — 2026-06-07
 - [ ] M3 real backends: migration `sdk` backend, content-gen Agent SDK generator, opencode/Kimi; LLM planner upgrade for `goal: auto`
-- [ ] Full suite: 47 tests (38 fast + 9 live)
+- [ ] Full suite: 45 fast + 11 live (+ 1 soak) — fast tier green in CI; live R2 + agentic tiers run locally with creds

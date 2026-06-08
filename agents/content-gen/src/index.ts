@@ -1,16 +1,16 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, Message } from "@a2a-js/sdk";
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
-import { startAgentServer, createLogger } from "@agents/a2a-common";
+import { startAgentServer, createLogger, createArtifactStore } from "@agents/a2a-common";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { generateBrief, synthesizeSource, type Brief } from "./generator.ts";
 
 const log = createLogger("da-content-gen-agent");
 const PORT = Number(process.env.PORT ?? 4002);
-// Local stand-in for the R2 public bucket (account R2 enable pending). Same URL
-// contract: synthetic sources are fetchable by migration backends + eval.
-const PUBLIC_BASE = process.env.CONTENT_PUBLIC_BASE ?? `http://localhost:${PORT}/artifacts`;
-const SOURCES_DIR = "./output/sources";
+// Artifact storage: real Cloudflare R2 when its env is set, else a local
+// filesystem stand-in served via staticRoutes. Same URL contract either way —
+// synthetic sources are publicly fetchable by Make.com, migration backends, eval.
+const LOCAL_PUBLIC_BASE = process.env.CONTENT_PUBLIC_BASE ?? `http://localhost:${PORT}/artifacts`;
+const artifactStore = createArtifactStore({ localDir: "./output", localPublicBase: LOCAL_PUBLIC_BASE });
 
 interface ContentPayload {
   skill?: "content.brief" | "content.synthesize-source";
@@ -121,10 +121,8 @@ const contentGenExecutor: AgentExecutor = {
         bus.publish(status("working", `synthesizing ${legacyStyle} legacy source: ${brief.title}`));
 
         const source = synthesizeSource(brief, legacyStyle);
-        mkdirSync(SOURCES_DIR, { recursive: true });
-        const filename = `${taskId}.html`;
-        writeFileSync(`${SOURCES_DIR}/${filename}`, source.html);
-        const sourceUrl = `${PUBLIC_BASE}/sources/${filename}`;
+        const key = `sources/${taskId}.html`;
+        const sourceUrl = await artifactStore.put({ key, body: source.html, contentType: "text/html" });
 
         bus.publish({
           kind: "artifact-update",
@@ -140,7 +138,7 @@ const contentGenExecutor: AgentExecutor = {
                   sourceUrl,
                   groundTruth: source.groundTruth,
                   legacyStyle,
-                  artifacts: [{ type: "source-html", path: `sources/${filename}` }],
+                  artifacts: [{ type: "source-html", path: key, storage: artifactStore.kind }],
                 } as unknown as Record<string, unknown>,
               },
             ],
@@ -173,10 +171,11 @@ const contentGenExecutor: AgentExecutor = {
 startAgentServer({
   name: "da-content-gen-agent",
   description:
-    "Generates content briefs and synthetic 'legacy' source pages (template tier now; Claude Agent SDK backend at M3). Sources served at a public URL — local static stand-in until R2 is enabled.",
+    "Generates content briefs and synthetic 'legacy' source pages (template tier now; Claude Agent SDK backend at M3). Sources stored at a public URL — Cloudflare R2 when configured, else a local static stand-in.",
   port: PORT,
   dbPath: process.env.STORE_DB_PATH ?? "./data/store.db",
   shimAgentId: "content-gen",
+  // local stand-in for the R2 public bucket; unused (but harmless) when R2 is configured
   staticRoutes: [{ route: "/artifacts", dir: "./output" }],
   skills: [
     {

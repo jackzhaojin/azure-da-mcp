@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "0.3.13",
+    "aws4fetch": "^1.0.20",
     "better-sqlite3": "^12.4.1",
     "express": "^4.21.2",
     "uuid": "^11.1.0"
