@@ -1,8 +1,8 @@
-# agents/ — A2A Agent Platform
+# agents/ — A2A Agent Platform (v2.0)
 
-The new platform subproject (PRD: [`ai-docs/2026-06-05-a2a-agent-platform/`](../ai-docs/2026-06-05-a2a-agent-platform/)).
-One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 (D6);
-`content-authoring-eval/` is frozen and not part of this system (D5).
+The flagship **v2.0** platform: a decoupled mesh of A2A agents (generate → migrate → evaluate, intelligently routed). One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 (D6); `content-authoring-eval/` is the **frozen v1.x backup** and not part of this system (D5).
+
+**Docs**: [build report (as-built)](../ai-docs/2026-06-08-a2a-platform-v2.0/) · [PRD / plan](../ai-docs/2026-06-05-a2a-agent-platform/) · [dev hub `CLAUDE.md`](./CLAUDE.md) · each workspace below has its own `CLAUDE.md`.
 
 ## Layout
 

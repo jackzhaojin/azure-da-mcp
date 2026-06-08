@@ -1,135 +1,87 @@
-# Azure DA.live MCP - Monorepo
+# Azure DA.live MCP — Monorepo
 
-Monorepo for AI-powered content authoring, migration, and editing tools built on da.live, Claude, and Model Context Protocol (MCP).
+A personal monorepo of AI-powered content authoring, migration, and evaluation tools for [da.live](https://da.live) (Adobe Edge Delivery Services), built on Claude and the Model Context Protocol (MCP).
 
-## Subprojects
+The repository's center of gravity is **v2.0 — the `agents/` A2A Agent Platform**: a decoupled mesh of independently-addressable AI agents that *generate*, *migrate*, and *evaluate* content. The other projects are the supporting cast — the MCP server it authors through, the prompt library, the API/admin tooling, and the original evaluation app (now a **frozen v1.x backup**).
 
-### 1. `functions/` - Azure Functions MCP Server
-**Status**: Production-ready
-**Purpose**: HTTP MCP server for AI-assisted content editing on da.live
+> **Two version lines.** **v2.0** = the new `agents/` platform (flagship, in active build). **v1.1.0** = the legacy `content-authoring-eval` Next.js app on Oracle — frozen and untouched as the safety net (decision D5). Its eval engine was *copied* into `agents/eval-service`, not moved.
 
-AI-powered content editing backend built with Azure Functions and Claude. Provides MCP tools (`list_dalive_content`, `get_dalive_content`, `save_dalive_content`, and more) for autonomous content editing workflows.
+---
+
+## ⭐ The flagship: `agents/` — A2A Agent Platform (v2.0)
+
+**Status**: M1–M4 built, tested, and on `main`; Cloudflare D1/R2 + a live `cloudflared` tunnel; container deploy is the last milestone.
+**Purpose**: A multi-agent mesh speaking the [A2A protocol](https://a2a-protocol.org/) (official `@a2a-js/sdk`), where each agent is its own Express server with an Agent Card, Task lifecycle, and streaming.
+
+The headline capability is a **closed loop**: the **coordinator** asks **content-gen** to fabricate a synthetic "legacy" page, hands it to the **migration agent** to author into da.live, then to the **eval agent** to score the result across four dimensions — fanned out and aggregated into variance stats. But the coordinator routes intelligently: it can also *just evaluate*, *just migrate*, *generate+migrate*, or *auto*-decide; it need not start at generation or end at evaluation.
+
+| Agent | Port | Does |
+|-------|------|------|
+| coordinator | 4004 | Routes, fans out, aggregates variance (A2A client **and** server) |
+| content-gen | 4002 | Content briefs + synthetic legacy source pages |
+| migration | 4003 | Authors into da.live — one Agent Card over backends (`dryrun` / Make.com / SDK) |
+| eval | 4001 | 4-dimension migration-quality evaluation (engine copied from v1.x) |
+| ui | 3000 | Thin Next.js dashboard — auth, runs, manual trigger |
 
 **Quick Start**:
 ```bash
-cd functions
-npm install
-npm start  # Requires Node 22+
+cd agents
+nvm use 20 && npm install
+cp .env.example .env && set -a; source .env; set +a   # secrets gitignored
+npm run dev:eval & npm run dev:content-gen & npm run dev:migration & npm run dev:coordinator &
+npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loop
 ```
 
-**Documentation**: [functions/README.md](./functions/README.md) | [functions/CLAUDE.md](./functions/CLAUDE.md)
+**Documentation**:
+- [agents/README.md](./agents/README.md) — overview + status · [agents/CLAUDE.md](./agents/CLAUDE.md) — dev hub
+- **Build report**: [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) — as-built architecture + sequence diagrams
+- **Plan**: [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/) — the PRD (decisions D1–D6)
 
 **Key Features**:
-- 6 MCP tools: list, get, save, create, create folder, preview/publish
-- MCP server endpoints (`/api/mcp`, `/api/mcp-streamable`)
-- Multi-LLM support (Claude, Gemini, Azure AI Foundry)
-- Claude Desktop integration via stdio bridge
+- Official A2A SDK end-to-end: Agent Cards, `message/stream` (SSE), `tasks/get`, push notifications, an edge webhook shim
+- Persistence on **Cloudflare D1** (same SQL as local SQLite) + artifacts on **R2** (public `r2.dev`)
+- **Make.com interop** through a live named `cloudflared` tunnel (`a2a.xpri.ai`)
+- Browser-pooled, job-queued, restart-survivable eval; deterministic + agentic analysis
+- Three real-server test tiers (fast/CI, live, soak) — no mocks
 
 ---
 
-### 2. `content-authoring-eval/` - CMS Migration Evaluator
-**Status**: Production (Docker deployed to Oracle Cloud)
-**Purpose**: AI-powered quality evaluation for CMS migrations
+## Supporting projects
 
-Next.js web app with 4 specialized AI agents (Structure, Accessibility, Content Fidelity, Visual) to evaluate webpage migrations. Combines deterministic analysis (Cheerio, axe-core, unpdf, Playwright) with agentic intelligence (Claude 4.5 SDK).
-
-**Quick Start**:
+### `functions/` — Azure Functions MCP Server
+**Status**: Production-ready · **Node 22+**
+HTTP MCP server for AI-assisted content editing on da.live — the server the migration agent authors *through* (decision D1: kept over Adobe's da-mcp). Six MCP tools (list/get/save/create/folder/preview-publish), multi-LLM, Claude Desktop stdio bridge.
 ```bash
-cd content-authoring-eval
-npm install
-npm run dev   # http://localhost:3000
+cd functions && npm install && npm start
 ```
+[functions/README.md](./functions/README.md) · [functions/CLAUDE.md](./functions/CLAUDE.md)
 
-**Documentation**: [content-authoring-eval/README.md](./content-authoring-eval/README.md)
+### `content-authoring-eval/` — CMS Migration Evaluator (v1.x, **FROZEN**)
+**Status**: Production on Oracle Cloud — **frozen backup; do not modify (D5)**
+The original Next.js app with 4 evaluation agents. Superseded by `agents/eval-service` (its engine was copied out). Still running as the safety net; its deploy workflow must never be triggered by platform work.
+[content-authoring-eval/README.md](./content-authoring-eval/README.md)
 
-**Key Features**:
-- 4 evaluation agents with tool access (Playwright MCP, Bash, Read/Write)
-- Batch evaluation with progress tracking
-- Docker deployment with GitHub Actions CI/CD
-- Deterministic + agentic hybrid analysis
+### `agent-claude-sdk/` — Agent SDK Experiments
+**Status**: Active prototyping
+TypeScript agents for exploring the Claude Agent SDK (CLI chat, PDF generator, an earlier eval prototype, third-party demos). The blueprint for several platform pieces.
+[agent-claude-sdk/README.md](./agent-claude-sdk/README.md)
 
----
-
-### 3. `agent-claude-sdk/` - Agent SDK Experiments
-**Status**: Active development
-**Purpose**: Learning and prototyping with Claude Agent SDK
-
-Collection of TypeScript-based agents for testing patterns and exploring the Claude Agent SDK. Includes custom-built agents and third-party demos.
-
-**Quick Start**:
-```bash
-cd agent-claude-sdk/chat-cli
-npm install
-cp .env.example .env
-npm run dev
-```
-
-**Documentation**: [agent-claude-sdk/README.md](./agent-claude-sdk/README.md)
-
-**Contains**:
-- `chat-cli/` - Simple CLI chat interface with OAuth support
-- `blog-pdf-generator/` - PDF generation from blog posts
-- `cms-migration-evaluator/` - Earlier eval prototype
-- `demos/` - Third-party agent examples
-
----
-
-### 4. `make-dot-com/` - Make.com Agent Prompts
+### `make-dot-com/` — Make.com Agent Prompts
 **Status**: Active versioning
-**Purpose**: Versioned agent prompts for Make.com workflows
+Progressive prompt files for the EDS migration agent on Make.com (MVP → +Memory → +BlockLibrary → Full). Copy-pasted into Make.com's UI, not deployed via Git. The platform's migration agent calls these Make.com scenarios as its primary backend.
+[make-dot-com/README.md](./make-dot-com/README.md)
 
-Progressive prompt files for EDS content migration agents deployed on Make.com. Not deployed via Git/Azure - prompts are copy-pasted into Make.com's agent configuration UI.
-
-**Quick Start**:
-```bash
-cd make-dot-com/v1-content-migration
-# Use agent-init-prompt-mvp.md for initial testing
-```
-
-**Documentation**: [make-dot-com/README.md](./make-dot-com/README.md)
-
-**Prompt Files**:
-- `agent-init-prompt-mvp.md` - Basic migration workflow
-- `agent-init-prompt-mvp-memory.md` - MVP + learning from past runs
-- `agent-init-prompt-mvp-blocklibrary.md` - MVP + standardized blocks
-- `agent-init-prompt-full.md` - Production with all features
-
----
-
-### 5. `bruno/` - API Testing Collections
+### `bruno/` — API Testing Collections
 **Status**: Active use
-**Purpose**: Bruno HTTP client collections for API testing
+Bruno HTTP collections for da.live Admin API and Azure Functions endpoints.
+[bruno/README.md](./bruno/README.md)
 
-HTTP request collections for testing da.live Admin API and Azure Functions endpoints. Alternative to Postman/Insomnia.
-
-**Quick Start**:
-```bash
-cd bruno/local-functions
-# Open in Bruno desktop app
-```
-
-**Documentation**: [bruno/README.md](./bruno/README.md)
-
-**Collections**:
-- `da-live-content/` - da.live Admin API endpoints
-- `local-functions/` - Azure Functions MCP endpoints
-
----
-
-### 6. `hlx-admin/` - AEM Admin API Execution Logs
+### `hlx-admin/` — AEM Admin API Execution Logs
 **Status**: Active use
-**Purpose**: Auditable, one-at-a-time AEM Edge Delivery Services admin operations
+Auditable, one-at-a-time AEM Edge Delivery admin operations — dated working dirs with `EXECUTION.md` plans + request/response artifacts, driven by the [hlx-admin-api-executor skill](https://github.com/jackzhaojin/ai-builder-kit/tree/main/skills/hlx-admin-api-executor) (GET/SET/GET + human approval).
 
-Per-operation working directories (`YYYY-MM-DD-description/`) containing `EXECUTION.md` plans, request/response artifacts, and post-hoc retrospectives. Driven by the [hlx-admin-api-executor skill](https://github.com/jackzhaojin/ai-builder-kit/tree/main/skills/hlx-admin-api-executor), which enforces GET/SET/GET verification and human approval before any mutation against `admin.hlx.page`.
-
-**Quick Start**:
-```bash
-# Skill-driven: from Claude Code, describe the AEM admin operation and the skill creates a new dated folder.
-# Manual: cd hlx-admin/<YYYY-MM-DD-description> && source .env-setup.sh && follow EXECUTION.md
-```
-
-**Operations logged**:
-- `2026-05-16-set-hosts/` — Registered `da-live-postal-2025-07` in the AEM Configuration Service (fixed broken da.live Preview/Publish + Sidekick navigation)
+### `references/` — POCs & spikes
+De-risking spikes referenced by the platform: `references/cloudflare/` (long-SSE-through-Containers, container→D1 worker-proxy), `references/kimi/` (Kimi K2.6 / opencode backend), `references/claude/` (Agent SDK POCs).
 
 ---
 
@@ -137,127 +89,68 @@ Per-operation working directories (`YYYY-MM-DD-description/`) containing `EXECUT
 
 ```
 azure-da-mcp/
-├── functions/                 # Azure Functions MCP Server (Node 20)
-├── content-authoring-eval/    # Next.js evaluation app (Node 20, Docker)
+├── agents/                    # ⭐ v2.0 A2A Agent Platform (Node 20, npm workspaces)
+│   ├── a2a-common/            #    shared bootstrap (server, stores, client, migrations)
+│   ├── eval-service/          #    :4001 eval agent (engine copied from v1.x)
+│   ├── content-gen/           #    :4002 briefs + synthetic sources
+│   ├── migration-agent/       #    :4003 swappable backends (dryrun/makecom/sdk)
+│   ├── coordinator/           #    :4004 routing + fan-out + variance + CLI
+│   ├── ui/                    #    :3000 thin Next.js dashboard
+│   ├── store-mcp/             #    stdio MCP — conversational store queries
+│   ├── e2e/                   #    real-server tests (fast/live/soak)
+│   └── docs/                  #    r2-setup · tunnel-setup · makecom checklist
+├── functions/                 # Azure Functions MCP Server (Node 22)
+├── content-authoring-eval/    # v1.x eval app — FROZEN backup (Node 20, Docker)
 ├── agent-claude-sdk/          # Agent SDK experiments (TypeScript)
 ├── make-dot-com/              # Make.com agent prompts (Markdown)
 ├── bruno/                     # API testing collections (Bruno)
 ├── hlx-admin/                 # AEM admin API execution logs (skill-driven)
-├── specs/                     # Feature specs and planning docs
-├── ai-docs/                   # Implementation insights and learnings
-├── RELEASES.md                # Release strategy and versioning guide
+├── references/                # POCs & spikes (cloudflare, kimi, claude)
+├── ai-docs/                   # Planning PRDs + as-built reports (public)
+├── RELEASES.md                # Release strategy and versioning
 └── README.md                  # This file
 ```
 
 ## Releases & Versioning
 
-This monorepo uses **lockstep versioning** with a shared SemVer version across all projects, and **trunk-based releases** (tag directly from `main`):
+Lockstep SemVer, **trunk-based** releases (tag directly from `main`) — see **[RELEASES.md](./RELEASES.md)**.
 
-- **Current Version**: `v1.0.2`
-- **Branch Model**: Trunk-based — `main` is the only long-lived branch
-- **Versioning Strategy**: Lockstep (single version for entire repo)
-- **Deployment**: Automated via GitHub Actions on version tag push
-
-**Release workflow**:
-1. Merge changes to `main`
-2. Bump version in `content-authoring-eval/package.json`
-3. Tag release: `v<MAJOR>.<MINOR>.<PATCH>`
-4. Push the tag — deployment triggers automatically
-5. Create GitHub Release with `gh release create`
-
-For complete release procedures, deployment automation, and the strategy history (we previously used a `release/1.0` branch, abandoned 2026-05-12), see **[RELEASES.md](./RELEASES.md)**.
+- **v1.1.0** — current released line: the legacy `content-authoring-eval` app (frozen backup). Tag push triggers the Oracle deploy.
+- **v2.0** — the `agents/` platform. A **major** bump because it's a ground-up re-architecture, not a feature increment. Deliberately **not yet tagged/deployed** — deployment is the last milestone (D6); today it runs locally + via the `cloudflared` tunnel.
 
 ## Common Dependencies
 
-- **Node.js**: 22.x LTS (functions), 20.x LTS (content-authoring-eval)
-- **Claude Agent SDK**: `@anthropic-ai/claude-agent-sdk` (content-authoring-eval, agent-claude-sdk)
-- **Anthropic SDK**: `@anthropic-ai/sdk` (functions)
-- **MCP SDK**: `@modelcontextprotocol/sdk` (functions)
-- **Docker**: For production deployment (content-authoring-eval)
+- **Node.js**: 20.x (`agents/`, `content-authoring-eval/`), 22.x (`functions/`; also required for the Wrangler/Cloudflare CLI)
+- **A2A SDK**: `@a2a-js/sdk` (the platform's protocol layer)
+- **Claude / Anthropic**: `@anthropic-ai/claude-agent-sdk`, `@anthropic-ai/sdk`
+- **MCP SDK**: `@modelcontextprotocol/sdk` (`functions/`, `agents/store-mcp`)
+- **Cloudflare**: D1 + R2 + `cloudflared` (the platform's persistence + ingress)
+- **Testing**: `vitest` (the platform's e2e tiers)
 
 ## Authentication
 
-All projects support Claude API authentication via:
-1. **OAuth Token** (Claude Pro/Max subscribers)
-   ```bash
-   npm install -g @anthropic-ai/claude-cli
-   claude setup-token
-   ```
-2. **API Key** (Developers)
-   - Get from [console.anthropic.com](https://console.anthropic.com/)
-   - Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-api03-...`
+Claude API auth, used across projects:
+1. **OAuth Token** (Claude Pro/Max): `npm install -g @anthropic-ai/claude-cli && claude setup-token`
+2. **API Key** (developers): from [console.anthropic.com](https://console.anthropic.com/), into the project's `.env` as `ANTHROPIC_API_KEY`
 
-## Development Workflows
-
-### Azure Functions Development
-```bash
-cd functions
-npm start  # Requires Node 22+
-# Server: http://localhost:7071
-```
-
-### Content Authoring Eval Development
-```bash
-cd content-authoring-eval
-npm run dev
-# Server: http://localhost:3000
-```
-
-### Agent SDK Prototyping
-```bash
-cd agent-claude-sdk/chat-cli
-npm run dev
-```
-
-### Make.com Prompt Updates
-```bash
-cd make-dot-com/v1-content-migration
-# Edit prompt files, copy to Make.com UI
-```
-
-### API Testing
-```bash
-cd bruno
-# Open collections in Bruno desktop app
-```
+The platform also uses a scoped **Cloudflare R2 API token** (in `agents/.env`); see [agents/docs/r2-setup.md](./agents/docs/r2-setup.md).
 
 ## Testing Philosophy
 
-**Real tests only**: No mocks, no stubs. If it doesn't test actual behavior with real APIs, we don't do it.
+**Real tests only** — no mocks, no stubs. If it doesn't exercise actual behavior, we don't do it.
 
-- `functions/`: E2E tests with real Anthropic + da.live APIs
-- `content-authoring-eval/`: Manual testing via web UI + curl
-- `agent-claude-sdk/`: Ad-hoc testing per agent
-- `make-dot-com/`: Manual testing in Make.com workflows
+- `agents/`: real child-process servers over real A2A — **fast** (`npm run test:e2e`, CI), **live** (`npm run test:live`, real engine/browsers/R2), **soak** (`npm run test:soak`, 10× loop)
+- `functions/`: E2E with real Anthropic + da.live APIs
+- `content-authoring-eval/`: manual via web UI + curl
+- `agent-claude-sdk/` / `make-dot-com/`: ad-hoc / in-platform
 
 ## Documentation Standards
 
-Each subproject follows a consistent documentation pattern:
-
-### README.md (User-facing)
-- Quick start guide
-- Installation instructions
-- Usage examples
-- Feature overview
-- Links to detailed docs
-
-### CLAUDE.md (AI context)
-- Project-specific instructions for Claude Code
-- Architecture decisions
-- Common issues and solutions
-- Development workflows
-- Memory-optimized for AI consumption
+Each subproject carries a **README.md** (user-facing: quick start, features, links) and a **CLAUDE.md** (AI context: architecture, gotchas, workflows). The `agents/` platform additionally gives each workspace its own `CLAUDE.md` and ships an as-built build report under `ai-docs/`.
 
 ## Related Resources
 
-- [Claude Agent SDK Documentation](https://docs.anthropic.com/en/docs/agents)
-- [Anthropic API Documentation](https://docs.anthropic.com/)
-- [Model Context Protocol Spec](https://modelcontextprotocol.io/)
-- [da.live Admin API](https://admin.da.live/)
-
-## Contributing
-
-This is a personal monorepo for AI content authoring experimentation. Each subproject is independent with its own dependencies and configuration.
+- [A2A Protocol](https://a2a-protocol.org/) · [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents) · [Anthropic API](https://docs.anthropic.com/) · [MCP Spec](https://modelcontextprotocol.io/) · [da.live Admin API](https://admin.da.live/) · [Cloudflare Developers](https://developers.cloudflare.com/)
 
 ## License
 
@@ -265,5 +158,5 @@ Apache License 2.0
 
 ---
 
-**Last Updated**: 2026-05-12
-**Primary Tools**: Claude Code, Agent SDK, Azure Functions, Next.js, MCP
+**Last Updated**: 2026-06-08
+**Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP

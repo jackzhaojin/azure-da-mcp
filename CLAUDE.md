@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-**Azure DA.live MCP** — a monorepo of 6 independent AI-powered content authoring, migration, evaluation, and ops tools for [da.live](https://da.live) (Adobe Edge Delivery Services). Each subproject has its own dependencies, configs, and workflows; this root file orients you to which one to work in.
+**Azure DA.live MCP** — a monorepo of 7 independent AI-powered content authoring, migration, evaluation, and ops tools for [da.live](https://da.live) (Adobe Edge Delivery Services). Each subproject has its own dependencies, configs, and workflows; this root file orients you to which one to work in.
+
+> **Version lines**: **v2.0** is the new **`agents/` A2A platform** (project #7 — the current flagship workstream). **v1.x** (`v1.1.0`) is the legacy `content-authoring-eval` app — a **frozen backup**, never modified (decision D5). When in doubt about "the new platform" vs "the eval app", that's the v2.0 vs v1.x split.
 
 ## Monorepo Structure
 
-This repository contains 6 independent projects:
+This repository contains 7 independent projects:
 
 ### 1. `functions/` - Azure Functions MCP Server
 **Purpose**: Production MCP server for AI-assisted da.live content editing
@@ -25,7 +27,7 @@ This repository contains 6 independent projects:
 ### 2. `content-authoring-eval/` - CMS Migration Evaluator
 **Purpose**: AI-powered quality evaluation for webpage migrations
 **Tech**: Next.js 14, Claude Agent SDK, Playwright MCP, Docker
-**Status**: Production (Oracle Cloud VM)
+**Status**: Production (Oracle Cloud VM) — **v1.x, FROZEN backup (D5): never modify this folder.** Its eval engine was *copied* (not moved) into `agents/eval-service`; the v2.0 platform supersedes it.
 **Docs**: [content-authoring-eval/CLAUDE.md](./content-authoring-eval/CLAUDE.md)
 
 **When to work here**:
@@ -83,6 +85,18 @@ This repository contains 6 independent projects:
 
 **Auth note**: The skill documents the `X-Auth-Token` cookie path, but the cached DA IMS JWT at `~/.aem/da-token.json` (populated by `npx github:adobe-rnd/da-auth-helper token`, 24h TTL) is also accepted by `admin.hlx.page` as `Authorization: Bearer …`. Faster when available. See `hlx-admin/2026-05-16-set-hosts/EXECUTION.md` for a worked example.
 
+### 7. `agents/` - A2A Agent Platform (v2.0) ⭐ flagship workstream
+**Purpose**: A decoupled mesh of independently-addressable AI agents (content-gen, migration, eval, coordinator) speaking the **A2A protocol** — the ground-up v2.0 re-architecture for the adaptTo() Sept 2026 demo
+**Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (ui), vitest e2e
+**Status**: M1–M4 built + tested on `main`; Cloudflare D1/R2 + named tunnel (`a2a.xpri.ai`) live; container deploy (M5) deliberately last
+**Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/)
+
+**When to work here**:
+- A2A agents/protocol (Agent Cards, Task lifecycle, `message/stream`, push notifications, edge shim)
+- The closed loop (generate → migrate → evaluate), coordinator routing, variance reporting
+- Cloudflare D1/R2 persistence, `cloudflared` tunnel, Make.com interop
+- The decoupled eval engine (copied from the frozen v1.x app)
+
 ## Working in This Monorepo
 
 ### Important Instructions
@@ -136,10 +150,11 @@ source .env-setup.sh   # loads DA IMS token from ~/.aem/da-token.json
 ### Navigation Tips
 
 When the user asks about:
+- **"the platform"**, **"v2.0"**, **"A2A"**, **"agents"**, **"the mesh"**, **"coordinator"**, **"closed loop"**, **"the eval agent"**, **"content-gen"**, **"migration agent"**, **"the tunnel"**, **"D1/R2"** → `agents/` (the v2.0 A2A platform — start at `agents/CLAUDE.md`)
 - **"MCP server"** or **"Azure Functions"** → `functions/`
-- **"evaluation"** or **"migration quality"** → `content-authoring-eval/`
+- **"the eval app"**, **"the Oracle app"**, **"v1.x"**, legacy **"evaluation"** / **"migration quality"** UI → `content-authoring-eval/` (FROZEN, D5 — don't modify; the *new* eval lives in `agents/eval-service/`)
 - **"Agent SDK"** or **"experiments"** → `agent-claude-sdk/`
-- **"Make.com"** or **"prompts"** → `make-dot-com/`
+- **"Make.com"** or **"prompts"** → `make-dot-com/` (Make.com *interop* for the platform is in `agents/migration-agent/`)
 - **"API testing"** or **"Bruno"** → `bruno/`
 - **"admin.hlx.page"**, **"AEM Config Service"**, **"site config"**, **"undefined preview URL"** → `hlx-admin/` (invoke the hlx-admin-api-executor skill)
 
@@ -149,6 +164,8 @@ When the user asks about:
 - `content-authoring-eval/.env.local` - Contains CLAUDE_CODE_OAUTH_TOKEN
 - `content-authoring-eval/.env.docker` - Contains production secrets
 - `agent-claude-sdk/*/.env` - OAuth tokens and API keys
+- `agents/.env` - Platform secrets (R2 keys, A2A_EDGE_TOKEN, MAKECOM_WEBHOOK_URL); `agents/.env.example` is the tracked template
+- `agents/{data/,output/,*.db,.next/}` - Local stores, artifact stand-in, build output (gitignored)
 - `node_modules/` - Package dependencies (gitignored)
 - `.DS_Store` - macOS metadata (gitignored)
 
@@ -275,6 +292,14 @@ cp .env.example .env
 - `README.md` - User-facing monorepo overview (references child README.md files)
 - `CLAUDE.md` - This file (AI context, references child CLAUDE.md files)
 
+### agents/ (A2A Agent Platform — v2.0, flagship)
+- `agents/CLAUDE.md` - Hub: structure, run, conventions, Cloudflare infra
+- `agents/README.md` - User-facing overview + status
+- `agents/<workspace>/CLAUDE.md` - Per-workspace AI context (a2a-common, eval-service, content-gen, migration-agent, coordinator, ui, store-mcp, e2e)
+- `agents/docs/` - `r2-setup.md`, `tunnel-setup.md`, `makecom-scenario-checklist.md`
+- `ai-docs/2026-06-08-a2a-platform-v2.0/` - As-built build report (architecture + sequence diagrams)
+- `ai-docs/2026-06-05-a2a-agent-platform/` - The planning PRD (decisions D1–D6)
+
 ### functions/ (Azure Functions MCP Server)
 - `functions/CLAUDE.md` - Complete developer guide for MCP server
 
@@ -317,11 +342,11 @@ cp .env.example .env
 ## Related Documentation
 
 - `specs/` - Feature specifications and planning docs (historical)
-- `ai-docs/` - Implementation learnings and reality checks (historical)
+- `ai-docs/` - Planning PRDs + as-built reports (public + active; latest: `2026-06-08-a2a-platform-v2.0/`)
 
 ---
 
-**Last Updated**: 2026-06-05
+**Last Updated**: 2026-06-08
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
-**Current Version**: v1.1.0 (trunk-based, tag from `main`)
+**Version lines**: **v2.0** = the `agents/` A2A platform (flagship, not yet tagged/deployed — D6 deploy-last) · **v1.1.0** = legacy `content-authoring-eval` (frozen backup). Trunk-based, tag from `main`.

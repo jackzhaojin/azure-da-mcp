@@ -192,6 +192,13 @@ On 2026-05-12, `release/1.0` was merged back into `main` and deleted. Reasons:
 
 If a future minor version needs an LTS line (e.g., supporting both `v1.x` and `v2.x`), the release branch model can be reintroduced — but cross that bridge when there's an actual reason.
 
+### v2.0: A2A Agent Platform Line (2026-06)
+
+The `agents/` A2A platform is the **v2.0** line — a ground-up re-architecture (a mesh of A2A servers), hence a **major** bump rather than a feature increment on v1.x. Today it is **not yet tagged or deployed**: deployment is the last milestone (D6), and it currently runs locally + via a `cloudflared` tunnel. When it's ready to ship (Cloudflare Containers, M5), it gets its own `v2.x` tags from `main`.
+
+- **v1.x** (`v1.1.0`) — legacy `content-authoring-eval` on Oracle; **frozen backup** (D5). Its tag-triggered deploy is the only automated deploy today.
+- **v2.x** — the agents platform; version tracked in `agents/package.json` (`2.0.0`). Deploy mechanics TBD at M5 (separate from the v1.x Oracle workflow — never trigger `deploy-content-authoring-eval.yml` for platform work).
+
 ## Related Documentation
 
 - [README.md](./README.md) - Monorepo overview
@@ -201,6 +208,6 @@ If a future minor version needs an LTS line (e.g., supporting both `v1.x` and `v
 
 ---
 
-**Last Updated**: 2026-06-05
-**Current Version**: v1.1.0
+**Last Updated**: 2026-06-08
+**Current Version**: v1.1.0 (legacy line, deployed) · v2.0 = `agents/` platform (in build, not yet tagged/deployed)
 **Branch Model**: Trunk-based (tag from `main`)
