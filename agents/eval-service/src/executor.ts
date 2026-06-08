@@ -1,8 +1,10 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, Message, Artifact } from "@a2a-js/sdk";
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
 import type Database from "better-sqlite3";
-import { createLogger } from "@agents/a2a-common";
+import { createLogger, recordArtifact, type ArtifactStore } from "@agents/a2a-common";
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { runEvaluation } from "./engine/evaluator";
 import type { EvaluationRequest, EvaluationReport } from "@/types/evaluation";
 import { evalQueue } from "./jobs/queue";
@@ -102,15 +104,46 @@ export function writeEvalReport(db: Database.Database, a2aTaskId: string, report
   );
 }
 
+/**
+ * Uploads the visual screenshot to the artifact store (R2 or local stand-in) and
+ * rewrites the report's `visual.metadata.screenshot` to a durable public URL —
+ * mutates `report` in place so the persisted + emitted report carries the link,
+ * and records an artifacts-table row. No-op when there's no screenshot on disk
+ * (e.g. capture returned a placeholder). Best-effort: never fails the eval.
+ */
+async function persistScreenshot(
+  db: Database.Database,
+  store: ArtifactStore,
+  a2aTaskId: string,
+  report: EvaluationReport
+): Promise<void> {
+  const shot = report.results.visual?.metadata.screenshot;
+  if (!shot?.absolutePath || !existsSync(shot.absolutePath)) return;
+  try {
+    const key = `screenshots/${basename(shot.absolutePath)}`;
+    const url = await store.put({ key, body: readFileSync(shot.absolutePath), contentType: "image/png" });
+    // rewrite to the durable URL; drop the machine-specific absolutePath
+    report.results.visual!.metadata.screenshot = { path: key, url };
+    recordArtifact(db, { a2aTaskId, type: "screenshot", storagePath: key, metadata: { url } });
+    log.info("screenshot stored", { a2a_task_id: a2aTaskId, storage: store.kind, url });
+  } catch (err) {
+    log.warn("screenshot upload failed — report keeps the local path", {
+      a2a_task_id: a2aTaskId,
+      error: String(err),
+    });
+  }
+}
+
 /** Run one evaluation with retry; emits A2A events via `publish`, persists the report row. */
 export async function runEvalJob(opts: {
   db: Database.Database;
+  store: ArtifactStore;
   taskId: string;
   contextId: string;
   payload: EvalRunPayload;
   publish: (event: TaskStatusUpdateEvent | TaskArtifactUpdateEvent) => void;
 }): Promise<void> {
-  const { db, taskId, contextId, payload, publish } = opts;
+  const { db, store, taskId, contextId, payload, publish } = opts;
 
   const statusEvent = (state: "working" | "completed" | "failed", text?: string, final = false): TaskStatusUpdateEvent => ({
     kind: "status-update",
@@ -151,6 +184,7 @@ export async function runEvalJob(opts: {
         }
       });
 
+      await persistScreenshot(db, store, taskId, report);
       writeEvalReport(db, taskId, report);
       publish({ kind: "artifact-update", taskId, contextId, artifact: reportToArtifact(report) });
       publish(statusEvent("completed", undefined, true));
@@ -174,7 +208,7 @@ export async function runEvalJob(opts: {
  * subscribers keep receiving events as the queued job runs (submit-and-detach,
  * PRD part-2 execution model).
  */
-export function createEvalExecutor(db: Database.Database): AgentExecutor {
+export function createEvalExecutor(db: Database.Database, store: ArtifactStore): AgentExecutor {
   return {
     async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
       const { taskId, contextId, userMessage } = ctx;
@@ -225,7 +259,7 @@ export function createEvalExecutor(db: Database.Database): AgentExecutor {
 
       void evalQueue.add(async () => {
         try {
-          await runEvalJob({ db, taskId, contextId, payload, publish: (e) => bus.publish(e) });
+          await runEvalJob({ db, store, taskId, contextId, payload, publish: (e) => bus.publish(e) });
         } finally {
           bus.finished();
         }

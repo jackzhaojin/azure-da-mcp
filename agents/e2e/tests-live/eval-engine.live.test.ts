@@ -66,13 +66,38 @@ describe("real eval engine (deterministic tier)", () => {
     const data = (artifact.artifact.parts[0] as { kind: "data"; data: Record<string, never> }).data as {
       overallScore: number;
       dimensionScores: Record<string, number>;
-      report: { metadata: { version: string }; summary: { grade: string } };
+      report: {
+        metadata: { version: string };
+        summary: { grade: string };
+        results: { visual?: { metadata: { screenshot?: { path: string; url?: string } } } };
+      };
     };
     expect(typeof data.overallScore).toBe("number");
     expect(data.dimensionScores.structure).toBeGreaterThan(0); // example.com has valid HTML structure
     expect(data.dimensionScores.accessibility).toBeGreaterThan(0); // axe ran for real
     expect(typeof data.dimensionScores.visual).toBe("number"); // screenshot captured
     expect(data.report.summary.grade).toBeTruthy();
+
+    // the captured screenshot was stored and the report carries a durable, fetchable URL
+    // (local artifact backend here → served at /artifacts; same contract on R2)
+    const shot = data.report.results.visual?.metadata.screenshot;
+    expect(shot?.url).toBeTruthy();
+    // local is instant; public r2.dev can lag a beat right after a fresh PUT → retry briefly
+    let img!: Response;
+    for (let i = 0; i < 8; i++) {
+      img = await fetch(shot!.url!, { cache: "no-store" });
+      if (img.ok) break;
+      await new Promise((r) => setTimeout(r, 1_000));
+    }
+    expect(img.status).toBe(200);
+    expect(img.headers.get("content-type")).toContain("image/png");
+    // and an artifacts-table row points at the same object key
+    const adb = new Database(agent.dbPath, { readonly: true });
+    const arow = adb.prepare("select type, storage_path from artifacts order by rowid desc limit 1").get() as
+      | { type: string; storage_path: string }
+      | undefined;
+    adb.close();
+    expect(arow).toMatchObject({ type: "screenshot", storage_path: shot!.path });
 
     // eval_reports row (Part-2 schema) — the durable result agents/ui will read
     const db = new Database(agent.dbPath, { readonly: true });

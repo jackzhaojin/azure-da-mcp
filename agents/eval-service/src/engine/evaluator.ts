@@ -347,6 +347,10 @@ async function runAgent(
                 durationMs: 0,
                 model: 'claude-sonnet-4-6',
               },
+              screenshot: {
+                path: deterministic.screenshot.path,
+                absolutePath: deterministic.screenshot.absolutePath,
+              },
             },
           };
         } catch (error) {
@@ -367,6 +371,10 @@ async function runAgent(
                 executedAt: new Date().toISOString(),
                 durationMs: timer.elapsed(),
                 toolsUsed: ['playwright', 'pixelmatch', 'pngjs'],
+              },
+              screenshot: {
+                path: deterministic.screenshot.path,
+                absolutePath: deterministic.screenshot.absolutePath,
               },
             },
           };

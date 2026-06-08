@@ -42,6 +42,13 @@ export interface AgentResult {
       model: string;
       tokensUsed?: number;
     };
+    /**
+     * Visual dimension only — the captured screenshot. The engine sets
+     * `path`/`absolutePath` (local file); the eval agent uploads it to the
+     * artifact store and rewrites this to `{ path, url }` with a durable,
+     * publicly-fetchable URL before the report is persisted.
+     */
+    screenshot?: { path: string; absolutePath?: string; url?: string };
   };
 }
 

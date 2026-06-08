@@ -9,7 +9,7 @@ One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 
 | Package | Port | What |
 |---|---|---|
 | `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), SQLite/D1 store adapter + migrations, **push notifications (SQLite-backed config store)**, **mesh bearer auth** (`A2A_MESH_TOKEN`), **edge webhook shim** (`POST /hooks/{agent}/{skill}`), mesh-aware client factory, structured logging. |
-| `eval-service/` | 4001 | Eval agent — real engine (copied from frozen app), job queue, browser semaphore, `eval.run` executor; `EVAL_ENGINE=stub` for the fake |
+| `eval-service/` | 4001 | Eval agent — real engine (copied from frozen app), job queue, browser semaphore, `eval.run` executor; visual screenshots stored to R2 (public r2.dev) when configured, else a local stand-in; `EVAL_ENGINE=stub` for the fake |
 | `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources stored to R2 (public r2.dev) when configured, else a local stand-in |
 | `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): **routed pipelines** — `evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto` (deterministic state-table routing) with fan-out + **variance stats**; CLI `hello` + `batch` + `loop` |
 | `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
@@ -110,8 +110,8 @@ the fallback just doesn't trigger.
 
 - [x] Walking skeleton: cards, `message/stream` (SSE), `tasks/get`, store-backed task store, restart survival — verified 2026-06-07
 - [x] M1 core: engine copied (model bump → `claude-sonnet-4-6`), job queue (concurrency 2), browser semaphore (3 permits), real `eval.run` executor, `eval_reports` writes, restart rebuild-from-store — Part-2 DoD tests green 2026-06-07
-- [x] R2 artifact storage: `createArtifactStore()` (S3 API / local fallback), content-gen sources wired, bucket public, round-trip proven, env-gated live test — 2026-06-08 (mint an API token to use real R2 in dev; eval screenshots next)
-- [ ] M1 remainder: eval screenshots → R2, full-agentic smoke run
+- [x] R2 artifact storage: `createArtifactStore()` (S3 API / local fallback), content-gen sources + eval visual screenshots wired, `artifacts` rows recorded, bucket public, round-trip proven, env-gated live tests + soak — 2026-06-08
+- [ ] M1 remainder: full-agentic smoke run (CLAUDE_CODE_OAUTH_TOKEN)
 - [x] M2 core: push notifications (store-backed), mesh bearer auth, edge webhook shim, coordinator server face (`coordinate.run`) + CLI batch + variance stats — tests green 2026-06-07
 - [x] M3 scaffolding: migration facade (backend seam + dryrun), content-gen real contracts (template tier) + public synthetic sources, synthesize→migrate chain test — 2026-06-07
 - [x] M4 head start: `agents/ui` scaffold — auth middleware, Runs + variance view (polling), Trigger; `next build` clean + live smoke — 2026-06-07

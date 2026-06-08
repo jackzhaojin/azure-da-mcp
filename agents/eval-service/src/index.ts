@@ -1,5 +1,5 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from "@a2a-js/sdk";
-import { startAgentServer, createLogger, SqliteTaskStore, openDb } from "@agents/a2a-common";
+import { startAgentServer, createLogger, createArtifactStore, SqliteTaskStore, openDb } from "@agents/a2a-common";
 import { mkdirSync } from "node:fs";
 import { stubExecutor } from "./stub-executor";
 import { createEvalExecutor, runEvalJob, type EvalRunPayload } from "./executor";
@@ -7,6 +7,7 @@ import { evalQueue, queueStats } from "./jobs/queue";
 import { browserSemaphoreStats } from "./browser/semaphore";
 
 const log = createLogger("da-eval-agent");
+const PORT = Number(process.env.PORT ?? 4001);
 const DB_PATH = process.env.STORE_DB_PATH ?? "./data/store.db";
 const ENGINE = process.env.EVAL_ENGINE ?? "real"; // "real" | "stub"
 
@@ -15,15 +16,23 @@ mkdirSync("./.tmp", { recursive: true });
 mkdirSync("./output/screenshots", { recursive: true });
 
 const db = openDb(DB_PATH);
-const executor = ENGINE === "stub" ? stubExecutor : createEvalExecutor(db);
+// Eval screenshots → R2 (public r2.dev) when configured, else the local ./output
+// stand-in served via staticRoutes below. Same URL contract either way.
+const artifactStore = createArtifactStore({
+  localDir: "./output",
+  localPublicBase: process.env.EVAL_PUBLIC_BASE ?? `http://localhost:${PORT}/artifacts`,
+});
+const executor = ENGINE === "stub" ? stubExecutor : createEvalExecutor(db, artifactStore);
 
 startAgentServer({
   name: "da-eval-agent",
   description:
     "Evaluates EDS page migrations across structure, accessibility, content, visual dimensions" +
     (ENGINE === "stub" ? " (stub mode)" : ""),
-  port: Number(process.env.PORT ?? 4001),
+  port: PORT,
   dbPath: DB_PATH,
+  // local stand-in for the R2 public bucket (serves eval screenshots); unused when R2 is configured
+  staticRoutes: [{ route: "/artifacts", dir: "./output" }],
   skills: [
     {
       id: "eval.run",
@@ -76,7 +85,7 @@ if (ENGINE === "real") {
     };
 
     void evalQueue.add(() =>
-      runEvalJob({ db, taskId: task.id, contextId: task.contextId, payload, publish: applyAndSave })
+      runEvalJob({ db, store: artifactStore, taskId: task.id, contextId: task.contextId, payload, publish: applyAndSave })
     );
   }
   if (pending.length) log.info("rebuild complete", { reenqueued: pending.length });
