@@ -1,0 +1,26 @@
+{
+  "name": "kimi-cli-pocs",
+  "version": "1.0.0",
+  "description": "Kimi Code CLI integration PoCs (wire + print modes) on the Kimi K2.6 model — baseline for the A2A migration agent's opencode/Kimi backup backend",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "basic-print": "tsx print/basic-print.ts",
+    "agent-worker": "tsx print/agent-worker.ts",
+    "agent-stream-json-log": "tsx print/agent-stream-json-log.ts",
+    "basic-wire": "tsx wire/basic-wire.ts",
+    "stream-wire": "tsx wire/stream-wire.ts",
+    "opencode:serve": "tsx opencode/run-via-serve.ts",
+    "opencode:a2a": "tsx opencode/a2a-backend-poc.ts"
+  },
+  "keywords": ["kimi", "kimi-cli", "k2.6", "moonshot", "wire", "print", "poc"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
