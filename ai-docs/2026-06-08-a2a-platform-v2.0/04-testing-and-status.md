@@ -18,6 +18,7 @@ Per the monorepo rule, the e2e suite uses **real child-process servers and real 
 ### Live tier — real engine/browsers/R2 (creds-gated, auto-skips)
 - `eval-engine.live` — real cheerio fetch + Playwright/axe scan + screenshot; asserts a **fetchable screenshot URL** (local `/artifacts` or real `r2.dev`) and the `artifacts` row.
 - `r2.live` — real R2 PUT → public GET → DELETE (self-cleaning; skips without `R2_*`).
+- `opencode-migration.live` — **Kimi K2.6 migrates a REAL page** (Backend C DoD): drives the migration agent with `backend:"opencode"`, asserts the skill + `dalive_*` + `playwright_*` all fired, the contract artifact, and that the page reads back from da.live. Opt-in (writes to da.live): needs `MOONSHOT_API_KEY` + `DALIVE_TEST_SITE`.
 - `closed-loop.live`, `coordinator-batch.live`, `ui-smoke.live` (real `next dev` + middleware + store read).
 
 ### Soak — `full-loop-10x`
@@ -47,10 +48,11 @@ Per the monorepo rule, the e2e suite uses **real child-process servers and real 
 | **M3 — scaffolding** | ✅ | migration facade (dryrun), content-gen contracts (template tier), synth→migrate chain |
 | **M3 — routing + closed loop** | ✅ | route engine (5 routes), full loop end-to-end (`npm run loop`) |
 | **M3 — Make.com agent side** | ✅ | webhook out / callback in, restart-tolerant; tested vs a fake Make.com |
+| **M3 — opencode / Kimi K2.6 backend** | ✅ | headless `opencode serve`, reuses the `da-live-author-playwright` skill + da.live & Playwright MCP; migrated a real page end-to-end (PASS) — `opencode-migration.live` |
 | **M4 — UI scaffold** | ✅ | auth middleware, runs/variance dashboard, manual trigger; live smoke |
 | **store-mcp** | ✅ | stdio MCP, 4 read-only tools |
 | **Public ingress (dev)** | ✅ | `cloudflared` named tunnel on `a2a.xpri.ai` (this session) |
-| **M3 — real backends** | ⏳ | migration `sdk` (Agent SDK), content-gen Agent SDK generator, LLM planner for `goal:auto`, opencode/Kimi — all token-spending, need a watched first run |
+| **M3 — real backends** | ◑ | **opencode/Kimi K2.6 DONE** (real migration verified). Remaining: migration `sdk` (Agent SDK), content-gen Agent SDK generator, LLM planner for `goal:auto` |
 | **Make.com scenario config** | ⏳ | human step: paste webhook URL → `MAKECOM_WEBHOOK_URL`, add final HTTP module → `/callbacks/makecom/{taskId}` with the edge bearer |
 | **M5 — Cloudflare Containers deploy** | ⏳ | deliberately last (D6); design sketched in [`03`](./03-cloudflare-and-deployment.md) |
 | **Full-agentic eval smoke** | ⏳ | one real eval with `CLAUDE_CODE_OAUTH_TOKEN` to exercise the Agent SDK + Playwright MCP path |
@@ -59,7 +61,7 @@ Per the monorepo rule, the e2e suite uses **real child-process servers and real 
 
 1. **Make.com scenario config** (human; unblocked by the now-live tunnel + edge token).
 2. **Full-agentic eval smoke** (small token spend; confirms the agentic path beyond the deterministic fallback).
-3. **M3 real backends** — `sdk` migration backend, Agent SDK content generator, LLM planner for `auto`, opencode/Kimi; each a watched first run.
+3. **M3 real backends** — opencode/Kimi K2.6 ✅ (migrates real pages). Remaining: `sdk` migration backend, Agent SDK content generator, LLM planner for `auto`.
 4. **M5 — Cloudflare Containers deploy** (last, D6).
 
 ## Open questions (from the PRD, still open)

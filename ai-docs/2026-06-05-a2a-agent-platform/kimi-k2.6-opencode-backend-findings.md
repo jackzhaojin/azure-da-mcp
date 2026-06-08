@@ -117,14 +117,18 @@ chosen runtime over a raw chat client.
 
 ## Open follow-ups
 
-- [ ] Wire the recipe into `agents/migration-agent/src/backends/opencode.ts` (stub referenced in Part 5) — long-lived
-      `opencode serve`, session-per-task, SSE `/event` → A2A `Task` status mapping. **Reference impl exists:**
-      [`references/kimi/opencode/a2a-backend-poc.ts`](../../references/kimi/opencode/a2a-backend-poc.ts) already shapes
-      `opencodeKimiBackend` (mirrors `backends/types.ts`) + an executor that mirrors `migrationExecutor.execute`, and
-      runs the full `submitted → working → artifact → completed` sequence against K2.6. Lifts in almost verbatim;
-      remaining work is swapping the simulated authoring turn for the real `functions/` MCP + skill loop.
-- [ ] Confirm the `functions/` da.live MCP + `da-live-author-playwright` skill load under opencode and that K2.6 drives
-      a real end-to-end migration (Part 5 acceptance: "opencode/Kimi K2.6 backend completes one migration end-to-end").
+- [x] **DONE (2026-06-08)** — Wired the recipe into [`agents/migration-agent/src/backends/opencode.ts`](../../agents/migration-agent/src/backends/opencode.ts)
+      (+ `opencode-config.ts` + `opencode-prompt.ts`): long-lived `opencode serve` singleton, session-per-task, SSE
+      `/event` → A2A status mapping. Real differences from the PoC: config is injected via `OPENCODE_CONFIG` (a generated
+      file, merged over the global config) wiring the **real** da.live MCP + Playwright MCP + the reused skill with
+      `permission:"allow"`; the authoring turn is no longer simulated. Registered as `opencode` in `executor.ts`.
+- [x] **DONE (2026-06-08)** — Confirmed the `functions/` da.live MCP + `da-live-author-playwright` skill load under
+      opencode and that **K2.6 drives a real end-to-end migration** (Part 5 acceptance met). Verified against
+      `da-live-postal-2025-07`: the skill fired, `dalive_get/list/create_folder/create/preview_publish` + `playwright_*`
+      all fired, the page was authored → published → Playwright-validated, result **PASS**, and the page reads back from
+      da.live (preview returns HTTP 200). Covered by `agents/e2e/tests-live/opencode-migration.live.test.ts`
+      (creds+target-gated; writes a real da.live page). da.live auth needed nothing client-side — the deployed MCP
+      self-authenticates via its S2S technical account.
 - [ ] Re-test `opencode run` on the next opencode release; if fixed, it simplifies the spawn model.
 - [ ] Head-to-head datapoint for adaptTo(): "Claude vs Kimi K2.6 on the same N migrations" via the eval agent's variance
-      reporting (Part 5 selling point).
+      reporting (Part 5 selling point) — now unblocked (the `opencode` backend + the closed loop both exist).

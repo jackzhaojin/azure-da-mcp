@@ -10,6 +10,12 @@ This folder is the **baseline reference** for the A2A migration agent's `opencod
 Backend C). The validation findings live in
 [`ai-docs/.../kimi-k2.6-opencode-backend-findings.md`](../../ai-docs/2026-06-05-a2a-agent-platform/kimi-k2.6-opencode-backend-findings.md).
 
+> **✅ Now shipped (2026-06-08).** The real backend lives at
+> [`agents/migration-agent/src/backends/opencode.ts`](../../agents/migration-agent/src/backends/opencode.ts)
+> (+ `opencode-config.ts` + `opencode-prompt.ts`). It went past this PoC: real da.live + Playwright MCP, the reused
+> `da-live-author-playwright` skill, and a **verified end-to-end migration** of a real page (PASS) — see the live test
+> `agents/e2e/tests-live/opencode-migration.live.test.ts`. These scripts remain the minimal, dependency-free reference.
+
 > **opencode is the strategic target** — it natively supports **skills** and MCP, so the migration prompt +
 > `da-live-author-playwright` skill can be reused instead of re-encoded. The `kimi` CLI PoCs are kept as the protocol
 > reference (Wire = JSON-RPC, Print = stream-json).

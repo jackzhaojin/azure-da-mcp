@@ -6,6 +6,7 @@ import type { MigrationBackend, MigrationRunPayload } from "./backends/types.ts"
 import { dryrunBackend } from "./backends/dryrun.ts";
 import { makecomBackend } from "./backends/makecom.ts";
 import { sdkBackend } from "./backends/sdk.ts";
+import { opencodeBackend } from "./backends/opencode.ts";
 
 const log = createLogger("da-migration-agent");
 
@@ -16,7 +17,7 @@ const BACKENDS: Record<string, MigrationBackend> = {
   dryrun: dryrunBackend,
   makecom: makecomBackend,
   sdk: sdkBackend,
-  // opencode (Kimi K2.6) registers here at M3+ — same seam, different model vendor
+  opencode: opencodeBackend, // Kimi K2.6 via opencode serve — same seam, different model vendor
 };
 
 function extractPayload(message: Message): MigrationRunPayload {

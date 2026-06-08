@@ -25,7 +25,7 @@ Starting from the PRD, we built the **entire mesh** end-to-end and proved it wit
 - **4 A2A servers + 1 UI**, one Express server per agent, all on a shared `a2a-common` bootstrap (official `@a2a-js/sdk@0.3.13`): **eval** `:4001`, **content-gen** `:4002`, **migration** `:4003`, **coordinator** `:4004`, **ui** `:3000`.
 - **The closed loop runs end-to-end** locally: `coordinator → content-gen → migration → eval`, with deterministic routing, fan-out, and variance stats. `npm run loop` drives it.
 - **Eval engine decoupled** from the frozen app into a headless, job-queued, browser-pooled service (real `eval.run`, 4 dimensions, restart-survival).
-- **Migration agent** = one Agent Card over swappable backends (`dryrun` working; `makecom` fully built agent-side; `sdk` stubbed for M3).
+- **Migration agent** = one Agent Card over swappable backends (`dryrun` working; `makecom` fully built agent-side; **`opencode`/Kimi K2.6 built + verified end-to-end** — see [`05-opencode-kimi-backend.md`](./05-opencode-kimi-backend.md); `sdk` stubbed for M3).
 - **Make.com integration built agent-side**: webhook out + callback in, restart-tolerant — the human's remaining work is pure Make.com config.
 - **Cloudflare persistence proven**: D1 schema applied (same SQL as local SQLite); **R2 artifact storage live** (synthetic sources + eval screenshots → public `r2.dev`).
 - **Public ingress live**: a **named `cloudflared` tunnel** on the real domain `a2a.xpri.ai → localhost:4003`, verified end-to-end.
@@ -41,6 +41,7 @@ Starting from the PRD, we built the **entire mesh** end-to-end and proved it wit
 | [`02-sequence-diagrams.md`](./02-sequence-diagrams.md) | Mermaid sequence diagrams for the key integrations (closed loop, A2A task lifecycle, Make.com round-trip, eval+R2, tunnel ingress, UI) |
 | [`03-cloudflare-and-deployment.md`](./03-cloudflare-and-deployment.md) | As-built Cloudflare infra (D1, R2, named tunnel on `xpri.ai`), the POC de-risking, what's deployed vs. local, M5 path |
 | [`04-testing-and-status.md`](./04-testing-and-status.md) | Test tiers + evidence, the plan→built status grid, what's left |
+| [`05-opencode-kimi-backend.md`](./05-opencode-kimi-backend.md) | **Migration Backend C — opencode / Kimi K2.6, verified end-to-end** (real page authored → published → validated). Architecture, sequence, config, evidence |
 
 ## Repo layout (v2.0 lives under `agents/`)
 
