@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { startAgent, stopAgent, type AgentHandle } from "../helpers/mesh.ts";
 
 // The sleep-tolerance rule (PRD part-1, proven for Containers in
-// pocs/cloudflare-long-session-container): a process restart must never lose
+// references/cloudflare/long-session-container): a process restart must never lose
 // task state. Kill the real server, restart it on the same SQLite file, and
 // the completed task must still be served via tasks/get.
 describe("restart survival (sleep-tolerance rule)", () => {

@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 /**
  * SQLite-backed A2A TaskStore — the one place we go beyond SDK defaults (PRD part-3):
  * tasks must survive process restarts (and, later, Cloudflare Containers sleep/wake —
- * the sleep-tolerance rule proven by pocs/cloudflare-long-session-container).
+ * the sleep-tolerance rule proven by references/cloudflare/long-session-container).
  *
  * The full A2A Task object is the payload; row columns mirror the queryable bits.
  */
