@@ -11,11 +11,10 @@
   // pattern + latency measured in references/cloudflare/d1-container).
   "routes": [
     { "pattern": "content-factory.xpri.ai", "custom_domain": true },
+    { "pattern": "content-factor-dash.xpri.ai", "custom_domain": true },
     { "pattern": "content-factory-eval.xpri.ai", "custom_domain": true },
     { "pattern": "content-factory-gen.xpri.ai", "custom_domain": true },
     { "pattern": "content-factory-migrate.xpri.ai", "custom_domain": true }
-    // content-factor-dash.xpri.ai (the Google-OAuth-registered dashboard host)
-    // is flipped here from the cloudflared-tunnel CNAME once cloud is validated.
   ],
 
   "containers": [

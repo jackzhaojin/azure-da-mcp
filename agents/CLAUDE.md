@@ -52,10 +52,10 @@ npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner
 
 ## Cloudflare infra (as-built, see the v2.0 report)
 
-- **D1** `a2a-agents` (`db84ebfc-…`) — schema applied from the same migrations.
-- **R2** `a2a-agents-artifacts` — public `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev`; creds in `.env`.
-- **Tunnel** `a2a-mesh` (`8af08294-…`), config in `~/.cloudflared/config.yml`: `a2a.xpri.ai` → `localhost:4003` (the Make.com ingress) and `content-factor-dash.xpri.ai` → `localhost:4004` (coordinator dashboard, Google SSO; its `/a2a`+`/store`+`/hooks` are public too — mesh/edge tokens mandatory). `xpri.ai` DNS is on Cloudflare; registrar transfer off GoDaddy deferred to ~2027.
-- **Deploy (M5)** = Cloudflare Containers, deliberately **last** (D6). Not started.
+- **DEPLOYED (M5, 2026-06-10)**: the whole mesh runs on **Cloudflare Workers + Containers** — Worker `content-factory` (see [`deploy/CLAUDE.md`](./deploy/CLAUDE.md)) fronts four containers by hostname: `content-factory.xpri.ai` + `content-factor-dash.xpri.ai` → coordinator (A2A + dashboard, Google SSO), `content-factory-eval.xpri.ai`, `content-factory-gen.xpri.ai`, `content-factory-migrate.xpri.ai`. Store = D1 via the Worker's secret-gated `/d1/query` proxy (containers get no bindings); local dev keeps SQLite (driver picked by `D1_PROXY_URL`+`D1_PROXY_SECRET` env). Validate with `npm run test:cloud`.
+- **D1** `a2a-agents` (`db84ebfc-…`) — schema applied file-by-file via `wrangler d1 execute` (no `_migrations` table on D1).
+- **R2** `a2a-agents-artifacts` — public `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev`; creds in `.env` + worker secrets.
+- **Tunnel** `a2a-mesh` (`8af08294-…`), config in `~/.cloudflared/config.yml`: only `a2a.xpri.ai` → `localhost:4003` remains (legacy Make.com ingress to a LOCAL migration agent). `content-factor-dash.xpri.ai` moved to the Worker 2026-06-10. `xpri.ai` DNS is on Cloudflare; registrar transfer off GoDaddy deferred to ~2027.
 
 ## Hard rules
 
