@@ -77,15 +77,19 @@ async function batch(args: string[]) {
 async function loop(args: string[]) {
   const topic = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--")).join(" ");
   if (!topic) {
-    console.error("usage: coordinator loop <topic...> [--fan-out N] [--goal full-loop|generate+migrate|auto] [--legacy-style clean|dated|messy] [--backend dryrun|makecom|sdk]");
+    console.error("usage: coordinator loop <topic...> [--fan-out N] [--goal full-loop|generate+migrate|auto] [--legacy-style clean|dated|messy] [--backend dryrun|makecom|sdk|opencode] [--site S] [--owner O]");
     process.exit(1);
   }
+  const site = flag(args, "--site");
+  const owner = flag(args, "--owner");
   await submitAndStream({
     goal: flag(args, "--goal") ?? "full-loop",
     topic,
     fanOut: Number(flag(args, "--fan-out") ?? 1),
     legacyStyle: flag(args, "--legacy-style") ?? "dated",
     backend: flag(args, "--backend") ?? "dryrun",
+    ...(site ? { site } : {}),
+    ...(owner ? { owner } : {}),
   });
 }
 

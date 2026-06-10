@@ -71,10 +71,12 @@ describe("coordinator: eval-only batch via coordinate.run", () => {
       }
     }
 
-    // lifecycle + per-branch progress streamed
+    // lifecycle + per-branch progress streamed. The coordinator forwards child
+    // working-notes too (observability + SSE keepalive), so count terminal
+    // stage notes specifically — exactly one per branch.
     expect(finalState).toBe("completed");
     expect(progressNotes.some((n) => n.includes("6 branches"))).toBe(true);
-    expect(progressNotes.filter((n) => n.startsWith("branch ")).length).toBe(6);
+    expect(progressNotes.filter((n) => /^branch \d+ · evaluate: (completed|failed)/.test(n)).length).toBe(6);
 
     // variance stats — the adaptTo() headline metric
     expect(stats).toBeTruthy();

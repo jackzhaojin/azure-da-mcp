@@ -1,6 +1,6 @@
 # CLAUDE.md — agents/coordinator
 
-**Purpose**: Intelligent content coordinator — routes + fans out pipelines across content-gen, migration, and eval; aggregates variance stats. · **Tech**: TypeScript, Node 20, Express A2A server (client AND server) on `@agents/a2a-common`, `@a2a-js/sdk@0.3.13`, `p-queue`. · **Port**: 4004. · **Status**: v2.0 A2A platform, M3 routes done; closed loop runs end-to-end locally.
+**Purpose**: Intelligent content coordinator — routes + fans out pipelines across content-gen, migration, and eval; aggregates variance stats. **Hybrid app**: the Express A2A server AND a Next.js 15 dashboard share one process + port. · **Tech**: TypeScript, Node 20, Express A2A server (client AND server) on `@agents/a2a-common`, `@a2a-js/sdk@0.3.13`, `p-queue`, Next.js 15 / React 19 / Tailwind 3 + shadcn-style UI (styling copied from the v1 eval app). · **Port**: 4004 (A2A + UI). · **Status**: v2.0 A2A platform, M3 routes done; closed loop runs end-to-end locally; dashboard live.
 
 Platform docs: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-06-08-a2a-platform-v2.0/) (v2.0), [`ai-docs/2026-06-05-a2a-agent-platform/`](../../ai-docs/2026-06-05-a2a-agent-platform/) (PRD part-6 = the coordinator). v1.1.0 `content-authoring-eval/` is the frozen legacy backup — **D5: never touch it.**
 
@@ -8,12 +8,16 @@ Platform docs: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-06-0
 - Changing routing logic, fan-out, or variance aggregation for `coordinate.run`.
 - Adding routes / stages to the pipeline, or upgrading `goal: auto` from the state table to the LLM planner (M3).
 - CLI work: the `hello` / `batch` / `loop` commands.
+- The coordinator dashboard (trigger, live runs, run detail) — `app/` + `components/` + `lib/`.
 
 ## Key files
-- `src/executor.ts` — the route engine. `resolveRoute()` is a deterministic state table mapping `evaluate | migrate | generate+migrate | full-loop | auto` → an ordered `Stage[]` (`generate | migrate | evaluate`, any subset, **no mandatory start or end**). `runPipelineBranch()` threads ONE `contextId` across content-gen→migration→eval, forwarding each stage's artifact (sourceUrl → previewUrl → score). `computeStats()` aggregates variance (mean / stddev / min / max / per-dimension / passRate) over the fan-out. `callAgent()` is the mesh A2A client call.
-- `src/index.ts` — wires the server: `startAgentServer`, `createCoordinateExecutor(db)`, plus the **restart policy** (interrupted in-flight `coordinate.run` rows are marked `failed`, not blindly re-fanned-out).
-- `src/cli.ts` — `hello` (mesh smoke), `batch <url...>` (eval-only fan-out), `loop <topic...>` (the closed loop). Agent URLs from env, defaults to localhost ports.
-- `package.json` — `npm run dev` (server), `npm run hello | batch | loop`.
+- `src/executor.ts` — the route engine. `resolveRoute()` is a deterministic state table mapping `evaluate | migrate | generate+migrate | full-loop | auto` → an ordered `Stage[]` (`generate | migrate | evaluate`, any subset, **no mandatory start or end**). `runPipelineBranch()` threads ONE `contextId` across content-gen→migration→eval, forwarding each stage's artifact (sourceUrl → previewUrl → score). `computeStats()` aggregates variance (mean / stddev / min / max / per-dimension / passRate) over the fan-out. `callAgent()` is the mesh A2A client call; it **forwards child working-notes** (e.g. the opencode backend's `K2.6 → <tool>` lines) into the coordinator's own stream — observability AND SSE keepalive.
+- `src/index.ts` — wires the server: `startAgentServer`, `createCoordinateExecutor(db)`, the **restart policy** (interrupted in-flight `coordinate.run` rows are marked `failed`, not blindly re-fanned-out), and the **Next.js mount** (catch-all appended after the factory returns, so agent-card//a2a//hooks//health always win).
+- `src/cli.ts` — `hello` (mesh smoke), `batch <url...>` (eval-only fan-out), `loop <topic...>` (the closed loop; `--backend opencode --site S --owner O` for real Kimi migrations). Agent URLs from env, defaults to localhost ports.
+- `app/` — Next.js App Router: dashboard `/`, run detail `/runs/[id]`, JSON API `/api/{runs,runs/[id],trigger,mesh}`.
+- `components/` — `Dashboard` (mesh chips, running-now cards, trigger form, recent runs, localStorage history), `RunDetail` (live activity feed, branch grid, variance), `StatusBadge`/`ScoreText`, plus `components/ui/` shadcn primitives copied from the v1 eval app.
+- `lib/` — `store.ts` (read-only better-sqlite3 over `runs`; **server-only**), `hooks.ts` (`usePoll`, `useRunHistory` localStorage, `useElapsed`), `types.ts` (client-safe shapes).
+- `package.json` — `npm run dev` (A2A + UI), `npm run build` (next build), `npm run hello | batch | loop`.
 
 ## Gotchas / non-obvious (MOST IMPORTANT)
 - **`goal: auto` uses the deterministic state table, NOT an LLM** (planner is M3). Inference: `alreadyMigratedUrl` ⇒ `evaluate`; `sourceLocation` ⇒ `migrate,evaluate`; `topic` ⇒ full loop; none ⇒ throws. Don't expect semantic planning yet.
@@ -23,6 +27,12 @@ Platform docs: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-06-0
 - **fail-fast is per-branch, not per-run**: a failed stage breaks that branch; other branches keep going. Run status ends `completed` or `completed_with_failures`.
 - **`computeStats` overall = eval scores when the route evaluated, else migration confidence.** `PASS_THRESHOLD = 75` (matches the eval engine's `passedDimensions` rule). It also emits a separate `migrationConfidence` block when confidences exist.
 - This agent is an A2A **client and server**: it serves `coordinate.run` AND calls the other agents via `meshClientFactory()`. Agent URLs come from `EVAL_AGENT_URL` / `CONTENT_GEN_URL` / `MIGRATION_AGENT_URL`.
+- **The Next.js side must never import `@agents/a2a-common`** (its `.ts`-extension NodeNext imports don't survive Next's bundler-resolution compile). `app//components//lib/` use `@a2a-js/sdk/client` + `better-sqlite3` directly; `coordinator/tsconfig.json` covers ONLY the Next side (excludes `src/`), while root `agents/tsconfig.json` keeps covering `src/`. `next build` is the Next side's type gate.
+- **`lib/store.ts` is read-only and server-only** — the Express side (executor) owns all writes; Next API routes open throwaway readonly connections. Triggers from the UI go through `/api/trigger` → a server-side A2A call to our own `/a2a` (`COORDINATOR_URL`, defaults to `http://localhost:$PORT`) — the browser never speaks A2A and `A2A_MESH_TOKEN` never reaches it.
+- **`COORDINATOR_UI=off` disables the dashboard** (A2A surface unaffected) — lean mode if the Next boot is unwanted (e.g. CI debugging). UI boot failures are logged and swallowed; the agent stays up.
+- **Live run data**: migration `0003_runs_live.sql` added `runs.context_id` (join a trigger's contextId → run) and `runs.progress` (JSON `{ts,note}[]`, capped at 200, written per working-note). Final `stats` JSON also embeds `branchResults`. Apply 0003 to Cloudflare D1 before M5.
+- **Run history in the browser is localStorage** (`coordinator-history-v1`, v1 decision) — the store stays the durable record; localStorage is "what I ran from this browser".
+- **undici timeouts are disabled mesh-wide** via `a2a-common/src/net.ts` (side-effect import): Node 20's fetch otherwise kills >5-min agentic turns (Kimi migrations) and quiet SSE streams at exactly 300s. Don't "clean up" that import.
 
 ## Run / test
 ```bash
@@ -34,6 +44,8 @@ npm run dev:coordinator   # :4004
 npm run hello                                      # mesh smoke
 npm run batch -- https://example.com --fan-out 2   # eval-only batch + variance
 npm run loop -- "ski wax temperature guide" --fan-out 2 --legacy-style messy  # THE CLOSED LOOP
+npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner jackzhaojin  # real Kimi K2.6 migration
+# dashboard: http://localhost:4004/  (trigger runs, watch live activity, branch grid, variance)
 ```
 Fast tests (from `agents/`, `npm run test:e2e`): `coordinator-batch` (3×2 → 6 children, one contextId, variance, runs row) and `closed-loop` (4 servers, full-loop, non-eval-terminating + no-mandatory-start routes, auto routing, per-branch failure isolation). Live tier scores over the real Chromium engine. **Real tests, no mocks.**
 

@@ -12,6 +12,7 @@
     "aws4fetch": "^1.0.20",
     "better-sqlite3": "^12.4.1",
     "express": "^4.21.2",
+    "undici": "^6.21.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

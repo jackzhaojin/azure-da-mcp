@@ -158,7 +158,8 @@ export function computeStats(branches: BranchResult[], route: Stage[]) {
 async function callAgent(
   agentUrl: string,
   data: Record<string, unknown>,
-  contextId: string
+  contextId: string,
+  onNote?: (note: string) => void
 ): Promise<{ taskId?: string; state: string; artifact?: Record<string, never>; error?: string }> {
   try {
     const client = await meshClientFactory().createFromUrl(agentUrl);
@@ -172,6 +173,13 @@ async function callAgent(
       if (event.kind === "task") taskId = event.id;
       if (event.kind === "status-update") {
         state = event.status.state;
+        if (!event.final && state === "working") {
+          // Forward child progress (e.g. the migration backend's "K2.6 → <tool>"
+          // notes) — observability through the coordinator AND SSE keepalive for
+          // our own callers during long quiet stages.
+          const note = event.status.message?.parts.find((p) => p.kind === "text")?.text;
+          if (note && onNote) onNote(note);
+        }
         if (event.final && state === "failed") {
           failNote = event.status.message?.parts.find((p) => p.kind === "text")?.text ?? "";
         }
@@ -206,6 +214,7 @@ async function runPipelineBranch(opts: {
     const t0 = Date.now();
     let call: Awaited<ReturnType<typeof callAgent>>;
     let agent = "";
+    const forwardNote = (note: string) => onStage(`branch ${branch} · ${stage}: ${note}`);
 
     if (stage === "generate") {
       agent = "content-gen";
@@ -217,7 +226,8 @@ async function runPipelineBranch(opts: {
           legacyStyle: payload.legacyStyle ?? "dated",
           runId,
         },
-        contextId
+        contextId,
+        forwardNote
       );
       if (call.state === "completed") sourceUrl = (call.artifact as { sourceUrl?: string } | undefined)?.sourceUrl;
     } else if (stage === "migrate") {
@@ -234,7 +244,8 @@ async function runPipelineBranch(opts: {
           ...(payload.backend ? { backend: payload.backend } : {}),
           runId,
         },
-        contextId
+        contextId,
+        forwardNote
       );
       if (call.state === "completed") {
         const a = call.artifact as { previewUrl?: string; confidence?: number } | undefined;
@@ -251,7 +262,8 @@ async function runPipelineBranch(opts: {
           ...(sourceUrl ? { sourceLocation: sourceUrl } : {}),
           runId,
         },
-        contextId
+        contextId,
+        forwardNote
       );
       if (call.state === "completed") {
         const a = call.artifact as { overallScore?: number; dimensionScores?: Record<string, number> } | undefined;
@@ -335,11 +347,26 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
 
       const fanOut = payload.fanOut ?? 1;
       const runId = randomUUID();
-      db.prepare("insert into runs (id, kind, config, status) values (?, ?, ?, 'running')").run(
+      db.prepare("insert into runs (id, kind, config, status, context_id) values (?, ?, ?, 'running', ?)").run(
         runId,
         route.length > 1 || route[0] !== "evaluate" ? "pipeline" : "eval-batch",
-        JSON.stringify(payload)
+        JSON.stringify(payload),
+        contextId
       );
+
+      // Live progress trail for the UI: every working-note (stage transitions +
+      // forwarded child notes like "K2.6 → dalive_create_dalive_content") lands
+      // on the run row as it happens. Capped so the row stays small.
+      const progress: Array<{ ts: string; note: string }> = [];
+      const persistNote = (note: string) => {
+        progress.push({ ts: new Date().toISOString(), note });
+        if (progress.length > 200) progress.splice(0, progress.length - 200);
+        try {
+          db.prepare("update runs set progress = ? where id = ?").run(JSON.stringify(progress), runId);
+        } catch {
+          /* progress is best-effort; never fail the run over it */
+        }
+      };
 
       // evaluate-only fans out per target; pipeline routes fan out per fanOut
       const evaluateOnly = route.length === 1 && route[0] === "evaluate";
@@ -364,7 +391,10 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
                   contextId,
                   runId,
                   target: b.target,
-                  onStage: (note) => bus.publish(status("working", note)),
+                  onStage: (note) => {
+                    bus.publish(status("working", note));
+                    persistNote(note);
+                  },
                 })
               ) as Promise<BranchResult>
           )
@@ -372,9 +402,11 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
 
         const stats = computeStats(results, route);
         const runStatus = stats.failed === 0 ? "completed" : "completed_with_failures";
+        // branchResults ride along in the stats JSON so the UI can render the
+        // branch/stage grid from the store (the A2A artifact isn't persisted here).
         db.prepare("update runs set status = ?, stats = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(
           runStatus,
-          JSON.stringify(stats),
+          JSON.stringify({ ...stats, branchResults: results }),
           runId
         );
 
