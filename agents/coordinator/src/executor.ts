@@ -155,7 +155,20 @@ export function computeStats(branches: BranchResult[], route: Stage[]) {
   };
 }
 
-/** Send one task to an agent and harvest its terminal state + first data artifact. */
+const TERMINAL_STATES = new Set(["completed", "failed", "canceled", "rejected"]);
+const STREAM_RECOVERY_MAX_MS = Number(process.env.COORD_STREAM_RECOVERY_MAX_MS ?? 25 * 60_000);
+const STREAM_RECOVERY_POLL_MS = 10_000;
+
+/**
+ * Send one task to an agent and harvest its terminal state + first data artifact.
+ *
+ * Stream-cut resilience (M5): on Cloudflare the SSE crosses Worker↔container
+ * hops that can drop a QUIET stream (agentic eval passes / long K2.6 thinking
+ * emit nothing for minutes), and a container can restart mid-task (the store
+ * rebuild re-runs it). So a severed/exhausted stream that hasn't reached a
+ * terminal state falls back to polling tasks/get — the task store, not the
+ * stream, is the source of truth (sleep-tolerance rule).
+ */
 async function callAgent(
   agentUrl: string,
   data: Record<string, unknown>,
@@ -168,28 +181,63 @@ async function callAgent(
     let state = "unknown";
     let artifact: Record<string, never> | undefined;
     let failNote = "";
-    for await (const event of client.sendMessageStream({
-      message: { kind: "message", messageId: randomUUID(), role: "user", contextId, parts: [{ kind: "data", data }] },
-    })) {
-      if (event.kind === "task") taskId = event.id;
-      if (event.kind === "status-update") {
-        state = event.status.state;
-        if (!event.final && state === "working") {
-          // Forward child progress (e.g. the migration backend's "K2.6 → <tool>"
-          // notes) — observability through the coordinator AND SSE keepalive for
-          // our own callers during long quiet stages.
-          const note = event.status.message?.parts.find((p) => p.kind === "text")?.text;
-          if (note && onNote) onNote(note);
+
+    try {
+      for await (const event of client.sendMessageStream({
+        message: { kind: "message", messageId: randomUUID(), role: "user", contextId, parts: [{ kind: "data", data }] },
+      })) {
+        if (event.kind === "task") taskId = event.id;
+        if (event.kind === "status-update") {
+          state = event.status.state;
+          if (!event.final && state === "working") {
+            // Forward child progress (e.g. the migration backend's "K2.6 → <tool>"
+            // notes) — observability through the coordinator AND SSE keepalive for
+            // our own callers during long quiet stages.
+            const note = event.status.message?.parts.find((p) => p.kind === "text")?.text;
+            if (note && onNote) onNote(note);
+          }
+          if (event.final && state === "failed") {
+            failNote = event.status.message?.parts.find((p) => p.kind === "text")?.text ?? "";
+          }
         }
-        if (event.final && state === "failed") {
-          failNote = event.status.message?.parts.find((p) => p.kind === "text")?.text ?? "";
+        if (event.kind === "artifact-update") {
+          const part = event.artifact.parts[0];
+          if (part?.kind === "data") artifact = part.data as Record<string, never>;
         }
       }
-      if (event.kind === "artifact-update") {
-        const part = event.artifact.parts[0];
-        if (part?.kind === "data") artifact = part.data as Record<string, never>;
-      }
+    } catch (streamErr) {
+      if (!taskId) throw streamErr; // never reached the agent — a real failure
+      onNote?.(`stream interrupted (${String(streamErr).slice(0, 80)}) — recovering via tasks/get`);
     }
+
+    // Stream over (cleanly or cut) without a terminal state → poll the store.
+    if (taskId && !TERMINAL_STATES.has(state)) {
+      onNote?.(`stream ended at '${state}' — polling task ${taskId.slice(0, 8)} until terminal`);
+      const deadline = Date.now() + STREAM_RECOVERY_MAX_MS;
+      while (Date.now() < deadline && !TERMINAL_STATES.has(state)) {
+        await new Promise((r) => setTimeout(r, STREAM_RECOVERY_POLL_MS));
+        try {
+          const task = await client.getTask({ id: taskId });
+          state = task.status.state;
+          if (TERMINAL_STATES.has(state)) {
+            for (const a of task.artifacts ?? []) {
+              const part = a.parts[0];
+              if (part?.kind === "data") artifact = part.data as Record<string, never>;
+            }
+            if (state === "failed") {
+              failNote = task.status.message?.parts.find((p) => p.kind === "text")?.text ?? "";
+            }
+          }
+        } catch {
+          /* transient — keep polling until the deadline */
+        }
+      }
+      if (!TERMINAL_STATES.has(state)) {
+        return { taskId, state: "failed", error: `stream lost and task still '${state}' after recovery window` };
+      }
+      onNote?.(`recovered via tasks/get: ${state}`);
+    }
+
     return { taskId, state, artifact, ...(failNote ? { error: failNote } : {}) };
   } catch (err) {
     return { state: "failed", error: String(err) };

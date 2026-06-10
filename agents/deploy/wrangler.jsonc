@@ -30,7 +30,9 @@
       "image": "./docker/eval.Dockerfile",
       "image_build_context": "../",
       "max_instances": 1,
-      "instance_type": "standard-1"
+      // standard-1 (1/2 vCPU, 4GiB) OOM/starved mid-eval once the agentic tier
+      // engages: chromium + 4 parallel Claude CLI passes. 2 vCPU / 8 GiB holds.
+      "instance_type": "standard-3"
     },
     {
       "class_name": "ContentGenContainer",

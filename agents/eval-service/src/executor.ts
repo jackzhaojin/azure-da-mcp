@@ -165,7 +165,13 @@ export async function runEvalJob(opts: {
     final,
   });
 
+  // SSE keepalive: agentic passes can be silent for minutes, and quiet streams
+  // get dropped crossing the Worker↔container hops on Cloudflare (M5). A
+  // heartbeat keeps the coordinator's stream (and any UI subscriber) alive.
+  const heartbeat = setInterval(() => publish(statusEvent("working", "evaluating…")), 45_000);
+
   let lastError: unknown;
+  try {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       publish(statusEvent("working", attempt === 1 ? "evaluation started" : `retry ${attempt}/${MAX_ATTEMPTS}`));
@@ -197,6 +203,9 @@ export async function runEvalJob(opts: {
   }
   publish(statusEvent("failed", `evaluation failed after ${MAX_ATTEMPTS} attempts: ${String(lastError)}`, true));
   log.error("eval.run failed", { a2a_task_id: taskId, error: String(lastError) });
+  } finally {
+    clearInterval(heartbeat);
+  }
 }
 
 /**
