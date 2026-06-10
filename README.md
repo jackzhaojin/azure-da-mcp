@@ -10,18 +10,18 @@ The repository's center of gravity is **v2.0 — the `agents/` A2A Agent Platfor
 
 ## ⭐ The flagship: `agents/` — A2A Agent Platform (v2.0)
 
-**Status**: M1–M4 built, tested, and on `main`; Cloudflare D1/R2 + a live `cloudflared` tunnel; container deploy is the last milestone.
+**Status**: M1–M4 built, tested, and on `main`; the closed loop runs end-to-end with **Kimi K2.6 really authoring da.live pages** (opencode backend, verified through the coordinator); the coordinator ships its **own Next.js dashboard** on :4004; Cloudflare D1/R2 + a live `cloudflared` tunnel; container deploy is the last milestone.
 **Purpose**: A multi-agent mesh speaking the [A2A protocol](https://a2a-protocol.org/) (official `@a2a-js/sdk`), where each agent is its own Express server with an Agent Card, Task lifecycle, and streaming.
 
 The headline capability is a **closed loop**: the **coordinator** asks **content-gen** to fabricate a synthetic "legacy" page, hands it to the **migration agent** to author into da.live, then to the **eval agent** to score the result across four dimensions — fanned out and aggregated into variance stats. But the coordinator routes intelligently: it can also *just evaluate*, *just migrate*, *generate+migrate*, or *auto*-decide; it need not start at generation or end at evaluation.
 
 | Agent | Port | Does |
 |-------|------|------|
-| coordinator | 4004 | Routes, fans out, aggregates variance (A2A client **and** server) |
-| content-gen | 4002 | Content briefs + synthetic legacy source pages |
-| migration | 4003 | Authors into da.live — one Agent Card over backends (`dryrun` / Make.com / SDK) |
-| eval | 4001 | 4-dimension migration-quality evaluation (engine copied from v1.x) |
-| ui | 3000 | Thin Next.js dashboard — auth, runs, manual trigger |
+| coordinator | 4004 | Routes, fans out, aggregates variance (A2A client **and** server) — **plus its own Next.js dashboard** at `:4004/` (trigger, live activity feed, branch grid) |
+| content-gen | 4002 | Content briefs + synthetic legacy source pages (template tier) |
+| migration | 4003 | Authors into da.live — one Agent Card over backends (`dryrun` / **`opencode` = Kimi K2.6, real pages verified** / Make.com / SDK stub) |
+| eval | 4001 | 4-dimension migration-quality evaluation (engine copied from v1.x; deterministic always, agentic when Claude creds are set) |
+| ui | 3000 | Legacy thin Next.js dashboard — auth, runs, manual trigger (superseded by the coordinator dashboard) |
 
 **Quick Start**:
 ```bash
@@ -30,6 +30,8 @@ nvm use 20 && npm install
 cp .env.example .env && set -a; source .env; set +a   # secrets gitignored
 npm run dev:eval & npm run dev:content-gen & npm run dev:migration & npm run dev:coordinator &
 npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loop
+npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner jackzhaojin  # Kimi K2.6 authors a REAL page
+# coordinator dashboard: http://localhost:4004/
 ```
 
 **Documentation**:
@@ -39,9 +41,11 @@ npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loo
 
 **Key Features**:
 - Official A2A SDK end-to-end: Agent Cards, `message/stream` (SSE), `tasks/get`, push notifications, an edge webhook shim
+- **Model-vendor-swappable migration**: the same contract, MCP server, and skill run under `dryrun`, Make.com, or **Kimi K2.6 headless via opencode** — real da.live pages authored, published, and scored
+- **Coordinator dashboard** (Next.js 15 riding the same :4004 process — A2A wire surface untouched): trigger runs, watch live tool/skill activity (`K2.6 → dalive_save_dalive_content`), branch grids, variance tables
 - Persistence on **Cloudflare D1** (same SQL as local SQLite) + artifacts on **R2** (public `r2.dev`)
 - **Make.com interop** through a live named `cloudflared` tunnel (`a2a.xpri.ai`)
-- Browser-pooled, job-queued, restart-survivable eval; deterministic + agentic analysis
+- Browser-pooled, job-queued, restart-survivable eval; deterministic always + agentic when Claude creds are configured
 - Three real-server test tiers (fast/CI, live, soak) — no mocks
 
 ---
@@ -93,9 +97,9 @@ azure-da-mcp/
 │   ├── a2a-common/            #    shared bootstrap (server, stores, client, migrations)
 │   ├── eval-service/          #    :4001 eval agent (engine copied from v1.x)
 │   ├── content-gen/           #    :4002 briefs + synthetic sources
-│   ├── migration-agent/       #    :4003 swappable backends (dryrun/makecom/sdk)
-│   ├── coordinator/           #    :4004 routing + fan-out + variance + CLI
-│   ├── ui/                    #    :3000 thin Next.js dashboard
+│   ├── migration-agent/       #    :4003 swappable backends (dryrun/opencode·Kimi/makecom/sdk)
+│   ├── coordinator/           #    :4004 routing + fan-out + variance + CLI + Next.js dashboard
+│   ├── ui/                    #    :3000 legacy thin Next.js dashboard
 │   ├── store-mcp/             #    stdio MCP — conversational store queries
 │   ├── e2e/                   #    real-server tests (fast/live/soak)
 │   └── docs/                  #    r2-setup · tunnel-setup · makecom checklist
@@ -158,5 +162,5 @@ Apache License 2.0
 
 ---
 
-**Last Updated**: 2026-06-08
-**Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP
+**Last Updated**: 2026-06-10
+**Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP, opencode (Kimi K2.6)

@@ -40,6 +40,7 @@ Platform context: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-0
 - **da.live auth = none needed**: the deployed `functions/` MCP self-authenticates via its own S2S technical account (anonymous inbound). Set `DALIVE_BEARER_TOKEN` only to attribute writes to a real user, or point `DALIVE_MCP_URL` at a local `functions/` (`:7071`) running YOUR S2S creds (`functions/local.settings.json`).
 - **Confirmation gate**: SKILL.md says "ask first, act second" — fatal headless. The prompt declares the context pre-confirmed; keep that if you edit the prompt or the agent will stall waiting for a human.
 - **`MOONSHOT_API_KEY` must be in the agent's env** — it's exported from `~/.zshrc`, so launch `npm run dev:migration` from an interactive shell (or put it in `agents/.env`).
+- **The blocking agentic-turn POST routinely exceeds 5 minutes** — only survivable because `a2a-common/src/net.ts` disables undici's 300s timeouts process-wide (the standalone live test once passed at 248s purely by luck; a 10-min K2.6 turn through the coordinator died at exactly 5:01 before the fix). If you see `TypeError: fetch failed` at ~301s, something stopped importing a2a-common.
 
 ## Run / test
 ```bash

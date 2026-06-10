@@ -87,8 +87,8 @@ This repository contains 7 independent projects:
 
 ### 7. `agents/` - A2A Agent Platform (v2.0) ⭐ flagship workstream
 **Purpose**: A decoupled mesh of independently-addressable AI agents (content-gen, migration, eval, coordinator) speaking the **A2A protocol** — the ground-up v2.0 re-architecture for the adaptTo() Sept 2026 demo
-**Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (ui), vitest e2e
-**Status**: M1–M4 built + tested on `main`; Cloudflare D1/R2 + named tunnel (`a2a.xpri.ai`) live; container deploy (M5) deliberately last
+**Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard + legacy ui), vitest e2e
+**Status**: M1–M4 built + tested on `main`; closed loop verified end-to-end **with Kimi K2.6 (opencode) authoring real da.live pages through the coordinator**; coordinator ships its own Next.js dashboard on :4004 (database-free Next backend over the A2A layer's `/store/runs`); Cloudflare D1/R2 + named tunnel (`a2a.xpri.ai`) live; container deploy (M5) deliberately last
 **Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/)
 
 **When to work here**:
@@ -150,7 +150,7 @@ source .env-setup.sh   # loads DA IMS token from ~/.aem/da-token.json
 ### Navigation Tips
 
 When the user asks about:
-- **"the platform"**, **"v2.0"**, **"A2A"**, **"agents"**, **"the mesh"**, **"coordinator"**, **"closed loop"**, **"the eval agent"**, **"content-gen"**, **"migration agent"**, **"the tunnel"**, **"D1/R2"** → `agents/` (the v2.0 A2A platform — start at `agents/CLAUDE.md`)
+- **"the platform"**, **"v2.0"**, **"A2A"**, **"agents"**, **"the mesh"**, **"coordinator"**, **"the dashboard"** (:4004), **"closed loop"**, **"the eval agent"**, **"content-gen"**, **"migration agent"**, **"Kimi"/"opencode backend"**, **"the tunnel"**, **"D1/R2"** → `agents/` (the v2.0 A2A platform — start at `agents/CLAUDE.md`)
 - **"MCP server"** or **"Azure Functions"** → `functions/`
 - **"the eval app"**, **"the Oracle app"**, **"v1.x"**, legacy **"evaluation"** / **"migration quality"** UI → `content-authoring-eval/` (FROZEN, D5 — don't modify; the *new* eval lives in `agents/eval-service/`)
 - **"Agent SDK"** or **"experiments"** → `agent-claude-sdk/`
@@ -346,7 +346,7 @@ cp .env.example .env
 
 ---
 
-**Last Updated**: 2026-06-08
+**Last Updated**: 2026-06-10
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
 **Version lines**: **v2.0** = the `agents/` A2A platform (flagship, not yet tagged/deployed — D6 deploy-last) · **v1.1.0** = legacy `content-authoring-eval` (frozen backup). Trunk-based, tag from `main`.

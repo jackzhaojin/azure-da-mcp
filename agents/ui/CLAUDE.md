@@ -1,6 +1,6 @@
 # CLAUDE.md — agents/ui
 
-**Purpose**: Thin dashboard for the A2A agent mesh — Runs list + run-detail (branch grid, stage states, variance tables) and a manual Trigger. · **Tech**: Next.js 15 (App Router, React 19, TS), `better-sqlite3`, `@a2a-js/sdk@0.3.13` · **Port**: 3000 · **Status**: M4 head-start scaffold (auth + runs view + trigger; `next build` clean, live smoke green).
+**Purpose**: Thin dashboard for the A2A agent mesh — Runs list + run-detail (branch grid, stage states, variance tables) and a manual Trigger. · **Tech**: Next.js 15 (App Router, React 19, TS), `better-sqlite3`, `@a2a-js/sdk@0.3.13` · **Port**: 3000 · **Status**: **LEGACY** — the M4 head-start scaffold, kept working as a reference surface. **Superseded by the coordinator's own dashboard at `:4004/`** (`agents/coordinator` — richer trigger incl. backend selection, live activity feed, database-free Next backend). New dashboard work belongs there, not here.
 
 This is **NOT** the frozen `content-authoring-eval/` app. Per decision **D5**, never touch that app — this is a fresh, deliberately thin v2.0 surface. v1.1.0 = legacy `content-authoring-eval` (frozen backup). See `ai-docs/2026-06-08-a2a-platform-v2.0/` and `ai-docs/2026-06-05-a2a-agent-platform/` (esp. `part-6-orchestration-ui-rollout.md`).
 

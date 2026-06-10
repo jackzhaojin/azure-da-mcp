@@ -1,7 +1,7 @@
 # A2A Agent Platform — v2.0 Build Report (as-built)
 
-**Date**: 2026-06-08
-**Status**: M1–M4 built, tested, and on `main`; Cloudflare infra live (D1, R2, named tunnel); deployment (M5) and the Make.com config are the remaining steps
+**Date**: 2026-06-08 (updated 2026-06-10)
+**Status**: M1–M4 built, tested, and on `main`; closed loop verified with **Kimi K2.6 authoring real da.live pages through the coordinator**; coordinator ships its own Next.js dashboard (:4004); Cloudflare infra live (D1, R2, named tunnel); deployment (M5) and the Make.com config are the remaining steps
 **Author**: Jack Jin (with Claude Code)
 **Companion to**: the planning PRD at [`ai-docs/2026-06-05-a2a-agent-platform/`](../2026-06-05-a2a-agent-platform/) (decisions D1–D6). This doc reports **what was actually built** between the 2026-06-05 plan and 2026-06-08.
 
@@ -25,12 +25,13 @@ Starting from the PRD, we built the **entire mesh** end-to-end and proved it wit
 - **4 A2A servers + 1 UI**, one Express server per agent, all on a shared `a2a-common` bootstrap (official `@a2a-js/sdk@0.3.13`): **eval** `:4001`, **content-gen** `:4002`, **migration** `:4003`, **coordinator** `:4004`, **ui** `:3000`.
 - **The closed loop runs end-to-end** locally: `coordinator → content-gen → migration → eval`, with deterministic routing, fan-out, and variance stats. `npm run loop` drives it.
 - **Eval engine decoupled** from the frozen app into a headless, job-queued, browser-pooled service (real `eval.run`, 4 dimensions, restart-survival).
-- **Migration agent** = one Agent Card over swappable backends (`dryrun` working; `makecom` fully built agent-side; **`opencode`/Kimi K2.6 built + verified end-to-end** — see [`05-opencode-kimi-backend.md`](./05-opencode-kimi-backend.md); `sdk` stubbed for M3).
+- **Migration agent** = one Agent Card over swappable backends (`dryrun` working; `makecom` fully built agent-side; **`opencode`/Kimi K2.6 built + verified end-to-end, including through the full closed loop** — see [`05`](./05-opencode-kimi-backend.md) + [`06`](./06-coordinator-dashboard-and-hardening.md); `sdk` stubbed for M3).
+- **Coordinator dashboard** (2026-06-10): the coordinator is now a **hybrid app** — its Express A2A surface byte-identical, plus a Next.js 15 dashboard on the same `:4004` (trigger any route/backend, live tool/skill activity feed, branch grid, variance; the Next backend is database-free over the A2A layer's `/store/runs`). Supersedes the thin `agents/ui`. See [`06`](./06-coordinator-dashboard-and-hardening.md).
 - **Make.com integration built agent-side**: webhook out + callback in, restart-tolerant — the human's remaining work is pure Make.com config.
 - **Cloudflare persistence proven**: D1 schema applied (same SQL as local SQLite); **R2 artifact storage live** (synthetic sources + eval screenshots → public `r2.dev`).
 - **Public ingress live**: a **named `cloudflared` tunnel** on the real domain `a2a.xpri.ai → localhost:4003`, verified end-to-end.
 - **store-mcp**: a stdio MCP server for conversational store queries.
-- **Three test tiers, no mocks**: fast (~45, CI), live (real engine/browsers/R2), soak (10× full loop).
+- **Three test tiers, no mocks**: fast (46, CI), live (real engine/browsers/R2), soak (10× full loop).
 - **Cloudflare unknowns de-risked via live POCs** (now in [`references/cloudflare/`](../../references/cloudflare/)): long-SSE-through-Containers, container→D1 (worker-proxy), R2 round-trip; plus a Kimi/opencode backend PoC ([`references/kimi/`](../../references/kimi/)).
 
 ## Document map
@@ -42,6 +43,7 @@ Starting from the PRD, we built the **entire mesh** end-to-end and proved it wit
 | [`03-cloudflare-and-deployment.md`](./03-cloudflare-and-deployment.md) | As-built Cloudflare infra (D1, R2, named tunnel on `xpri.ai`), the POC de-risking, what's deployed vs. local, M5 path |
 | [`04-testing-and-status.md`](./04-testing-and-status.md) | Test tiers + evidence, the plan→built status grid, what's left |
 | [`05-opencode-kimi-backend.md`](./05-opencode-kimi-backend.md) | **Migration Backend C — opencode / Kimi K2.6, verified end-to-end** (real page authored → published → validated). Architecture, sequence, config, evidence |
+| [`06-coordinator-dashboard-and-hardening.md`](./06-coordinator-dashboard-and-hardening.md) | **Coordinator dashboard + mesh hardening (2026-06-10)** — Kimi through the FULL closed loop, the undici 300s timeout fixes, live tool/skill observability, the hybrid Next.js coordinator with a database-free backend over `/store/runs` |
 
 ## Repo layout (v2.0 lives under `agents/`)
 
@@ -51,9 +53,9 @@ agents/
 ├── contracts/       JSON Schemas: eval.run, coordinate.run, migration.run, content.brief, content.synthesize-source
 ├── eval-service/    :4001  eval agent (engine copied from frozen app) + stub
 ├── content-gen/     :4002  content briefs + synthetic legacy source pages
-├── migration-agent/ :4003  one Agent Card, swappable backends (dryrun | makecom | sdk)
-├── coordinator/     :4004  A2A client+server — routing, fan-out, variance; CLI (hello/batch/loop)
-├── ui/              :3000  thin Next.js app — auth, runs dashboard, manual trigger
+├── migration-agent/ :4003  one Agent Card, swappable backends (dryrun | opencode·Kimi | makecom | sdk)
+├── coordinator/     :4004  A2A client+server — routing, fan-out, variance; CLI; + Next.js dashboard (same port)
+├── ui/              :3000  LEGACY thin Next.js app — superseded by the coordinator dashboard
 ├── store-mcp/       stdio MCP server — conversational store queries
 ├── e2e/             real-server tests (fast / live / soak tiers)
 └── docs/            r2-setup.md · tunnel-setup.md · makecom-scenario-checklist.md

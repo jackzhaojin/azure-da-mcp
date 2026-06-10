@@ -20,13 +20,14 @@ v2.0 "A2A agent platform" (v1.1.0 = legacy `content-authoring-eval`, frozen — 
 
 ## Gotchas / non-obvious (MOST IMPORTANT)
 - **THREE tiers, three commands** (run from `agents/`):
-  - `npm run test:e2e` → fast (`tests/`, ~45 tests, **the CI tier**) — stub engine, no browsers, no API keys
+  - `npm run test:e2e` → fast (`tests/`, 46 tests, **the CI tier**) — stub engine, no browsers, no API keys. **Run it BARE (no `.env` sourced)** — sourcing `.env` leaks the edge token / R2 creds / tunnel callback base into spawned agents and breaks the open-mode shim + makecom tests by design, not by bug.
   - `npm run test:live` → live (`tests-live/`) — real engine, real Chromium/axe/screenshots, real R2; creds-gated
   - `npm run test:soak` → `tests-soak/full-loop-10x` — M4 DoD "10x run completes unattended"
 - **Live R2 + eval tests auto-skip without creds** — `describe.skipIf(!haveR2)` etc. A green `test:live` may mean *skipped*, not *passed*. R2 test needs `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` / `R2_PUBLIC_BASE` / (`R2_S3_ENDPOINT` | `R2_ACCOUNT_ID`).
 - **Live engine runs with API keys STRIPPED** — `NO_AI_ENV` blanks `CLAUDE_CODE_OAUTH_TOKEN` + `ANTHROPIC_API_KEY` so agentic passes fall back to deterministic scoring: real browsers, **$0 spend**. Full-agentic runs are manual (provide a real `CLAUDE_CODE_OAUTH_TOKEN`).
 - **Root `npm run typecheck` does NOT cover e2e** — it only checks `tsconfig.json` + `eval-service/tsconfig.json`. The CI tsc gate skips this package; e2e type errors surface only when the tests run.
 - **e2e declares its own devDeps** — `@agents/a2a-common` + `aws4fetch` are listed here specifically for the live R2 test (SigV4 PUT through `createArtifactStore()` + public r2.dev read-back, self-cleaning).
+- **Spawned coordinators also boot the Next.js dashboard** (dev mode, in-process) — harmless for tests because `/health` answers before Next prepares; set `COORDINATOR_UI=off` in a test's env if it ever matters.
 - **No retries by design** — `retry: 0` in all three configs. A flake IS a finding; don't paper over it with retries.
 - **Flat live timeouts, serial live runs** — live/soak set `fileParallelism: false` (real browsers + shared ports). Fast tier may parallelize.
 - **Isolated everything** — each spawned agent gets its own port and a throwaway `store.db`; tests wire one agent to another via env (e.g. `EVAL_AGENT_URL: evalAgent.url`). Cross-agent contextId threading is asserted by reading the spawned agents' SQLite stores directly.

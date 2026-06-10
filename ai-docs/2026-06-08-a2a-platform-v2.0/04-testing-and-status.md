@@ -12,7 +12,7 @@ Per the monorepo rule, the e2e suite uses **real child-process servers and real 
 | **Live** | `npm run test:live` | real (deterministic fallback) | real browsers, $0 with `NO_AI_ENV`; R2 needs creds | local |
 | **Soak** | `npm run test:soak` | real | real browsers | local, on demand |
 
-### Fast tier (CI) — 13 files, ~45 cases, all green
+### Fast tier (CI) — 13 files, 46 cases, all green (updated 2026-06-10: + /store/runs domain-read coverage in coordinator-batch)
 `agent-card`, `task-lifecycle`, `persistence` (restart survival), `mesh-auth`, `edge-shim`, `push-notifications`, `browser-semaphore`, `content-gen`, `migration-agent`, `coordinator-batch`, `closed-loop`, `makecom-roundtrip`, `store-mcp`. ~15 s wall.
 
 ### Live tier — real engine/browsers/R2 (creds-gated, auto-skips)
@@ -26,7 +26,7 @@ Per the monorepo rule, the e2e suite uses **real child-process servers and real 
 
 ## Evidence captured this build
 
-- Fast suite: **45/45** green (incl. the R2 `storage` contract assertion and the screenshot assertions).
+- Fast suite: **46/46** green (2026-06-10) (incl. the R2 `storage` contract assertion and the screenshot assertions).
 - Soak: **10/10**, `maxBrowsers 3/3`, drained queue.
 - Live R2: **2/2** against a real scoped token (PUT/GET/DELETE).
 - Live eval: real screenshot stored + report carries a durable URL, both local-backend and real-R2 backend verified.

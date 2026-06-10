@@ -19,12 +19,15 @@ This is the v2.0 "A2A agent platform" rebuild. Build report: [`ai-docs/2026-06-0
 - `src/store/artifactStore.ts` — `createArtifactStore(opts)` (R2 via S3/SigV4 when env set, else local FS stand-in) + `recordArtifact(db, …)` (writes an `artifacts` row, best-effort).
 - `src/client.ts` — `meshClientFactory(token?)`: SDK `ClientFactory` that injects `Authorization: Bearer <A2A_MESH_TOKEN>` on every transport call (cards/discovery stay public).
 - `src/logging.ts` — `createLogger(agent)`: one-line JSON logs; convention is to include `a2a_task_id` / `context_id` fields.
-- `src/index.ts` — public surface; agents import only from here.
+- `src/net.ts` — side-effect module (imported by `index.ts`): **disables undici's 300s headers/body timeouts process-wide** via `setGlobalDispatcher`. Without it, Node 20's fetch kills >5-min agentic turns (Kimi migrations) and quiet A2A SSE streams at exactly 300s.
+- `src/index.ts` — public surface; agents import only from here (importing it is what installs the net.ts dispatcher).
 - `migrations/0001_init.sql` — `runs`, `tasks`, `eval_reports`, `artifacts` (+ indexes on `a2a_task_id` / `run_id` / `context_id`).
 - `migrations/0002_push_configs.sql` — `push_configs` (PK `task_id, config_id`).
+- `migrations/0003_runs_live.sql` — `runs.context_id` (trigger→run join) + `runs.progress` (live `{ts,note}[]` trail for the coordinator dashboard). **Apply to D1 before M5.**
 
 ## Gotchas / non-obvious  ← READ THIS FIRST
-- **`edgeToken = A2A_EDGE_TOKEN || A2A_MESH_TOKEN`** (server.ts:62). This single value gates BOTH the `/hooks/*` edge shim here AND the migration agent's `/callbacks/*` receiver (passed into `extraRoutes` as `edgeToken`). Change/override one place and you've changed both. With neither env set, the mesh and shim are fully open (dev default).
+- **`edgeToken = A2A_EDGE_TOKEN || A2A_MESH_TOKEN`** (server.ts:62). This single value gates the `/hooks/*` edge shim here, the migration agent's `/callbacks/*` receiver, AND the coordinator's `/store/runs` domain reads (all via `extraRoutes`). Change/override one place and you've changed all of them. With neither env set, the mesh and shim are fully open (dev default).
+- **Don't "clean up" the `import "./net.ts"` side effect in index.ts** — it's the mesh-wide fix for undici's 300s fetch/SSE timeouts. A `TypeError: fetch failed` or stream `terminated` at ~301s means a process that didn't import a2a-common.
 - **Mesh auth is selective**: bearer is enforced only on `/a2a`. `/.well-known/agent-card.json`, `/health`, `/hooks/*`, and static routes are NOT behind `A2A_MESH_TOKEN` (the shim uses `edgeToken` instead; card/health are intentionally public for discovery). The card only advertises `securitySchemes` when `meshToken` is set.
 - **pushStore MUST mirror the SDK's `config.id = taskId` backfill** (pushStore.ts:17): `save` sets `config.id ?? taskId`. The SDK's `getTaskPushNotificationConfig` looks configs up by that id — drop the backfill and config retrieval breaks silently.
 - **better-sqlite3 is synchronous.** The store classes are `async` only to satisfy the SDK interfaces; internally there is no I/O await. Don't add `await` expecting concurrency, and don't assume the DB call yields the event loop.
