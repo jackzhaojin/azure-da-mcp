@@ -1,5 +1,5 @@
 import type express from "express";
-import type Database from "better-sqlite3";
+import type { StoreDb } from "@agents/a2a-common";
 
 /**
  * Domain read endpoints, owned by the A2A layer (the store's only owner):
@@ -63,7 +63,7 @@ function toView(row: RunRow, { full = false } = {}) {
   };
 }
 
-export function mountRunsRoutes(ctx: { app: express.Express; db: Database.Database; edgeToken?: string }): void {
+export function mountRunsRoutes(ctx: { app: express.Express; db: StoreDb; edgeToken?: string }): void {
   const { app, db, edgeToken } = ctx;
 
   const guard = (req: express.Request, res: express.Response): boolean => {
@@ -74,38 +74,47 @@ export function mountRunsRoutes(ctx: { app: express.Express; db: Database.Databa
     return false;
   };
 
-  app.get("/store/runs", (req, res) => {
+  app.get("/store/runs", async (req, res) => {
     if (!guard(req, res)) return;
-    const contextId = req.query.contextId;
-    if (typeof contextId === "string" && contextId) {
-      const row = db
-        .prepare(`select ${COLS} from runs where context_id = ? order by created_at desc limit 1`)
-        .get(contextId) as RunRow | undefined;
-      return res.json({ run: row ? toView(row) : null });
+    try {
+      const contextId = req.query.contextId;
+      if (typeof contextId === "string" && contextId) {
+        const row = await db
+          .prepare(`select ${COLS} from runs where context_id = ? order by created_at desc limit 1`)
+          .get<RunRow>(contextId);
+        return res.json({ run: row ? toView(row) : null });
+      }
+      const limit = Math.min(Number(req.query.limit ?? 30) || 30, 100);
+      // ?user= scopes to that user's runs PLUS unowned system runs (CLI / edge
+      // shim / mesh have no SSO identity — user_email stays null on those).
+      const user = req.query.user;
+      const rows =
+        typeof user === "string" && user
+          ? await db
+              .prepare(`select ${COLS} from runs where user_email = ? or user_email is null order by created_at desc limit ?`)
+              .all<RunRow>(user, limit)
+          : await db.prepare(`select ${COLS} from runs order by created_at desc limit ?`).all<RunRow>(limit);
+      res.json({ runs: rows.map((r) => toView(r)) });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
     }
-    const limit = Math.min(Number(req.query.limit ?? 30) || 30, 100);
-    // ?user= scopes to that user's runs PLUS unowned system runs (CLI / edge
-    // shim / mesh have no SSO identity — user_email stays null on those).
-    const user = req.query.user;
-    const rows = (
-      typeof user === "string" && user
-        ? db.prepare(`select ${COLS} from runs where user_email = ? or user_email is null order by created_at desc limit ?`).all(user, limit)
-        : db.prepare(`select ${COLS} from runs order by created_at desc limit ?`).all(limit)
-    ) as RunRow[];
-    res.json({ runs: rows.map((r) => toView(r)) });
   });
 
-  app.get("/store/runs/:id", (req, res) => {
+  app.get("/store/runs/:id", async (req, res) => {
     if (!guard(req, res)) return;
-    const row = db.prepare(`select ${COLS} from runs where id = ?`).get(req.params.id) as RunRow | undefined;
-    if (!row) return res.status(404).json({ error: "run not found" });
-    // The coordinator's own coordinate.run task shares the run's contextId —
-    // surface its A2A taskId so clients can tasks/get / tasks/resubscribe.
-    const task = row.context_id
-      ? (db
-          .prepare("select a2a_task_id from tasks where agent = 'da-coordinator' and context_id = ? limit 1")
-          .get(row.context_id) as { a2a_task_id: string } | undefined)
-      : undefined;
-    res.json({ run: { ...toView(row, { full: true }), a2aTaskId: task?.a2a_task_id ?? null } });
+    try {
+      const row = await db.prepare(`select ${COLS} from runs where id = ?`).get<RunRow>(req.params.id);
+      if (!row) return res.status(404).json({ error: "run not found" });
+      // The coordinator's own coordinate.run task shares the run's contextId —
+      // surface its A2A taskId so clients can tasks/get / tasks/resubscribe.
+      const task = row.context_id
+        ? await db
+            .prepare("select a2a_task_id from tasks where agent = 'da-coordinator' and context_id = ? limit 1")
+            .get<{ a2a_task_id: string }>(row.context_id)
+        : undefined;
+      res.json({ run: { ...toView(row, { full: true }), a2aTaskId: task?.a2a_task_id ?? null } });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 }

@@ -15,7 +15,7 @@ const ENGINE = process.env.EVAL_ENGINE ?? "real"; // "real" | "stub"
 mkdirSync("./.tmp", { recursive: true });
 mkdirSync("./output/screenshots", { recursive: true });
 
-const db = openDb(DB_PATH);
+const db = await openDb(DB_PATH);
 // Eval screenshots → R2 (public r2.dev) when configured, else the local ./output
 // stand-in served via staticRoutes below. Same URL contract either way.
 const artifactStore = createArtifactStore({
@@ -24,7 +24,7 @@ const artifactStore = createArtifactStore({
 });
 const executor = ENGINE === "stub" ? stubExecutor : createEvalExecutor(db, artifactStore);
 
-startAgentServer({
+await startAgentServer({
   name: "da-eval-agent",
   description:
     "Evaluates EDS page migrations across structure, accessibility, content, visual dimensions" +
@@ -60,9 +60,9 @@ startAgentServer({
  */
 if (ENGINE === "real") {
   const taskStore = new SqliteTaskStore(db, "da-eval-agent");
-  const pending = db
+  const pending = await db
     .prepare("select a2a_task_id, payload from tasks where agent = ? and state in ('submitted','working')")
-    .all("da-eval-agent") as { a2a_task_id: string; payload: string }[];
+    .all<{ a2a_task_id: string; payload: string }>("da-eval-agent");
 
   for (const row of pending) {
     const task = JSON.parse(row.payload) as Task;

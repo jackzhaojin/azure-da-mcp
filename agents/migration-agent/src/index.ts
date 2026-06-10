@@ -9,7 +9,7 @@ import type { MigrationResult } from "./backends/types.ts";
 const log = createLogger("da-migration-agent");
 const DB_PATH = process.env.STORE_DB_PATH ?? "./data/store.db";
 
-startAgentServer({
+await startAgentServer({
   name: "da-migration-agent",
   description:
     "Migrates a source (PDF/webpage, incl. synthetic) into a da.live EDS page with self-validation. Facade over swappable backends: makecom (primary — webhook out, callback in), sdk (M3), opencode (M3+), dryrun (simulation).",

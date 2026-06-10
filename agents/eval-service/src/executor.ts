@@ -1,7 +1,6 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, Message, Artifact } from "@a2a-js/sdk";
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
-import type Database from "better-sqlite3";
-import { createLogger, recordArtifact, type ArtifactStore } from "@agents/a2a-common";
+import { createLogger, recordArtifact, type ArtifactStore, type StoreDb } from "@agents/a2a-common";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
@@ -79,10 +78,8 @@ export function reportToArtifact(report: EvaluationReport): Artifact {
 }
 
 /** Persist the eval_reports row (Part-2 schema). task_id = our tasks-table row id. */
-export function writeEvalReport(db: Database.Database, a2aTaskId: string, report: EvaluationReport): void {
-  const row = db.prepare("select id from tasks where a2a_task_id = ?").get(a2aTaskId) as
-    | { id: string }
-    | undefined;
+export async function writeEvalReport(db: StoreDb, a2aTaskId: string, report: EvaluationReport): Promise<void> {
+  const row = await db.prepare("select id from tasks where a2a_task_id = ?").get<{ id: string }>(a2aTaskId);
   if (!row) {
     log.warn("eval_reports write skipped — no tasks row yet", { a2a_task_id: a2aTaskId });
     return;
@@ -91,7 +88,7 @@ export function writeEvalReport(db: Database.Database, a2aTaskId: string, report
   for (const [dim, res] of Object.entries(report.results)) {
     if (res) dimensionScores[dim] = res.score;
   }
-  db.prepare(
+  await db.prepare(
     `insert into eval_reports (id, task_id, target_url, overall_score, dimension_scores, report)
      values (?, ?, ?, ?, ?, ?)`
   ).run(
@@ -112,7 +109,7 @@ export function writeEvalReport(db: Database.Database, a2aTaskId: string, report
  * (e.g. capture returned a placeholder). Best-effort: never fails the eval.
  */
 async function persistScreenshot(
-  db: Database.Database,
+  db: StoreDb,
   store: ArtifactStore,
   a2aTaskId: string,
   report: EvaluationReport
@@ -124,7 +121,7 @@ async function persistScreenshot(
     const url = await store.put({ key, body: readFileSync(shot.absolutePath), contentType: "image/png" });
     // rewrite to the durable URL; drop the machine-specific absolutePath
     report.results.visual!.metadata.screenshot = { path: key, url };
-    recordArtifact(db, { a2aTaskId, type: "screenshot", storagePath: key, metadata: { url } });
+    await recordArtifact(db, { a2aTaskId, type: "screenshot", storagePath: key, metadata: { url } });
     log.info("screenshot stored", { a2a_task_id: a2aTaskId, storage: store.kind, url });
   } catch (err) {
     log.warn("screenshot upload failed — report keeps the local path", {
@@ -136,7 +133,7 @@ async function persistScreenshot(
 
 /** Run one evaluation with retry; emits A2A events via `publish`, persists the report row. */
 export async function runEvalJob(opts: {
-  db: Database.Database;
+  db: StoreDb;
   store: ArtifactStore;
   taskId: string;
   contextId: string;
@@ -185,7 +182,7 @@ export async function runEvalJob(opts: {
       });
 
       await persistScreenshot(db, store, taskId, report);
-      writeEvalReport(db, taskId, report);
+      await writeEvalReport(db, taskId, report);
       publish({ kind: "artifact-update", taskId, contextId, artifact: reportToArtifact(report) });
       publish(statusEvent("completed", undefined, true));
       log.info("eval.run completed", { a2a_task_id: taskId, overall: report.summary.overallScore });
@@ -208,7 +205,7 @@ export async function runEvalJob(opts: {
  * subscribers keep receiving events as the queued job runs (submit-and-detach,
  * PRD part-2 execution model).
  */
-export function createEvalExecutor(db: Database.Database, store: ArtifactStore): AgentExecutor {
+export function createEvalExecutor(db: StoreDb, store: ArtifactStore): AgentExecutor {
   return {
     async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
       const { taskId, contextId, userMessage } = ctx;

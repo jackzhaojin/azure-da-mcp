@@ -34,7 +34,7 @@ export interface AgentServerOptions {
    */
   staticRoutes?: Array<{ route: string; dir: string }>;
   /** Agent-specific routes (e.g. backend callback receivers), registered before listen. */
-  extraRoutes?: (ctx: { app: express.Express; db: import("better-sqlite3").Database; edgeToken?: string }) => void;
+  extraRoutes?: (ctx: { app: express.Express; db: import("./store/db.ts").StoreDb; edgeToken?: string }) => void;
 }
 
 function bearerToken(req: express.Request): string | undefined {
@@ -52,21 +52,24 @@ function bearerToken(req: express.Request): string | undefined {
  *   in, 202 {taskId} out (the Make.com / curl / cron surface, PRD part-3)
  * - /health (public)
  */
-export function startAgentServer(opts: AgentServerOptions) {
+export async function startAgentServer(opts: AgentServerOptions) {
   const log = createLogger(opts.name);
-  const db = openDb(opts.dbPath ?? "./data/store.db");
+  const db = await openDb(opts.dbPath ?? "./data/store.db");
   const taskStore = new SqliteTaskStore(db, opts.name);
   const pushStore = new SqlitePushNotificationStore(db);
   const pushSender = new DefaultPushNotificationSender(pushStore);
   const meshToken = process.env.A2A_MESH_TOKEN || undefined;
   const edgeToken = process.env.A2A_EDGE_TOKEN || meshToken;
   const shimAgentId = opts.shimAgentId ?? opts.name.replace(/^da-/, "").replace(/-agent$/, "");
+  // Public origin for the Agent Card (containers/tunnel) — mesh clients resolve
+  // the card and call card.url, so a localhost URL only works on one machine.
+  const publicBase = process.env.A2A_PUBLIC_BASE?.replace(/\/$/, "") ?? `http://localhost:${opts.port}`;
 
   const card: AgentCard = {
     protocolVersion: "0.3.0",
     name: opts.name,
     description: opts.description,
-    url: `http://localhost:${opts.port}/a2a`,
+    url: `${publicBase}/a2a`,
     preferredTransport: "JSONRPC",
     version: "0.1.0",
     capabilities: { streaming: true, pushNotifications: true },

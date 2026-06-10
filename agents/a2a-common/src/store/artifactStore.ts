@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { AwsClient } from "aws4fetch";
-import type Database from "better-sqlite3";
+import type { StoreDb } from "./db.ts";
 import { createLogger } from "../logging.ts";
 
 const log = createLogger("artifact-store");
@@ -112,16 +112,16 @@ export function createArtifactStore(opts: ArtifactStoreOptions): ArtifactStore {
  * stored object key. Best-effort: skips with a warn if the tasks row isn't
  * persisted yet (FK requires it), so it never blocks the producing path.
  */
-export function recordArtifact(
-  db: Database.Database,
+export async function recordArtifact(
+  db: StoreDb,
   a: { a2aTaskId: string; type: string; storagePath: string; metadata?: Record<string, unknown> }
-): void {
-  const row = db.prepare("select id from tasks where a2a_task_id = ?").get(a.a2aTaskId) as { id: string } | undefined;
+): Promise<void> {
+  const row = await db.prepare("select id from tasks where a2a_task_id = ?").get<{ id: string }>(a.a2aTaskId);
   if (!row) {
     log.warn("artifact row skipped — no tasks row yet", { a2a_task_id: a.a2aTaskId, type: a.type });
     return;
   }
-  db.prepare(
-    "insert into artifacts (id, task_id, type, storage_path, metadata) values (?, ?, ?, ?, ?)"
-  ).run(randomUUID(), row.id, a.type, a.storagePath, a.metadata ? JSON.stringify(a.metadata) : null);
+  await db
+    .prepare("insert into artifacts (id, task_id, type, storage_path, metadata) values (?, ?, ?, ?, ?)")
+    .run(randomUUID(), row.id, a.type, a.storagePath, a.metadata ? JSON.stringify(a.metadata) : null);
 }

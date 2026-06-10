@@ -9,9 +9,9 @@ const log = createLogger("da-coordinator");
 const DB_PATH = process.env.STORE_DB_PATH ?? "./data/store.db";
 const PORT = Number(process.env.PORT ?? 4004);
 
-const db = openDb(DB_PATH);
+const db = await openDb(DB_PATH);
 
-const { app } = startAgentServer({
+const { app } = await startAgentServer({
   name: "da-coordinator",
   description:
     "Intelligent content coordinator — composes eval/migration/content-gen agents. M2: eval-only batch (coordinate.run). A2A client AND server.",
@@ -39,16 +39,16 @@ const { app } = startAgentServer({
 // marked failed cleanly — re-fanning-out blindly could double-run children. The eval
 // agent's own rebuild handles its in-flight children; the caller re-submits the batch.
 const taskStore = new SqliteTaskStore(db, "da-coordinator");
-const interrupted = db
+const interrupted = await db
   .prepare("select a2a_task_id, payload from tasks where agent = 'da-coordinator' and state in ('submitted','working')")
-  .all() as { a2a_task_id: string; payload: string }[];
+  .all<{ a2a_task_id: string; payload: string }>();
 for (const row of interrupted) {
   const task = JSON.parse(row.payload) as Task;
   task.status = { state: "failed", timestamp: new Date().toISOString() };
   void taskStore.save(task);
   log.warn("marked interrupted coordinate.run as failed (resubmit the batch)", { a2a_task_id: task.id });
 }
-db.prepare("update runs set status = 'failed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where status = 'running'").run();
+await db.prepare("update runs set status = 'failed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where status = 'running'").run();
 
 // ── Next.js dashboard, same process + port ─────────────────────────────────
 // The A2A wire surface above is served by the exact same Express middleware as

@@ -1,7 +1,6 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from "@a2a-js/sdk";
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
-import type Database from "better-sqlite3";
-import { meshClientFactory, createLogger } from "@agents/a2a-common";
+import { meshClientFactory, createLogger, type StoreDb } from "@agents/a2a-common";
 import PQueue from "p-queue";
 import { randomUUID } from "node:crypto";
 
@@ -297,7 +296,7 @@ async function runPipelineBranch(opts: {
  * order, no mandatory start or end. Fans out branches at capped concurrency,
  * threads ONE contextId through every child task, aggregates variance stats.
  */
-export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
+export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
   return {
     async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
       const { taskId, contextId, userMessage } = ctx;
@@ -349,7 +348,7 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
 
       const fanOut = payload.fanOut ?? 1;
       const runId = randomUUID();
-      db.prepare("insert into runs (id, kind, config, status, context_id, user_email) values (?, ?, ?, 'running', ?, ?)").run(
+      await db.prepare("insert into runs (id, kind, config, status, context_id, user_email) values (?, ?, ?, 'running', ?, ?)").run(
         runId,
         route.length > 1 || route[0] !== "evaluate" ? "pipeline" : "eval-batch",
         JSON.stringify(payload),
@@ -364,11 +363,11 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
       const persistNote = (note: string) => {
         progress.push({ ts: new Date().toISOString(), note });
         if (progress.length > 200) progress.splice(0, progress.length - 200);
-        try {
-          db.prepare("update runs set progress = ? where id = ?").run(JSON.stringify(progress), runId);
-        } catch {
-          /* progress is best-effort; never fail the run over it */
-        }
+        // best-effort fire-and-forget; never fail (or stall) the run over progress
+        void db
+          .prepare("update runs set progress = ? where id = ?")
+          .run(JSON.stringify(progress), runId)
+          .catch(() => {});
       };
 
       // evaluate-only fans out per target; pipeline routes fan out per fanOut
@@ -407,7 +406,7 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
         const runStatus = stats.failed === 0 ? "completed" : "completed_with_failures";
         // branchResults ride along in the stats JSON so the UI can render the
         // branch/stage grid from the store (the A2A artifact isn't persisted here).
-        db.prepare("update runs set status = ?, stats = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(
+        await db.prepare("update runs set status = ?, stats = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(
           runStatus,
           JSON.stringify({ ...stats, branchResults: results }),
           runId
@@ -426,7 +425,7 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
         bus.publish(status("completed", undefined, true));
         log.info("coordinate.run completed", { a2a_task_id: taskId, run_id: runId, route: route.join("→"), ...stats.overall, failed: stats.failed });
       } catch (err) {
-        db.prepare("update runs set status = 'failed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(runId);
+        await db.prepare("update runs set status = 'failed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(runId);
         bus.publish(status("failed", String(err), true));
         log.error("coordinate.run failed", { a2a_task_id: taskId, run_id: runId, error: String(err) });
       } finally {

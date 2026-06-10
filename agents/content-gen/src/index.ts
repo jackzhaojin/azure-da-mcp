@@ -168,7 +168,7 @@ const contentGenExecutor: AgentExecutor = {
   },
 };
 
-startAgentServer({
+await startAgentServer({
   name: "da-content-gen-agent",
   description:
     "Generates content briefs and synthetic 'legacy' source pages (template tier now; Claude Agent SDK backend at M3). Sources stored at a public URL — Cloudflare R2 when configured, else a local static stand-in.",

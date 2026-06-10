@@ -1,21 +1,21 @@
 import type { PushNotificationConfig } from "@a2a-js/sdk";
 import type { PushNotificationStore } from "@a2a-js/sdk/server";
-import type Database from "better-sqlite3";
+import type { StoreDb } from "./db.ts";
 
 /**
- * SQLite-backed PushNotificationStore: callback registrations survive process
+ * Store-backed PushNotificationStore: callback registrations survive process
  * restarts (the SDK ships in-memory only). A2A push notifications are the
  * Make.com interop mechanism (PRD part-3), so losing them on sleep/wake would
  * silently break edge callers.
  */
 export class SqlitePushNotificationStore implements PushNotificationStore {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: StoreDb) {}
 
   async save(taskId: string, config: PushNotificationConfig): Promise<void> {
     // mirror the SDK's InMemoryPushNotificationStore: a config without an id
     // gets the taskId as its id (getTaskPushNotificationConfig looks it up that way)
     const withId = { ...config, id: config.id ?? taskId };
-    this.db
+    await this.db
       .prepare(
         `insert into push_configs (task_id, config_id, config)
          values (?, ?, ?)
@@ -25,17 +25,17 @@ export class SqlitePushNotificationStore implements PushNotificationStore {
   }
 
   async load(taskId: string): Promise<PushNotificationConfig[]> {
-    const rows = this.db
+    const rows = await this.db
       .prepare("select config from push_configs where task_id = ?")
-      .all(taskId) as { config: string }[];
+      .all<{ config: string }>(taskId);
     return rows.map((r) => JSON.parse(r.config) as PushNotificationConfig);
   }
 
   async delete(taskId: string, configId?: string): Promise<void> {
     if (configId) {
-      this.db.prepare("delete from push_configs where task_id = ? and config_id = ?").run(taskId, configId);
+      await this.db.prepare("delete from push_configs where task_id = ? and config_id = ?").run(taskId, configId);
     } else {
-      this.db.prepare("delete from push_configs where task_id = ?").run(taskId);
+      await this.db.prepare("delete from push_configs where task_id = ?").run(taskId);
     }
   }
 }
