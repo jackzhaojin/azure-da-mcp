@@ -7,7 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "test:live": "vitest run --config vitest.live.config.ts",
-    "test:soak": "vitest run --config vitest.soak.config.ts"
+    "test:soak": "vitest run --config vitest.soak.config.ts",
+    "test:cloud": "vitest run --config vitest.cloud.config.ts"
   },
   "devDependencies": {
     "@a2a-js/sdk": "0.3.13",
