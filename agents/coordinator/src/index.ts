@@ -3,6 +3,7 @@ import { startAgentServer, createLogger, SqliteTaskStore, openDb } from "@agents
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCoordinateExecutor } from "./executor.ts";
+import { mountRunsRoutes } from "./runs-routes.ts";
 
 const log = createLogger("da-coordinator");
 const DB_PATH = process.env.STORE_DB_PATH ?? "./data/store.db";
@@ -29,6 +30,9 @@ const { app } = startAgentServer({
     },
   ],
   executor: createCoordinateExecutor(db),
+  // Domain reads (GET /runs, /runs/:id) live on the A2A side — the store's only
+  // owner. The Next.js dashboard consumes them over loopback; it has no db access.
+  extraRoutes: mountRunsRoutes,
 });
 
 // Restart policy (sleep-tolerance rule): a coordinate.run interrupted mid-fan-out is

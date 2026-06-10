@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  // Native module — must stay external to the bundler (same as agents/ui).
-  serverExternalPackages: ["better-sqlite3"],
-};
+// The Next.js side is database-free: reads proxy the A2A layer's /runs over
+// loopback, writes go through /a2a. No native modules to externalize.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

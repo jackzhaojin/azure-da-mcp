@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { ClientFactory, JsonRpcTransportFactory } from "@a2a-js/sdk/client";
 import { randomUUID } from "node:crypto";
-import { findRunByContext } from "@/lib/store";
+import { coordinatorGet, COORDINATOR_BASE, meshFetch } from "@/lib/coordinator-api";
+import type { RunView } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 // The Next.js backend is an A2A client of our own Express side (same process,
 // same port) — all transactions go through coordinate.run; the browser never
 // talks A2A and the mesh token never leaves the server.
-const SELF_A2A = () => process.env.COORDINATOR_URL ?? `http://localhost:${process.env.PORT ?? 4004}`;
 
 interface TriggerBody {
   goal?: string;
@@ -37,15 +37,9 @@ export async function POST(req: Request) {
   if (body.site?.trim()) data.site = body.site.trim();
   if (body.owner?.trim()) data.owner = body.owner.trim();
 
-  const token = process.env.A2A_MESH_TOKEN;
-  const fetchImpl: typeof fetch = token
-    ? (input, init = {}) =>
-        fetch(input, { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}` } })
-    : fetch;
-
   try {
-    const factory = new ClientFactory({ transports: [new JsonRpcTransportFactory({ fetchImpl })] });
-    const client = await factory.createFromUrl(SELF_A2A());
+    const factory = new ClientFactory({ transports: [new JsonRpcTransportFactory({ fetchImpl: meshFetch() })] });
+    const client = await factory.createFromUrl(COORDINATOR_BASE());
     const task = await client.sendMessage({
       message: {
         kind: "message",
@@ -58,11 +52,13 @@ export async function POST(req: Request) {
     const t = task as { id: string; contextId: string; status?: { state: string } };
 
     // The executor inserts the runs row almost immediately — give it a moment
-    // so the UI gets a runId back in one round-trip.
+    // so the UI gets a runId back in one round-trip (read via the A2A layer's
+    // /runs?contextId=, not a database).
     let runId: string | undefined;
     for (let i = 0; i < 10 && !runId; i++) {
       await new Promise((r) => setTimeout(r, 150));
-      runId = findRunByContext(t.contextId)?.id;
+      const { body } = await coordinatorGet<{ run: RunView | null }>(`/store/runs?contextId=${encodeURIComponent(t.contextId)}`);
+      runId = body.run?.id;
     }
 
     return NextResponse.json({ taskId: t.id, contextId: t.contextId, state: t.status?.state ?? "submitted", runId });

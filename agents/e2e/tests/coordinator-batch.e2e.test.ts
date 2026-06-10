@@ -114,6 +114,40 @@ describe("coordinator: eval-only batch via coordinate.run", () => {
     expect(coordTaskId).toBeTruthy();
   }, 60_000);
 
+  it("serves domain reads at GET /store/runs and /store/runs/:id (the dashboard's data path)", async () => {
+    // /store/runs is edge-token gated when one is configured (mirrors /hooks) —
+    // include the bearer when the spawned agent inherited a token from env.
+    const edge = process.env.A2A_EDGE_TOKEN || process.env.A2A_MESH_TOKEN;
+    const headers: Record<string, string> = edge ? { Authorization: `Bearer ${edge}` } : {};
+
+    const listRes = await fetch(`${coordinator.url}/store/runs`, { headers });
+    expect(listRes.status).toBe(200);
+    const { runs } = (await listRes.json()) as { runs: Array<{ id: string; kind: string; status: string; stats: RunStats | null }> };
+    const batch = runs.find((r) => r.kind === "eval-batch" && r.status === "completed");
+    expect(batch).toBeTruthy();
+    expect(batch!.stats!.branches).toBe(6);
+    // list view stays light — no branchResults
+    expect((batch!.stats as unknown as Record<string, unknown>).branchResults).toBeUndefined();
+
+    const detailRes = await fetch(`${coordinator.url}/store/runs/${batch!.id}`, { headers });
+    expect(detailRes.status).toBe(200);
+    const { run } = (await detailRes.json()) as {
+      run: { id: string; a2aTaskId: string | null; stats: RunStats; contextId: string };
+    };
+    expect(run.stats.branchResults).toHaveLength(6);
+    expect(run.a2aTaskId).toBeTruthy(); // joinable to tasks/get / tasks/resubscribe
+    expect(run.contextId).toBeTruthy();
+
+    // when a token gates the route, no bearer must mean 401
+    if (edge) {
+      const denied = await fetch(`${coordinator.url}/store/runs`);
+      expect(denied.status).toBe(401);
+    }
+
+    const missing = await fetch(`${coordinator.url}/store/runs/not-a-run`, { headers });
+    expect(missing.status).toBe(404);
+  });
+
   it("fails cleanly on an invalid payload (unsupported goal)", async () => {
     const client = await new ClientFactory().createFromUrl(coordinator.url);
     let finalState = "";
