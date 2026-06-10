@@ -82,6 +82,10 @@
     "backend": {
       "type": "string",
       "description": "Migration backend hint (dryrun | makecom | sdk | opencode)"
+    },
+    "requestedBy": {
+      "type": "string",
+      "description": "SSO identity (email) of the human who triggered the run — set server-side by the dashboard from the Google session, stored as runs.user_email. Absent for CLI / edge-shim / mesh triggers (system runs)."
     }
   }
 }

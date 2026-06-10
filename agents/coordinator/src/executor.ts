@@ -32,6 +32,8 @@ export interface CoordinateRunPayload {
   backend?: string;
   fanOut?: number;
   labels?: Record<string, string>;
+  /** SSO identity of the human who triggered the run (dashboard) → runs.user_email. */
+  requestedBy?: string;
 }
 
 interface StageResult {
@@ -347,11 +349,12 @@ export function createCoordinateExecutor(db: Database.Database): AgentExecutor {
 
       const fanOut = payload.fanOut ?? 1;
       const runId = randomUUID();
-      db.prepare("insert into runs (id, kind, config, status, context_id) values (?, ?, ?, 'running', ?)").run(
+      db.prepare("insert into runs (id, kind, config, status, context_id, user_email) values (?, ?, ?, 'running', ?, ?)").run(
         runId,
         route.length > 1 || route[0] !== "evaluate" ? "pipeline" : "eval-batch",
         JSON.stringify(payload),
-        contextId
+        contextId,
+        payload.requestedBy ?? null
       );
 
       // Live progress trail for the UI: every working-note (stage transitions +

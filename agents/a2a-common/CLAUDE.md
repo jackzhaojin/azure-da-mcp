@@ -23,7 +23,8 @@ This is the v2.0 "A2A agent platform" rebuild. Build report: [`ai-docs/2026-06-0
 - `src/index.ts` — public surface; agents import only from here (importing it is what installs the net.ts dispatcher).
 - `migrations/0001_init.sql` — `runs`, `tasks`, `eval_reports`, `artifacts` (+ indexes on `a2a_task_id` / `run_id` / `context_id`).
 - `migrations/0002_push_configs.sql` — `push_configs` (PK `task_id, config_id`).
-- `migrations/0003_runs_live.sql` — `runs.context_id` (trigger→run join) + `runs.progress` (live `{ts,note}[]` trail for the coordinator dashboard). **Apply to D1 before M5.**
+- `migrations/0003_runs_live.sql` — `runs.context_id` (trigger→run join) + `runs.progress` (live `{ts,note}[]` trail for the coordinator dashboard). Applied to D1 2026-06-10.
+- `migrations/0004_runs_user.sql` — `runs.user_email` (+ index): the Google SSO identity that triggered the run (coordinator dashboard `requestedBy` → `user_email`; NULL = system run from CLI/shim/mesh). Applied to D1 2026-06-10. Note: D1 has NO `_migrations` table — it was migrated file-by-file via `wrangler d1 execute`; keep doing that for new migrations.
 
 ## Gotchas / non-obvious  ← READ THIS FIRST
 - **`edgeToken = A2A_EDGE_TOKEN || A2A_MESH_TOKEN`** (server.ts:62). This single value gates the `/hooks/*` edge shim here, the migration agent's `/callbacks/*` receiver, AND the coordinator's `/store/runs` domain reads (all via `extraRoutes`). Change/override one place and you've changed all of them. With neither env set, the mesh and shim are fully open (dev default).

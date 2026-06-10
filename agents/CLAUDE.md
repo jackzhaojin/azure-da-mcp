@@ -45,7 +45,7 @@ npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner
 - **Env via shell, not dotenv.** Agents read `process.env` directly. Always `set -a; source .env; set +a` before `npm run dev:*`. `.env` is gitignored; `.env.example` is the tracked template.
 - **One server per agent**, all on `@agents/a2a-common`'s `startAgentServer()`. Agent Cards at `/.well-known/agent-card.json`; JSON-RPC at `/a2a`; edge shim at `/hooks/:agent/:skill`.
 - **Persistence**: local SQLite (better-sqlite3) running the **same SQL** as Cloudflare D1 (migrations in `a2a-common/migrations/`). Artifacts → **R2** (S3 API) when `R2_*` env set, else local `./output` served at `/artifacts`.
-- **Auth**: `A2A_MESH_TOKEN` gates `/a2a` between agents; `A2A_EDGE_TOKEN` (falls back to mesh token) gates `/hooks/*` and the migration `/callbacks/*`.
+- **Auth**: `A2A_MESH_TOKEN` gates `/a2a` between agents; `A2A_EDGE_TOKEN` (falls back to mesh token) gates `/hooks/*` and the migration `/callbacks/*`. The coordinator **dashboard** has its own Google SSO (Auth.js v5): set `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET`/`AUTH_SECRET` to require sign-in (pages + `/api/*`) and tie runs to the user (`runs.user_email`); unset = open (dev). Both tokens are SET in `.env` now that :4004 is public — restart agents after re-sourcing.
 - **Tests are real, no mocks.** Fast tier (`npm run test:e2e`, stub engine) is the CI gate; `test:live` (real engine/browsers/R2, creds-gated) and `test:soak` (10× loop) run locally. Typecheck: `npm run typecheck` (root + eval-service's own tsconfig).
 - **`type: module`** across the workspaces — any copied CJS helper must be `.cjs` (this bit the eval engine's Playwright scripts).
 - **undici's 300s fetch timeouts are disabled mesh-wide** (`a2a-common/src/net.ts`, side-effect of importing `@agents/a2a-common`). Node 20's fetch otherwise kills agentic turns >5 min (Kimi migrations) and quiet SSE streams at exactly 300s — "TypeError: fetch failed"/"terminated" at ~301s is THIS, not a network problem.
@@ -54,7 +54,7 @@ npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner
 
 - **D1** `a2a-agents` (`db84ebfc-…`) — schema applied from the same migrations.
 - **R2** `a2a-agents-artifacts` — public `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev`; creds in `.env`.
-- **Tunnel** `a2a-mesh` (`8af08294-…`) → `a2a.xpri.ai` → `localhost:4003` (the Make.com ingress); config in `~/.cloudflared/config.yml`. `xpri.ai` DNS is on Cloudflare; registrar transfer off GoDaddy deferred to ~2027.
+- **Tunnel** `a2a-mesh` (`8af08294-…`), config in `~/.cloudflared/config.yml`: `a2a.xpri.ai` → `localhost:4003` (the Make.com ingress) and `content-factor-dash.xpri.ai` → `localhost:4004` (coordinator dashboard, Google SSO; its `/a2a`+`/store`+`/hooks` are public too — mesh/edge tokens mandatory). `xpri.ai` DNS is on Cloudflare; registrar transfer off GoDaddy deferred to ~2027.
 - **Deploy (M5)** = Cloudflare Containers, deliberately **last** (D6). Not started.
 
 ## Hard rules

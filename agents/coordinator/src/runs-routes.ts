@@ -24,11 +24,12 @@ interface RunRow {
   stats: string | null;
   progress: string | null;
   context_id: string | null;
+  user_email: string | null;
   created_at: string;
   completed_at: string | null;
 }
 
-const COLS = "id, kind, config, status, stats, progress, context_id, created_at, completed_at";
+const COLS = "id, kind, config, status, stats, progress, context_id, user_email, created_at, completed_at";
 const LIST_PROGRESS_TAIL = 10; // dashboard cards show the last few notes; keep list payloads light
 
 function parseJson<T>(raw: string | null, fallback: T): T {
@@ -53,6 +54,7 @@ function toView(row: RunRow, { full = false } = {}) {
     kind: row.kind,
     status: row.status,
     contextId: row.context_id,
+    userEmail: row.user_email,
     createdAt: row.created_at,
     completedAt: row.completed_at,
     config: parseJson<Record<string, unknown>>(row.config, {}),
@@ -82,7 +84,14 @@ export function mountRunsRoutes(ctx: { app: express.Express; db: Database.Databa
       return res.json({ run: row ? toView(row) : null });
     }
     const limit = Math.min(Number(req.query.limit ?? 30) || 30, 100);
-    const rows = db.prepare(`select ${COLS} from runs order by created_at desc limit ?`).all(limit) as RunRow[];
+    // ?user= scopes to that user's runs PLUS unowned system runs (CLI / edge
+    // shim / mesh have no SSO identity — user_email stays null on those).
+    const user = req.query.user;
+    const rows = (
+      typeof user === "string" && user
+        ? db.prepare(`select ${COLS} from runs where user_email = ? or user_email is null order by created_at desc limit ?`).all(user, limit)
+        : db.prepare(`select ${COLS} from runs order by created_at desc limit ?`).all(limit)
+    ) as RunRow[];
     res.json({ runs: rows.map((r) => toView(r)) });
   });
 

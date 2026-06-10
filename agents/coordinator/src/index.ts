@@ -62,12 +62,14 @@ if (process.env.COORDINATOR_UI !== "off") {
     try {
       // next ships CJS — under NodeNext its default-import type isn't callable,
       // but at runtime `default` IS the factory function. Type it minimally.
-      type NextFactory = (opts: { dev: boolean; dir: string }) => {
+      type NextFactory = (opts: { dev: boolean; dir: string; hostname: string; port: number }) => {
         prepare(): Promise<void>;
         getRequestHandler(): (req: unknown, res: unknown) => unknown;
       };
       const { default: next } = await import("next");
-      const nextApp = (next as unknown as NextFactory)({ dev, dir: appDir });
+      // hostname/port matter: without them Next builds request.url against its
+      // default :3000 and Auth.js derives the OAuth redirect_uri from it.
+      const nextApp = (next as unknown as NextFactory)({ dev, dir: appDir, hostname: "localhost", port: PORT });
       const handle = nextApp.getRequestHandler();
       await nextApp.prepare();
       app.use((req, res) => void handle(req, res));

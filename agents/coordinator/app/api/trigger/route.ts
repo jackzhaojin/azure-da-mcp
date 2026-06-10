@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ClientFactory, JsonRpcTransportFactory } from "@a2a-js/sdk/client";
 import { randomUUID } from "node:crypto";
 import { coordinatorGet, COORDINATOR_BASE, meshFetch } from "@/lib/coordinator-api";
+import { sessionEmail } from "@/auth";
 import type { RunView } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,9 @@ export async function POST(req: Request) {
   if (body.backend) data.backend = body.backend;
   if (body.site?.trim()) data.site = body.site.trim();
   if (body.owner?.trim()) data.owner = body.owner.trim();
+  // SSO identity → runs.user_email; comes from the session, never the client body.
+  const requestedBy = await sessionEmail();
+  if (requestedBy) data.requestedBy = requestedBy;
 
   try {
     const factory = new ClientFactory({ transports: [new JsonRpcTransportFactory({ fetchImpl: meshFetch() })] });

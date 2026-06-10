@@ -51,6 +51,7 @@ export interface RunView {
   kind: string;
   status: string;
   contextId: string | null;
+  userEmail?: string | null;
   createdAt: string;
   completedAt: string | null;
   config: {

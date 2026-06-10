@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
+import { auth, authEnabled, signOut } from "@/auth";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -19,7 +20,8 @@ export const metadata: Metadata = {
   description: "Intelligent content coordinator: trigger, watch, and score pipeline runs across the agent mesh",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const session = authEnabled ? await auth() : null;
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -33,7 +35,24 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 generate → migrate → evaluate, across the A2A mesh
               </span>
             </div>
-            <div className="text-xs font-mono text-muted-foreground tracking-tight">v2.0 · :4004</div>
+            <div className="flex items-center gap-4">
+              {session?.user?.email && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="hidden sm:inline">{session.user.email}</span>
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut({ redirectTo: "/login" });
+                    }}
+                  >
+                    <button type="submit" className="underline underline-offset-2 hover:text-foreground">
+                      Sign out
+                    </button>
+                  </form>
+                </div>
+              )}
+              <div className="text-xs font-mono text-muted-foreground tracking-tight">v2.0 · :4004</div>
+            </div>
           </div>
         </nav>
         <main className="container mx-auto px-4 py-8">{children}</main>
