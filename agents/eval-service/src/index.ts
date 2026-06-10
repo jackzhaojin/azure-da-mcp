@@ -60,11 +60,27 @@ await startAgentServer({
  */
 if (ENGINE === "real") {
   const taskStore = new SqliteTaskStore(db, "da-eval-agent");
+  // Age guard (M5): only rebuild tasks CREATED in the last 30 min (an eval
+  // legitimately takes minutes, never 30). Container churn otherwise
+  // resurrects long-abandoned tasks whose callers gave up, and they hog the
+  // queue ahead of live work — and each rebuild refreshes updated_at, so the
+  // guard must key on created_at. Older ones are marked failed below.
   const pending = await db
-    .prepare("select a2a_task_id, payload from tasks where agent = ? and state in ('submitted','working')")
-    .all<{ a2a_task_id: string; payload: string }>("da-eval-agent");
+    .prepare(
+      "select a2a_task_id, payload, created_at from tasks where agent = ? and state in ('submitted','working')"
+    )
+    .all<{ a2a_task_id: string; payload: string; created_at: string }>("da-eval-agent");
+  const cutoff = Date.now() - 30 * 60_000;
+  const stale = pending.filter((r) => Date.parse(r.created_at) < cutoff);
+  for (const row of stale) {
+    const task = JSON.parse(row.payload) as Task;
+    task.status = { state: "failed", timestamp: new Date().toISOString() };
+    void taskStore.save(task);
+    log.warn("rebuild: task too old — marking failed instead of re-enqueueing", { a2a_task_id: task.id, created_at: row.created_at });
+  }
+  const fresh = pending.filter((r) => Date.parse(r.created_at) >= cutoff);
 
-  for (const row of pending) {
+  for (const row of fresh) {
     const task = JSON.parse(row.payload) as Task;
     const payload = task.metadata?.payload as EvalRunPayload | undefined;
     if (!payload) {
@@ -88,5 +104,5 @@ if (ENGINE === "real") {
       runEvalJob({ db, store: artifactStore, taskId: task.id, contextId: task.contextId, payload, publish: applyAndSave })
     );
   }
-  if (pending.length) log.info("rebuild complete", { reenqueued: pending.length });
+  if (pending.length) log.info("rebuild complete", { reenqueued: fresh.length, expired: stale.length });
 }

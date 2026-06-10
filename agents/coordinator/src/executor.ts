@@ -176,7 +176,20 @@ async function callAgent(
   onNote?: (note: string) => void
 ): Promise<{ taskId?: string; state: string; artifact?: Record<string, never>; error?: string }> {
   try {
-    const client = await meshClientFactory().createFromUrl(agentUrl);
+    // Cold starts are a permanent feature of scale-to-zero containers: the card
+    // fetch / first request can fail or hang while the instance boots. Retry
+    // the connection a few times before declaring the stage dead.
+    let client: Awaited<ReturnType<ReturnType<typeof meshClientFactory>["createFromUrl"]>> | undefined;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        client = await meshClientFactory().createFromUrl(agentUrl);
+        break;
+      } catch (err) {
+        if (attempt >= 4) throw err;
+        onNote?.(`agent at ${agentUrl} not ready (cold start?) — retry ${attempt}/3`);
+        await new Promise((r) => setTimeout(r, 15_000));
+      }
+    }
     let taskId: string | undefined;
     let state = "unknown";
     let artifact: Record<string, never> | undefined;
@@ -214,11 +227,17 @@ async function callAgent(
     if (taskId && !TERMINAL_STATES.has(state)) {
       onNote?.(`stream ended at '${state}' — polling task ${taskId.slice(0, 8)} until terminal`);
       const deadline = Date.now() + STREAM_RECOVERY_MAX_MS;
+      let polls = 0;
       while (Date.now() < deadline && !TERMINAL_STATES.has(state)) {
         await new Promise((r) => setTimeout(r, STREAM_RECOVERY_POLL_MS));
         try {
           const task = await client.getTask({ id: taskId });
           state = task.status.state;
+          // heartbeat OUR OWN stream too — callers (UI/tests/mesh) would
+          // otherwise go quiet for the whole recovery window and get cut
+          if (++polls % 4 === 0 && !TERMINAL_STATES.has(state)) {
+            onNote?.(`recovery: task ${taskId.slice(0, 8)} still '${state}' (${Math.round((polls * STREAM_RECOVERY_POLL_MS) / 1000)}s)`);
+          }
           if (TERMINAL_STATES.has(state)) {
             for (const a of task.artifacts ?? []) {
               const part = a.parts[0];

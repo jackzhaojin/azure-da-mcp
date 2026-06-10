@@ -98,7 +98,10 @@ export class EvalContainer extends Container<Env> {
       ...commonEnv(env),
       A2A_PUBLIC_BASE: HOSTS.eval,
       EVAL_ENGINE: "real",
-      EVAL_CONCURRENCY: "2",
+      // one eval at a time: 2 concurrent agentic evals (chromium + 4 Claude CLI
+      // subprocesses each) killed the container even at standard-3 — and the
+      // restart-rebuild then re-enqueued them into a crashloop
+      EVAL_CONCURRENCY: "1",
       BROWSER_PERMITS: "2",
       CLAUDE_CODE_OAUTH_TOKEN: env.CLAUDE_CODE_OAUTH_TOKEN,
     };

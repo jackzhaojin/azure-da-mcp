@@ -263,7 +263,32 @@ export function createEvalExecutor(db: StoreDb, store: ArtifactStore): AgentExec
         metadata: { payload: payload as unknown as Record<string, unknown> },
       } satisfies Task);
 
+      // Queue-wait keepalive: a task parked behind the eval queue emits nothing,
+      // and quiet streams get dropped crossing the Worker↔container hops (M5).
+      // runEvalJob has its own in-flight heartbeat; this covers the wait.
+      const queueHeartbeat = setInterval(() => {
+        bus.publish({
+          kind: "status-update",
+          taskId,
+          contextId,
+          status: {
+            state: "working",
+            timestamp: new Date().toISOString(),
+            message: {
+              kind: "message",
+              messageId: randomUUID(),
+              role: "agent",
+              parts: [{ kind: "text", text: "waiting in eval queue…" }],
+              taskId,
+              contextId,
+            },
+          },
+          final: false,
+        } satisfies TaskStatusUpdateEvent);
+      }, 45_000);
+
       void evalQueue.add(async () => {
+        clearInterval(queueHeartbeat);
         try {
           await runEvalJob({ db, store, taskId, contextId, payload, publish: (e) => bus.publish(e) });
         } finally {
