@@ -1,0 +1,85 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "content-factory",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "observability": { "enabled": true },
+
+  // One Worker fronts the whole mesh: hostname → container class. The Worker
+  // also owns the D1 binding and serves the secret-gated /d1/query proxy the
+  // containers' StoreDb driver calls back into (containers get no bindings —
+  // pattern + latency measured in references/cloudflare/d1-container).
+  "routes": [
+    { "pattern": "content-factory.xpri.ai", "custom_domain": true },
+    { "pattern": "content-factory-eval.xpri.ai", "custom_domain": true },
+    { "pattern": "content-factory-gen.xpri.ai", "custom_domain": true },
+    { "pattern": "content-factory-migrate.xpri.ai", "custom_domain": true }
+    // content-factor-dash.xpri.ai (the Google-OAuth-registered dashboard host)
+    // is flipped here from the cloudflared-tunnel CNAME once cloud is validated.
+  ],
+
+  "containers": [
+    {
+      "class_name": "CoordinatorContainer",
+      "image": "./docker/coordinator.Dockerfile",
+      "image_build_context": "../",
+      "max_instances": 1,
+      "instance_type": "basic"
+    },
+    {
+      "class_name": "EvalContainer",
+      "image": "./docker/eval.Dockerfile",
+      "image_build_context": "../",
+      "max_instances": 1,
+      "instance_type": "standard-1"
+    },
+    {
+      "class_name": "ContentGenContainer",
+      "image": "./docker/content-gen.Dockerfile",
+      "image_build_context": "../",
+      "max_instances": 1,
+      "instance_type": "lite"
+    },
+    {
+      "class_name": "MigrationContainer",
+      "image": "./docker/migration.Dockerfile",
+      "image_build_context": "../",
+      "max_instances": 1,
+      "instance_type": "standard-1"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "COORDINATOR", "class_name": "CoordinatorContainer" },
+      { "name": "EVAL", "class_name": "EvalContainer" },
+      { "name": "CONTENT_GEN", "class_name": "ContentGenContainer" },
+      { "name": "MIGRATION", "class_name": "MigrationContainer" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CoordinatorContainer", "EvalContainer", "ContentGenContainer", "MigrationContainer"]
+    }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "a2a-agents",
+      "database_id": "db84ebfc-2132-45ac-902d-7ef7117786e8"
+    }
+  ],
+
+  // Non-secret config. Secrets (D1_PROXY_SECRET, A2A_MESH_TOKEN, A2A_EDGE_TOKEN,
+  // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET,
+  // AUTH_SECRET, MOONSHOT_API_KEY, CLAUDE_CODE_OAUTH_TOKEN) via `wrangler secret put`.
+  "vars": {
+    "R2_BUCKET": "a2a-agents-artifacts",
+    "R2_PUBLIC_BASE": "https://pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev",
+    "R2_ACCOUNT_ID": "957b2690e54ade4c335d8e395c5b69d5",
+    "AUTH_ALLOWED_EMAILS": "jackzhaojin@gmail.com",
+    "MIGRATION_DEFAULT_BACKEND": "dryrun",
+    "DALIVE_MCP_URL": "https://jack-mcp-azure-ai-function.azurewebsites.net/api/mcp-streamable"
+  }
+}

@@ -1,0 +1,187 @@
+import { Container, getContainer } from "@cloudflare/containers";
+
+/**
+ * content-factory — the M5 Worker fronting the whole A2A mesh.
+ *
+ *   hostname                          → container
+ *   content-factory.xpri.ai           → coordinator (A2A + dashboard)
+ *   content-factor-dash.xpri.ai       → coordinator (Google-OAuth-registered dashboard host)
+ *   content-factory-eval.xpri.ai      → eval agent
+ *   content-factory-gen.xpri.ai       → content-gen agent
+ *   content-factory-migrate.xpri.ai   → migration agent
+ *   *.workers.dev                     → coordinator (fallback)
+ *
+ * The Worker also owns the D1 binding and exposes the secret-gated /d1/query
+ * proxy that the containers' StoreDb d1-proxy driver calls back into (containers
+ * get NO native bindings — references/cloudflare/d1-container, ~100ms/query).
+ * Long SSE streams proxy straight through and block container sleep
+ * (references/cloudflare/long-session-container: 22min streams, 0 drops).
+ */
+
+interface Env {
+  COORDINATOR: DurableObjectNamespace<CoordinatorContainer>;
+  EVAL: DurableObjectNamespace<EvalContainer>;
+  CONTENT_GEN: DurableObjectNamespace<ContentGenContainer>;
+  MIGRATION: DurableObjectNamespace<MigrationContainer>;
+  DB: D1Database;
+  // secrets
+  D1_PROXY_SECRET: string;
+  A2A_MESH_TOKEN: string;
+  A2A_EDGE_TOKEN: string;
+  R2_ACCESS_KEY_ID: string;
+  R2_SECRET_ACCESS_KEY: string;
+  AUTH_GOOGLE_ID: string;
+  AUTH_GOOGLE_SECRET: string;
+  AUTH_SECRET: string;
+  MOONSHOT_API_KEY: string;
+  CLAUDE_CODE_OAUTH_TOKEN: string;
+  // vars
+  R2_BUCKET: string;
+  R2_PUBLIC_BASE: string;
+  R2_ACCOUNT_ID: string;
+  AUTH_ALLOWED_EMAILS: string;
+  MIGRATION_DEFAULT_BACKEND: string;
+  DALIVE_MCP_URL: string;
+}
+
+const HOSTS = {
+  coordinator: "https://content-factory.xpri.ai",
+  dash: "https://content-factor-dash.xpri.ai",
+  eval: "https://content-factory-eval.xpri.ai",
+  gen: "https://content-factory-gen.xpri.ai",
+  migrate: "https://content-factory-migrate.xpri.ai",
+} as const;
+
+/** Env every agent container gets: store driver, mesh auth, R2. */
+function commonEnv(env: Env): Record<string, string> {
+  return {
+    PORT: "8080",
+    NODE_ENV: "production",
+    D1_PROXY_URL: HOSTS.coordinator,
+    D1_PROXY_SECRET: env.D1_PROXY_SECRET,
+    A2A_MESH_TOKEN: env.A2A_MESH_TOKEN,
+    A2A_EDGE_TOKEN: env.A2A_EDGE_TOKEN,
+    R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY,
+    R2_BUCKET: env.R2_BUCKET,
+    R2_PUBLIC_BASE: env.R2_PUBLIC_BASE,
+    R2_ACCOUNT_ID: env.R2_ACCOUNT_ID,
+  };
+}
+
+export class CoordinatorContainer extends Container<Env> {
+  defaultPort = 8080;
+  sleepAfter = "1h";
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.envVars = {
+      ...commonEnv(env),
+      A2A_PUBLIC_BASE: HOSTS.coordinator,
+      EVAL_AGENT_URL: HOSTS.eval,
+      CONTENT_GEN_URL: HOSTS.gen,
+      MIGRATION_AGENT_URL: HOSTS.migrate,
+      COORD_FANOUT_CONCURRENCY: "2",
+      AUTH_GOOGLE_ID: env.AUTH_GOOGLE_ID,
+      AUTH_GOOGLE_SECRET: env.AUTH_GOOGLE_SECRET,
+      AUTH_SECRET: env.AUTH_SECRET,
+      AUTH_ALLOWED_EMAILS: env.AUTH_ALLOWED_EMAILS,
+    };
+  }
+}
+
+export class EvalContainer extends Container<Env> {
+  defaultPort = 8080;
+  sleepAfter = "30m";
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.envVars = {
+      ...commonEnv(env),
+      A2A_PUBLIC_BASE: HOSTS.eval,
+      EVAL_ENGINE: "real",
+      EVAL_CONCURRENCY: "2",
+      BROWSER_PERMITS: "2",
+      CLAUDE_CODE_OAUTH_TOKEN: env.CLAUDE_CODE_OAUTH_TOKEN,
+    };
+  }
+}
+
+export class ContentGenContainer extends Container<Env> {
+  defaultPort = 8080;
+  sleepAfter = "20m";
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.envVars = {
+      ...commonEnv(env),
+      A2A_PUBLIC_BASE: HOSTS.gen,
+    };
+  }
+}
+
+export class MigrationContainer extends Container<Env> {
+  defaultPort = 8080;
+  sleepAfter = "30m";
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.envVars = {
+      ...commonEnv(env),
+      A2A_PUBLIC_BASE: HOSTS.migrate,
+      MIGRATION_CALLBACK_BASE: HOSTS.migrate,
+      MIGRATION_DEFAULT_BACKEND: env.MIGRATION_DEFAULT_BACKEND,
+      MOONSHOT_API_KEY: env.MOONSHOT_API_KEY,
+      OPENCODE_BIN: "/root/.opencode/bin/opencode",
+      PLAYWRIGHT_MCP_BIN: "/usr/local/bin/playwright-mcp",
+      DALIVE_SKILLS_PATH: "/app/skills",
+      DALIVE_MCP_URL: env.DALIVE_MCP_URL,
+      OPENCODE_MIGRATION_TIMEOUT_MS: "1200000",
+    };
+  }
+}
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    // ── /d1/query: the secret-gated D1 proxy the containers' StoreDb calls ──
+    if (url.pathname === "/d1/query" && request.method === "POST") {
+      if (request.headers.get("x-d1-secret") !== env.D1_PROXY_SECRET) {
+        return json({ error: "forbidden" }, 403);
+      }
+      let payload: { sql?: string; params?: unknown[] };
+      try {
+        payload = await request.json();
+      } catch {
+        return json({ error: "bad json body" }, 400);
+      }
+      if (!payload.sql) return json({ error: "missing sql" }, 400);
+      try {
+        const result = await env.DB.prepare(payload.sql)
+          .bind(...(payload.params ?? []))
+          .all();
+        return json({ success: result.success, results: result.results, meta: result.meta });
+      } catch (e) {
+        return json({ error: String((e as Error)?.message ?? e) }, 500);
+      }
+    }
+
+    // ── /worker-health: the Worker itself, no container touch ──
+    if (url.pathname === "/worker-health") {
+      return json({ ok: true, worker: "content-factory", at: new Date().toISOString() });
+    }
+
+    // ── hostname → container ──
+    const host = url.hostname;
+    const ns =
+      host === "content-factory-eval.xpri.ai"
+        ? env.EVAL
+        : host === "content-factory-gen.xpri.ai"
+          ? env.CONTENT_GEN
+          : host === "content-factory-migrate.xpri.ai"
+            ? env.MIGRATION
+            : env.COORDINATOR; // content-factory / content-factor-dash / workers.dev fallback
+
+    return getContainer(ns, "singleton").fetch(request);
+  },
+};

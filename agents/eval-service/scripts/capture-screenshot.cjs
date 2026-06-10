@@ -5,7 +5,12 @@
  */
 
 const { chromium } = require('playwright');
+const fs = require('fs');
 const path = require('path');
+
+// containers run as root — chromium needs --no-sandbox there (same flags the
+// accessibility scanner already passes)
+const launchArgs = fs.existsSync('/.dockerenv') ? ['--no-sandbox', '--disable-dev-shm-usage'] : [];
 
 async function captureScreenshot() {
   const url = process.argv[2];
@@ -20,7 +25,7 @@ async function captureScreenshot() {
 
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true, args: launchArgs });
     const context = await browser.newContext({
       viewport: { width, height },
     });

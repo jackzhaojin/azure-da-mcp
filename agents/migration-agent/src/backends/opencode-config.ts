@@ -75,11 +75,13 @@ export function buildOpencodeConfig(opts: OpencodeConfigOptions): Record<string,
       },
       playwright: {
         type: "local",
-        // @playwright/mcp uses the macOS-cached Chromium; headless + isolated for a clean run.
+        // PLAYWRIGHT_MCP_BIN (containers: a pre-installed global bin + pre-pulled
+        // Chromium) avoids the npx-fetch-latest network dependency at runtime;
+        // local default stays npx with the macOS-cached Chromium.
         command: [
-          "npx",
-          "-y",
-          "@playwright/mcp@latest",
+          ...(process.env.PLAYWRIGHT_MCP_BIN
+            ? [process.env.PLAYWRIGHT_MCP_BIN]
+            : ["npx", "-y", "@playwright/mcp@latest"]),
           "--headless",
           "--isolated",
           "--output-dir",

@@ -1,6 +1,7 @@
-import Database from "better-sqlite3";
+import type DatabaseT from "better-sqlite3";
 import { readFileSync, readdirSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { createLogger } from "../logging.ts";
 
@@ -33,7 +34,7 @@ export interface StoreDb {
 
 class SqliteDb implements StoreDb {
   readonly driver = "sqlite" as const;
-  constructor(readonly raw: Database.Database) {}
+  constructor(readonly raw: DatabaseT.Database) {}
 
   prepare(sql: string): StoreStatement {
     const stmt = this.raw.prepare(sql);
@@ -107,7 +108,11 @@ export async function openDb(dbPath: string): Promise<StoreDb> {
 }
 
 /** The raw local-SQLite open + migration runner (also used by tools that need sync access). */
-export function openSqliteDb(dbPath: string): Database.Database {
+export function openSqliteDb(dbPath: string): DatabaseT.Database {
+  // lazy require: better-sqlite3 is an OPTIONAL dependency (native module) —
+  // containers run the d1-proxy driver and ship without it (--omit=optional)
+  const require = createRequire(import.meta.url);
+  const Database = require("better-sqlite3") as typeof DatabaseT;
   mkdirSync(dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
   db.pragma("journal_mode = WAL");

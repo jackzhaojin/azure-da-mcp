@@ -1,0 +1,14 @@
+# Build context for agents/deploy/docker/*.Dockerfile (context = agents/)
+node_modules
+**/node_modules
+**/data
+**/output
+**/.next
+**/*.db
+**/*.db-*
+.env
+.env.*
+deploy/.wrangler
+deploy/logs
+.playwright-mcp
+**/.tmp
