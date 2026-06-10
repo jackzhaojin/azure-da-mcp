@@ -88,7 +88,7 @@ This repository contains 7 independent projects:
 ### 7. `agents/` - A2A Agent Platform (v2.0) ⭐ flagship workstream
 **Purpose**: A decoupled mesh of independently-addressable AI agents (content-gen, migration, eval, coordinator) speaking the **A2A protocol** — the ground-up v2.0 re-architecture for the adaptTo() Sept 2026 demo
 **Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard + legacy ui), vitest e2e
-**Status**: M1–M4 built + tested on `main`; closed loop verified end-to-end **with Kimi K2.6 (opencode) authoring real da.live pages through the coordinator**; coordinator ships its own Next.js dashboard on :4004 (database-free Next backend over the A2A layer's `/store/runs`); Cloudflare D1/R2 + named tunnel (`a2a.xpri.ai`) live; container deploy (M5) deliberately last
+**Status**: **M1–M5 DEPLOYED ON CLOUDFLARE (2026-06-10)** — the whole mesh runs as Workers + Containers (worker `content-factory`, agents/deploy/): dashboard at `content-factor-dash.xpri.ai` (Google SSO, per-user runs), agents at `content-factory{,-eval,-gen,-migrate}.xpri.ai`, store on D1 via the Worker's `/d1/query` proxy, artifacts on R2. Cloud acceptance green: full-loop with **Kimi K2.6 authoring a REAL da.live page from a container** + the real agentic eval scoring it 91 (cloud e2e `npm run test:cloud`, 4/4). Local dev unchanged (SQLite + localhost ports); the tunnel keeps only `a2a.xpri.ai` → local :4003 for Make.com
 **Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/)
 
 **When to work here**:
@@ -349,4 +349,4 @@ cp .env.example .env
 **Last Updated**: 2026-06-10
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
-**Version lines**: **v2.0** = the `agents/` A2A platform (flagship, not yet tagged/deployed — D6 deploy-last) · **v1.1.0** = legacy `content-authoring-eval` (frozen backup). Trunk-based, tag from `main`.
+**Version lines**: **v2.0** = the `agents/` A2A platform (flagship, **deployed on Cloudflare 2026-06-10**, not yet tagged) · **v1.1.0** = legacy `content-authoring-eval` (frozen backup). Trunk-based, tag from `main`.
