@@ -1,7 +1,7 @@
 # A2A Agent Platform — v2.0 Build Report (as-built)
 
 **Date**: 2026-06-08 (updated 2026-06-10)
-**Status**: M1–M4 built, tested, and on `main`; closed loop verified with **Kimi K2.6 authoring real da.live pages through the coordinator**; coordinator ships its own Next.js dashboard (:4004); Cloudflare infra live (D1, R2, named tunnel); deployment (M5) and the Make.com config are the remaining steps
+**Status**: **M1–M5 COMPLETE — DEPLOYED ON CLOUDFLARE (2026-06-10).** The whole mesh runs as Workers + Containers (`content-factory` worker, `content-factory*.xpri.ai` + `content-factor-dash.xpri.ai`); store on D1 via a Worker-proxy driver; cloud e2e 4/4 incl. **Kimi K2.6 authoring a real da.live page FROM A CONTAINER, scored 91 by the real agentic eval**. See [`07-m5-cloudflare-deployment.md`](./07-m5-cloudflare-deployment.md). Remaining: Make.com cloud re-validation, v2.0 release tag
 **Author**: Jack Jin (with Claude Code)
 **Companion to**: the planning PRD at [`ai-docs/2026-06-05-a2a-agent-platform/`](../2026-06-05-a2a-agent-platform/) (decisions D1–D6). This doc reports **what was actually built** between the 2026-06-05 plan and 2026-06-08.
 
@@ -44,6 +44,7 @@ Starting from the PRD, we built the **entire mesh** end-to-end and proved it wit
 | [`04-testing-and-status.md`](./04-testing-and-status.md) | Test tiers + evidence, the plan→built status grid, what's left |
 | [`05-opencode-kimi-backend.md`](./05-opencode-kimi-backend.md) | **Migration Backend C — opencode / Kimi K2.6, verified end-to-end** (real page authored → published → validated). Architecture, sequence, config, evidence |
 | [`06-coordinator-dashboard-and-hardening.md`](./06-coordinator-dashboard-and-hardening.md) | **Coordinator dashboard + mesh hardening (2026-06-10)** — Kimi through the FULL closed loop, the undici 300s timeout fixes, live tool/skill observability, the hybrid Next.js coordinator with a database-free backend over `/store/runs` |
+| [`07-m5-cloudflare-deployment.md`](./07-m5-cloudflare-deployment.md) | **M5: the Cloudflare deployment (2026-06-10)** — why/what/how of the async store seam, the four container images, the Worker + hostname scheme, and the six production failure modes (crashloop, quiet-SSE cuts, queue silence, rollout kills, orphan resurrection, root-CLI agentic break) with their fixes; acceptance evidence (cloud e2e 4/4, Kimi-authored page scored 91) |
 
 ## Repo layout (v2.0 lives under `agents/`)
 
