@@ -6,6 +6,7 @@
  */
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { requireAgentAuth, agenticAbort } from '@/lib/agent-auth';
 import { createLogger, Timer } from '@/lib/logger';
 import type { ContentMetrics, AgenticAnalysisResult, ContentAnalysisResult, ContentFinding } from './types';
 import contentPdfSourcePrompt from '@/lib/prompts/content-pdf-source.json';
@@ -215,10 +216,7 @@ export async function analyzeContentWithClaude(
   logger.info('Starting agentic content analysis', { sourceUrl, migratedUrl, sourceType });
 
   try {
-    // Validate OAuth token
-    if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-      throw new Error('Missing Claude authentication. Please set CLAUDE_CODE_OAUTH_TOKEN in .env.local');
-    }
+    requireAgentAuth();
 
     // Format metrics for Claude
     const prompts = formatContentForPrompt(deterministicMetrics, sourceType);
@@ -239,30 +237,37 @@ export async function analyzeContentWithClaude(
     // Get environment-aware MCP server configuration
     const mcpServers = getMCPServersConfig();
 
-    // Stream messages from Claude with tool access
-    for await (const message of query({
-      prompt: userPrompt,
-      options: {
-        model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-6',
-        maxTurns: 20,
-        systemPrompt: systemPromptText,
-        mcpServers,
-        permissionMode: 'bypassPermissions' as const,
-        allowDangerouslySkipPermissions: true,
-        cwd: process.cwd(),
-      }
-    })) {
-      // Collect assistant responses and count tool usage
-      if (message.type === 'assistant' && 'message' in message && message.message?.content) {
-        for (const block of message.message.content) {
-          if (block.type === 'text' && block.text) {
-            messages.push(block.text);
-          }
-          if (block.type === 'tool_use') {
-            toolCallCount++;
+    // Stream messages from Claude with tool access (deadline-bounded — a hung
+    // turn would otherwise hold a browser permit forever, see agent-auth.ts)
+    const deadline = agenticAbort('content');
+    try {
+      for await (const message of query({
+        prompt: userPrompt,
+        options: {
+          model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-6',
+          maxTurns: 20,
+          systemPrompt: systemPromptText,
+          mcpServers,
+          permissionMode: 'bypassPermissions' as const,
+          allowDangerouslySkipPermissions: true,
+          cwd: process.cwd(),
+          abortController: deadline.controller,
+        }
+      })) {
+        // Collect assistant responses and count tool usage
+        if (message.type === 'assistant' && 'message' in message && message.message?.content) {
+          for (const block of message.message.content) {
+            if (block.type === 'text' && block.text) {
+              messages.push(block.text);
+            }
+            if (block.type === 'tool_use') {
+              toolCallCount++;
+            }
           }
         }
       }
+    } finally {
+      deadline.done();
     }
 
     // Create tool stats for metadata

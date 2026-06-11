@@ -8,6 +8,7 @@
  */
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { requireAgentAuth, agenticAbort } from '@/lib/agent-auth';
 import { createLogger, Timer } from '@/lib/logger';
 import {
   type StructureMetrics,
@@ -205,15 +206,7 @@ export async function analyzeStructureWithClaude(
   const timer = new Timer();
   logger.info('Starting agentic structure analysis', { url });
 
-  // PHASE 25.1: DEBUG - Validate OAuth token is configured
-  if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-    logger.error('Claude OAuth token missing');
-    throw new Error('Missing Claude authentication. Please set CLAUDE_CODE_OAUTH_TOKEN in .env.local');
-  }
-
-  // PHASE 25.1: DEBUG - Log OAuth token presence (first 10 chars only)
-  const tokenPreview = process.env.CLAUDE_CODE_OAUTH_TOKEN.substring(0, 10);
-  logger.info('🔑 PHASE 25.1 DEBUG: OAuth token present', { tokenPreview });
+  requireAgentAuth();
 
   // PHASE 25.1: DEBUG - Log environment details
   logger.info('🐳 PHASE 25.1 DEBUG: Environment details', {
@@ -247,30 +240,37 @@ export async function analyzeStructureWithClaude(
     // Get environment-aware MCP server configuration
     const mcpServers = getMCPServersConfig();
 
-    // Stream messages from Claude with tool access
-    for await (const message of query({
-      prompt: userPrompt,
-      options: {
-        model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-6',
-        maxTurns: 20,
-        systemPrompt: systemPromptText,
-        mcpServers,
-        permissionMode: 'bypassPermissions' as const,
-        allowDangerouslySkipPermissions: true,
-        cwd: process.cwd(),
-      }
-    })) {
-      // Collect assistant responses and count tool usage
-      if (message.type === 'assistant' && 'message' in message && message.message?.content) {
-        for (const block of message.message.content) {
-          if (block.type === 'text' && block.text) {
-            messages.push(block.text);
-          }
-          if (block.type === 'tool_use') {
-            toolCallCount++;
+    // Stream messages from Claude with tool access (deadline-bounded — a hung
+    // turn would otherwise hold a browser permit forever, see agent-auth.ts)
+    const deadline = agenticAbort('structure');
+    try {
+      for await (const message of query({
+        prompt: userPrompt,
+        options: {
+          model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-6',
+          maxTurns: 20,
+          systemPrompt: systemPromptText,
+          mcpServers,
+          permissionMode: 'bypassPermissions' as const,
+          allowDangerouslySkipPermissions: true,
+          cwd: process.cwd(),
+          abortController: deadline.controller,
+        }
+      })) {
+        // Collect assistant responses and count tool usage
+        if (message.type === 'assistant' && 'message' in message && message.message?.content) {
+          for (const block of message.message.content) {
+            if (block.type === 'text' && block.text) {
+              messages.push(block.text);
+            }
+            if (block.type === 'tool_use') {
+              toolCallCount++;
+            }
           }
         }
       }
+    } finally {
+      deadline.done();
     }
 
     // Create tool stats for metadata

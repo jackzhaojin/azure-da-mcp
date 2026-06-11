@@ -12,9 +12,44 @@ import { analyzeContentWithClaude, analyzeContent } from '@/lib/agents/content';
 import { analyzeVisualWithClaude, analyzeVisual } from '@/lib/agents/visual';
 import { SYSTEM_VERSION, DIMENSION_WEIGHTS } from '@/lib/constants';
 import { createLogger, Timer } from '@/lib/logger';
+import { hasAgentAuth } from '@/lib/agent-auth';
 import { withBrowserPermit } from '../browser/semaphore'; // browser semaphore (PRD part-2) — added during extraction
 
 const logger = createLogger('agent');
+
+/**
+ * Classify a failed agentic pass for the dimension result: expected degradation
+ * (no Claude auth → 'deterministic-only') vs a real failure that silently
+ * downgraded scoring ('deterministic-fallback'). The notice finding makes the
+ * degradation visible in the persisted report instead of being swallowed.
+ */
+function describeAgenticFailure(
+  dimension: 'structure' | 'accessibility' | 'content' | 'visual',
+  error: unknown
+): { mode: 'deterministic-only' | 'deterministic-fallback'; modeReason: string; notice: Finding } {
+  const message = error instanceof Error ? error.message : String(error);
+  const mode = hasAgentAuth() ? 'deterministic-fallback' : 'deterministic-only';
+  if (mode === 'deterministic-fallback') {
+    logger.warn(`Agentic ${dimension} analysis failed — deterministic fallback`, { dimension, error: message });
+  } else {
+    logger.info(`Agentic ${dimension} analysis skipped — no Claude auth configured`, { dimension });
+  }
+  const notice: Finding =
+    mode === 'deterministic-only'
+      ? {
+          dimension,
+          severity: 'info',
+          issue: 'Agentic analysis skipped: no Claude auth configured — score is deterministic-only',
+          recommendation: 'Set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY to enable semantic scoring',
+        }
+      : {
+          dimension,
+          severity: 'info',
+          issue: `Agentic analysis failed — score is deterministic-only: ${message}`,
+          recommendation: 'Investigate the agentic failure; deterministic scoring is a coarser instrument',
+        };
+  return { mode, modeReason: message, notice };
+}
 
 /**
  * Progress callback for SSE streaming
@@ -36,6 +71,8 @@ interface AgentExecutionResult {
   result: AgentResult | null;
   error: Error | null;
   duration: number;
+  /** Set when the dimension was not applicable (e.g. content with no source). */
+  skipped?: string;
 }
 
 /**
@@ -83,6 +120,7 @@ async function runAgent(
             score: fullResult.finalScore,
             findings: combinedFindings,
             metadata: {
+              mode: 'agentic',
               deterministic: {
                 executedAt: fullResult.timestamp,
                 durationMs: timer.elapsed(),
@@ -95,13 +133,15 @@ async function runAgent(
               },
             },
           };
-        } catch {
-          // Fallback to deterministic-only
+        } catch (agenticError) {
+          const { mode, modeReason, notice } = describeAgenticFailure('structure', agenticError);
           result = {
             dimension: 'structure',
             score: calculateDeterministicStructureScore(deterministic),
-            findings: [],
+            findings: [notice],
             metadata: {
+              mode,
+              modeReason,
               deterministic: {
                 executedAt: new Date().toISOString(),
                 durationMs: timer.elapsed(),
@@ -144,6 +184,7 @@ async function runAgent(
             score: fullResult.finalScore,
             findings: combinedFindings,
             metadata: {
+              mode: 'agentic',
               deterministic: {
                 executedAt: fullResult.timestamp,
                 durationMs: timer.elapsed(),
@@ -156,19 +197,24 @@ async function runAgent(
               },
             },
           };
-        } catch {
-          // Fallback to deterministic-only
+        } catch (agenticError) {
+          const { mode, modeReason, notice } = describeAgenticFailure('accessibility', agenticError);
           result = {
             dimension: 'accessibility',
             score: deterministic.score,
-            findings: deterministic.violations.map(v => ({
-              dimension: 'accessibility' as const,
-              severity: mapAxeSeverity(v.impact),
-              issue: v.description,
-              recommendation: `Fix ${v.id}: ${v.help}`,
-              details: { ruleId: v.id, helpUrl: v.helpUrl },
-            })),
+            findings: [
+              ...deterministic.violations.map(v => ({
+                dimension: 'accessibility' as const,
+                severity: mapAxeSeverity(v.impact),
+                issue: v.description,
+                recommendation: `Fix ${v.id}: ${v.help}`,
+                details: { ruleId: v.id, helpUrl: v.helpUrl },
+              })),
+              notice,
+            ],
             metadata: {
+              mode,
+              modeReason,
               deterministic: {
                 executedAt: new Date().toISOString(),
                 durationMs: timer.elapsed(),
@@ -184,27 +230,27 @@ async function runAgent(
         // Determine source URL (PDF or HTML)
         const sourceUrl = request.pdfPath || request.expectedUrl;
 
-        // Skip if no source reference provided
+        // No source reference → the dimension is NOT APPLICABLE. It must be
+        // excluded from the overall score (weights renormalize), not counted
+        // as 0 at 25% weight — a sourceless eval of a perfect page used to
+        // land at overall ~66 purely because of this.
         if (!sourceUrl) {
-          logger.warn('Content agent skipped: No source reference provided');
-          result = {
-            dimension: 'content',
-            score: 0,
-            findings: [{
-              dimension: 'content',
-              severity: 'info',
-              issue: 'No source reference provided for content comparison',
-              recommendation: 'Provide a PDF URL or HTML source URL to enable content fidelity analysis',
-            }],
-            metadata: {
-              deterministic: {
-                executedAt: new Date().toISOString(),
-                durationMs: 0,
-                toolsUsed: [],
-              },
-            },
+          logger.info('Content dimension skipped: no source reference provided');
+          if (onProgress && completedCountRef) {
+            completedCountRef.value += 1;
+            onProgress({
+              type: 'agent-complete',
+              dimension,
+              progress: calculateProgress(completedCountRef.value, 4),
+            });
+          }
+          return {
+            dimension,
+            result: null,
+            error: null,
+            duration: timer.elapsed(),
+            skipped: 'no source reference provided — content fidelity is not applicable',
           };
-          break;
         }
 
         // Auto-detect source type (PDF vs HTML)
@@ -242,6 +288,7 @@ async function runAgent(
               score: fullResult.finalScore,
               findings: combinedFindings,
               metadata: {
+                mode: 'agentic',
                 deterministic: {
                   executedAt: fullResult.timestamp,
                   durationMs: timer.elapsed(),
@@ -254,18 +301,23 @@ async function runAgent(
                 },
               },
             };
-          } catch {
-            // Fallback to deterministic-only
+          } catch (agenticError) {
+            const { mode, modeReason, notice } = describeAgenticFailure('content', agenticError);
             result = {
               dimension: 'content',
               score: deterministic.score,
-              findings: [{
-                dimension: 'content' as const,
-                severity: deterministic.score < 50 ? 'critical' : deterministic.score < 70 ? 'serious' : 'moderate',
-                issue: `Content similarity: ${deterministic.diff.similarityScore}%`,
-                recommendation: `Review ${deterministic.diff.missing.length} missing sentences and ${deterministic.diff.extra.length} extra sentences`,
-              }],
+              findings: [
+                {
+                  dimension: 'content' as const,
+                  severity: deterministic.score < 50 ? 'critical' : deterministic.score < 70 ? 'serious' : 'moderate',
+                  issue: `Content similarity: ${deterministic.diff.similarityScore}% (word-overlap metric — paraphrased migrations score low without the agentic pass)`,
+                  recommendation: `Review ${deterministic.diff.missing.length} missing sentences and ${deterministic.diff.extra.length} extra sentences`,
+                },
+                notice,
+              ],
               metadata: {
+                mode,
+                modeReason,
                 deterministic: {
                   executedAt: new Date().toISOString(),
                   durationMs: timer.elapsed(),
@@ -275,25 +327,11 @@ async function runAgent(
             };
           }
         } catch (error) {
-          // Content analysis failed (e.g., PDF parsing issue)
+          // Content analysis itself failed (fetch/parse) — measurement failure,
+          // not a quality verdict. Propagate so the dimension is excluded and
+          // recorded as failed, instead of scoring 0 at 25% weight.
           logger.error('Content analysis failed', error as Error, { dimension });
-          result = {
-            dimension: 'content',
-            score: 0,
-            findings: [{
-              dimension: 'content',
-              severity: 'critical',
-              issue: 'Content analysis failed',
-              recommendation: error instanceof Error ? error.message : 'Unknown error occurred',
-            }],
-            metadata: {
-              deterministic: {
-                executedAt: new Date().toISOString(),
-                durationMs: timer.elapsed(),
-                toolsUsed: [],
-              },
-            },
-          };
+          throw error;
         }
         break;
       }
@@ -337,6 +375,7 @@ async function runAgent(
             score: finalScore,
             findings: combinedFindings,
             metadata: {
+              mode: 'agentic',
               deterministic: {
                 executedAt: deterministic.metadata.executedAt,
                 durationMs: timer.elapsed(),
@@ -353,20 +392,15 @@ async function runAgent(
               },
             },
           };
-        } catch (error) {
-          // PHASE 34: Log warning instead of silent fallback
-          logger.warn('Agentic visual analysis failed, using deterministic fallback', {
-            error: (error as Error).message,
-            dimension: 'visual',
-            fallbackScore: deterministic.score,
-          });
-
-          // Fallback to deterministic-only
+        } catch (agenticError) {
+          const { mode, modeReason, notice } = describeAgenticFailure('visual', agenticError);
           result = {
             dimension: 'visual',
             score: deterministic.score,
-            findings: [],
+            findings: [notice],
             metadata: {
+              mode,
+              modeReason,
               deterministic: {
                 executedAt: new Date().toISOString(),
                 durationMs: timer.elapsed(),
@@ -562,9 +596,15 @@ export async function runEvaluation(
     visual?: AgentResult;
   } = {};
 
+  const skippedDimensions: Array<{ dimension: AgentExecutionResult['dimension']; reason: string }> = [];
+  const failedDimensions: Array<{ dimension: AgentExecutionResult['dimension']; message: string }> = [];
   for (const agentResult of agentResults) {
     if (agentResult.result) {
       results[agentResult.dimension] = agentResult.result;
+    } else if (agentResult.skipped) {
+      skippedDimensions.push({ dimension: agentResult.dimension, reason: agentResult.skipped });
+    } else if (agentResult.error) {
+      failedDimensions.push({ dimension: agentResult.dimension, message: agentResult.error.message });
     }
   }
 
@@ -575,11 +615,32 @@ export async function runEvaluation(
       allFindings.push(...result.findings);
     }
   }
+  // Excluded dimensions must stay visible in the report — a dimension that
+  // vanished without a trace is indistinguishable from one that was never run.
+  for (const s of skippedDimensions) {
+    allFindings.push({
+      dimension: s.dimension,
+      severity: 'info',
+      issue: `${s.dimension} dimension skipped: ${s.reason}`,
+      recommendation: 'Provide a sourceLocation (PDF or webpage) to enable this dimension',
+    });
+  }
+  for (const f of failedDimensions) {
+    allFindings.push({
+      dimension: f.dimension,
+      severity: 'serious',
+      issue: `${f.dimension} evaluation failed: ${f.message}`,
+      recommendation: 'Dimension excluded from the overall score; remaining dimensions were renormalized',
+    });
+  }
 
   // Calculate overall score and grade
   const overallScore = calculateOverallScore(results);
   const grade = calculateGrade(overallScore);
   const passedDimensions = Object.values(results).filter(r => r.score >= 75).length;
+  // Applicable dimensions only — a skipped (not-applicable) dimension isn't
+  // part of the denominator; a FAILED one is (it should have produced a score).
+  const totalDimensions = 4 - skippedDimensions.length;
 
   const completedAt = new Date().toISOString();
   const durationMs = timer.elapsed();
@@ -588,7 +649,9 @@ export async function runEvaluation(
     overallScore,
     grade,
     passedDimensions,
-    totalDimensions: 4,
+    totalDimensions,
+    skipped: skippedDimensions.map(s => s.dimension),
+    failed: failedDimensions.map(f => f.dimension),
     totalFindings: allFindings.length,
     durationMs,
   });
@@ -602,7 +665,7 @@ export async function runEvaluation(
       overallScore,
       grade,
       passedDimensions,
-      totalDimensions: 4,
+      totalDimensions,
     },
     results,
     findings: allFindings,

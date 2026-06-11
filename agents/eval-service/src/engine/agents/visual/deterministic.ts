@@ -130,20 +130,43 @@ export async function compareImages(
     const img1Buffer = fs.readFileSync(imagePath1);
     const img2Buffer = fs.readFileSync(imagePath2);
 
-    const img1 = PNG.sync.read(img1Buffer);
-    const img2 = PNG.sync.read(img2Buffer);
+    const img1Full = PNG.sync.read(img1Buffer);
+    const img2Full = PNG.sync.read(img2Buffer);
 
-    // Check dimensions match
-    if (img1.width !== img2.width || img1.height !== img2.height) {
-      logger.warn('Image dimensions do not match', {
-        img1: { width: img1.width, height: img1.height },
-        img2: { width: img2.width, height: img2.height },
+    // Full-page screenshots of source vs migrated almost never agree on
+    // height. Compare the shared region instead of refusing to compare —
+    // a refused comparison used to silently score 100 (false confidence).
+    // The size disagreement itself is reported via dimensionsDelta and
+    // penalized in calculateVisualScore.
+    const width = Math.min(img1Full.width, img2Full.width);
+    const height = Math.min(img1Full.height, img2Full.height);
+    let dimensionsDelta: ImageComparisonResult['dimensionsDelta'];
+    let img1: PNG = img1Full;
+    let img2: PNG = img2Full;
+    if (img1Full.width !== img2Full.width || img1Full.height !== img2Full.height) {
+      const widthPct = (Math.abs(img1Full.width - img2Full.width) / Math.max(img1Full.width, img2Full.width)) * 100;
+      const heightPct = (Math.abs(img1Full.height - img2Full.height) / Math.max(img1Full.height, img2Full.height)) * 100;
+      dimensionsDelta = {
+        widthPct: parseFloat(widthPct.toFixed(2)),
+        heightPct: parseFloat(heightPct.toFixed(2)),
+      };
+      logger.warn('Image dimensions differ — comparing shared region', {
+        img1: { width: img1Full.width, height: img1Full.height },
+        img2: { width: img2Full.width, height: img2Full.height },
+        shared: { width, height },
+        dimensionsDelta,
       });
-      throw new Error(`Image dimensions do not match: ${img1.width}x${img1.height} vs ${img2.width}x${img2.height}`);
+      const crop = (src: PNG): PNG => {
+        const out = new PNG({ width, height });
+        PNG.bitblt(src, out, 0, 0, width, height, 0, 0);
+        return out;
+      };
+      img1 = crop(img1Full);
+      img2 = crop(img2Full);
     }
 
     // Create diff image
-    const diff = new PNG({ width: img1.width, height: img1.height });
+    const diff = new PNG({ width, height });
 
     // Perform pixel comparison
     logger.debug('Running pixelmatch comparison');
@@ -151,12 +174,12 @@ export async function compareImages(
       img1.data,
       img2.data,
       diff.data,
-      img1.width,
-      img1.height,
+      width,
+      height,
       { threshold }
     );
 
-    const totalPixels = img1.width * img1.height;
+    const totalPixels = width * height;
     const diffPercentage = (mismatchedPixels / totalPixels) * 100;
 
     // Save diff image
@@ -173,8 +196,9 @@ export async function compareImages(
       totalPixels,
       diffPercentage: parseFloat(diffPercentage.toFixed(2)),
       diffImagePath: diffRelativePath,
-      matches: diffPercentage < 1.0, // Images match if less than 1% difference
+      matches: diffPercentage < 1.0 && !dimensionsDelta, // sized differently ≠ a match
       threshold,
+      ...(dimensionsDelta ? { dimensionsDelta } : {}),
     };
 
     logger.operationComplete('Image comparison', timer.elapsed(), {
@@ -199,17 +223,23 @@ export async function compareImages(
  */
 export function calculateVisualScore(comparison?: ImageComparisonResult): number {
   if (!comparison) {
-    // No baseline to compare against - default to 100 (screenshot captured successfully)
+    // No baseline requested (sourceType none) — the screenshot captured
+    // successfully and there is nothing to compare against. The agentic
+    // pass still reviews the page for generic visual quality.
     return 100;
   }
 
-  // Score based on visual similarity
-  // 100 - diffPercentage gives us a 0-100 score
-  // Cap at 0 minimum
-  const score = Math.max(0, 100 - comparison.diffPercentage);
+  // Score based on visual similarity over the shared region, plus a capped
+  // penalty when the two pages disagree on size (content added/lost shows up
+  // as a height delta that the cropped pixel diff can't see).
+  const sizePenalty = comparison.dimensionsDelta
+    ? Math.min(15, Math.round(Math.max(comparison.dimensionsDelta.widthPct, comparison.dimensionsDelta.heightPct) / 2))
+    : 0;
+  const score = Math.max(0, 100 - comparison.diffPercentage - sizePenalty);
 
   logger.debug('Visual score calculated', {
     diffPercentage: comparison.diffPercentage,
+    sizePenalty,
     score,
   });
 
@@ -245,32 +275,41 @@ export async function analyzeVisual(
   });
 
   try {
-    // Capture migrated page screenshot (stub returns placeholder)
+    // Capture migrated page screenshot. A failed capture returns a size-0
+    // placeholder — that is a measurement failure, NOT a perfect page. Fail
+    // the dimension (it gets excluded + reported) instead of scoring 100 on
+    // a page that never rendered.
     const screenshot = await captureScreenshot(url, viewport);
+    if (screenshot.size === 0) {
+      throw new Error(`Screenshot capture failed for ${url} — page did not render`);
+    }
 
     // Capture baseline screenshot if HTML source URL provided
     let baselineScreenshot: typeof screenshot | undefined;
     if (options?.sourceUrl) {
       logger.info('Capturing baseline screenshot from source URL', { sourceUrl: options.sourceUrl });
       baselineScreenshot = await captureScreenshot(options.sourceUrl, viewport);
+      if (baselineScreenshot.size === 0) {
+        throw new Error(
+          `Baseline screenshot capture failed for ${options.sourceUrl} — visual comparison not possible`
+        );
+      }
     }
 
     // Compare with baseline if provided (either direct path or captured screenshot)
     let comparison: ImageComparisonResult | undefined;
     const baselineToCompare = options?.baselineImagePath || baselineScreenshot?.absolutePath;
 
-    if (baselineToCompare && screenshot.size > 0) {
+    if (baselineToCompare) {
       logger.info('Baseline available, performing comparison', {
         baselineType: options?.baselineImagePath ? 'direct-path' : 'captured-screenshot',
         baselinePath: baselineToCompare,
       });
-      try {
-        comparison = await compareImages(screenshot.absolutePath, baselineToCompare);
-      } catch (error) {
-        logger.warn('Image comparison failed, continuing without comparison', {
-          error: (error as Error).message,
-        });
-      }
+      // A comparison was requested — if it can't be computed, the score must
+      // not silently degrade to capture-only 100. Let the error fail the
+      // dimension (compareImages now handles size mismatches by cropping,
+      // so a throw here means the baseline image is unreadable).
+      comparison = await compareImages(screenshot.absolutePath, baselineToCompare);
     }
 
     // Calculate score

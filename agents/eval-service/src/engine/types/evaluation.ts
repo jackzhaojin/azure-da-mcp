@@ -31,6 +31,16 @@ export interface AgentResult {
   score: number; // 0-100
   findings: Finding[];
   metadata: {
+    /**
+     * How the score was produced:
+     * - 'agentic'                — full pass: 0.7 × Claude + 0.3 × deterministic
+     * - 'deterministic-only'     — no Claude auth configured (expected degradation)
+     * - 'deterministic-fallback' — agentic pass attempted but FAILED (see modeReason)
+     * Absent on reports persisted before this field existed.
+     */
+    mode?: 'agentic' | 'deterministic-only' | 'deterministic-fallback';
+    /** Why the agentic pass didn't contribute (fallback/only modes). */
+    modeReason?: string;
     deterministic: {
       executedAt: string;
       durationMs: number;

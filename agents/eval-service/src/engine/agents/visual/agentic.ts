@@ -6,6 +6,7 @@
  */
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { requireAgentAuth, agenticAbort } from '@/lib/agent-auth';
 import type { TextBlockParam, ImageBlockParam, DocumentBlockParam } from '@anthropic-ai/sdk/resources/messages.mjs';
 import fs from 'fs';
 import { createLogger, Timer } from '@/lib/logger';
@@ -190,12 +191,7 @@ export async function analyzeVisualWithClaude(
   logger.info('Starting agentic visual analysis', { url: metrics.url });
 
   try {
-    // Verify OAuth token
-    if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-      const error = new Error('CLAUDE_CODE_OAUTH_TOKEN not found in environment');
-      logger.error('OAuth token missing', error);
-      throw error;
-    }
+    requireAgentAuth();
 
     // Format prompt with visual metrics
     const prompts = formatVisualForPrompt(metrics);
@@ -374,32 +370,40 @@ export async function analyzeVisualWithClaude(
     const messages: string[] = [];
 
     // PHASE 25: Use Agent SDK query() with programmatic MCP configuration
-    for await (const message of query({
-      prompt: generateMultimodalMessage(),
-      options: {
-        model: (process.env.CLAUDE_MODEL || 'claude-sonnet-4-6') as 'claude-sonnet-4-6' | 'claude-haiku-4-5-20250929',
-        maxTurns: 20, // Increased for multiple tool invocations
-        // PHASE 25: Remove settingSources - use programmatic MCP config instead
-        // settingSources: ['user', 'project'],
-        // PHASE 25: Configure MCP servers programmatically (environment-aware paths)
-        // Use getMCPServersConfig() to get correct paths for Docker vs local development
-        mcpServers: getMCPServersConfig(),
-        permissionMode: 'bypassPermissions' as const,
-        allowDangerouslySkipPermissions: true,
-        cwd: process.cwd(),
-      },
-    })) {
-      // Collect assistant responses and count tool usage
-      if (message.type === 'assistant' && 'message' in message && message.message?.content) {
-        for (const block of message.message.content) {
-          if (block.type === 'text' && block.text) {
-            messages.push(block.text);
-          }
-          if (block.type === 'tool_use') {
-            toolCallCount++;
+    // (deadline-bounded — a hung turn would otherwise hold a browser permit
+    // forever, see agent-auth.ts)
+    const deadline = agenticAbort('visual');
+    try {
+      for await (const message of query({
+        prompt: generateMultimodalMessage(),
+        options: {
+          model: (process.env.CLAUDE_MODEL || 'claude-sonnet-4-6') as 'claude-sonnet-4-6' | 'claude-haiku-4-5-20250929',
+          maxTurns: 20, // Increased for multiple tool invocations
+          // PHASE 25: Remove settingSources - use programmatic MCP config instead
+          // settingSources: ['user', 'project'],
+          // PHASE 25: Configure MCP servers programmatically (environment-aware paths)
+          // Use getMCPServersConfig() to get correct paths for Docker vs local development
+          mcpServers: getMCPServersConfig(),
+          permissionMode: 'bypassPermissions' as const,
+          allowDangerouslySkipPermissions: true,
+          cwd: process.cwd(),
+          abortController: deadline.controller,
+        },
+      })) {
+        // Collect assistant responses and count tool usage
+        if (message.type === 'assistant' && 'message' in message && message.message?.content) {
+          for (const block of message.message.content) {
+            if (block.type === 'text' && block.text) {
+              messages.push(block.text);
+            }
+            if (block.type === 'tool_use') {
+              toolCallCount++;
+            }
           }
         }
       }
+    } finally {
+      deadline.done();
     }
 
     // Create tool stats for metadata

@@ -57,6 +57,12 @@ export interface ImageComparisonResult {
   matches: boolean;
   /** Threshold used for comparison (0-1) */
   threshold: number;
+  /**
+   * Size disagreement between the two full-page screenshots, as a percentage
+   * of the larger dimension. Pixel comparison runs on the shared (cropped)
+   * region; a large height delta usually means content was added or lost.
+   */
+  dimensionsDelta?: { widthPct: number; heightPct: number };
 }
 
 /**
