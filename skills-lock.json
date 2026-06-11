@@ -7,6 +7,13 @@
       "skillPath": "skills/cloudflare/SKILL.md",
       "computedHash": "ecc9c0211c605451f7e8b437724f84810fe013d5ca6c653c51d046139d4ecbf7"
     },
+    "playwright-demo-video": {
+      "source": "jackzhaojin/ai-builder-kit",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/playwright-demo-video/SKILL.md",
+      "computedHash": "61f62ac650b4e2dfcf94ceb30d80465d7d18d32e9837fb5ae1e1771506af5d1a"
+    },
     "wrangler": {
       "source": "cloudflare/skills",
       "sourceType": "github",
