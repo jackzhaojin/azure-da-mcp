@@ -20,7 +20,7 @@ v2.0 "A2A agent platform" (v1.1.0 = legacy `content-authoring-eval`, frozen — 
 
 ## Gotchas / non-obvious (MOST IMPORTANT)
 - **THREE tiers, three commands** (run from `agents/`):
-  - `npm run test:e2e` → fast (`tests/`, 46 tests, **the CI tier**) — stub engine, no browsers, no API keys. **Run it BARE (no `.env` sourced)** — sourcing `.env` leaks the edge token / R2 creds / tunnel callback base into spawned agents and breaks the open-mode shim + makecom tests by design, not by bug.
+  - `npm run test:e2e` → fast (`tests/`, **the CI tier**) — stub engine, no browsers, no API keys. Safe to run with or without `.env` sourced: `startAgent` strips behavior-changing env (mesh/edge tokens, SSO, peer URLs, `EVAL_ENGINE`, D1 proxy, R2, Make.com) before spawning, so spawned agents are deterministic regardless of the invoking shell. A test that wants one of those vars passes it explicitly via `opts.env` (see `SANITIZED_ENV_VARS` in `helpers/mesh.ts`).
   - `npm run test:live` → live (`tests-live/`) — real engine, real Chromium/axe/screenshots, real R2; creds-gated
   - `npm run test:soak` → `tests-soak/full-loop-10x` — M4 DoD "10x run completes unattended"
 - **Live R2 + eval tests auto-skip without creds** — `describe.skipIf(!haveR2)` etc. A green `test:live` may mean *skipped*, not *passed*. R2 test needs `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` / `R2_PUBLIC_BASE` / (`R2_S3_ENDPOINT` | `R2_ACCOUNT_ID`).

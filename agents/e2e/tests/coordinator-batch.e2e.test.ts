@@ -115,12 +115,9 @@ describe("coordinator: eval-only batch via coordinate.run", () => {
   }, 60_000);
 
   it("serves domain reads at GET /store/runs and /store/runs/:id (the dashboard's data path)", async () => {
-    // /store/runs is edge-token gated when one is configured (mirrors /hooks) —
-    // include the bearer when the spawned agent inherited a token from env.
-    const edge = process.env.A2A_EDGE_TOKEN || process.env.A2A_MESH_TOKEN;
-    const headers: Record<string, string> = edge ? { Authorization: `Bearer ${edge}` } : {};
-
-    const listRes = await fetch(`${coordinator.url}/store/runs`, { headers });
+    // spawned agents get a sanitized env (helpers/mesh.ts), so this coordinator
+    // always runs in open mode; the token-gated path has its own suite below
+    const listRes = await fetch(`${coordinator.url}/store/runs`);
     expect(listRes.status).toBe(200);
     const { runs } = (await listRes.json()) as { runs: Array<{ id: string; kind: string; status: string; stats: RunStats | null }> };
     const batch = runs.find((r) => r.kind === "eval-batch" && r.status === "completed");
@@ -129,7 +126,7 @@ describe("coordinator: eval-only batch via coordinate.run", () => {
     // list view stays light — no branchResults
     expect((batch!.stats as unknown as Record<string, unknown>).branchResults).toBeUndefined();
 
-    const detailRes = await fetch(`${coordinator.url}/store/runs/${batch!.id}`, { headers });
+    const detailRes = await fetch(`${coordinator.url}/store/runs/${batch!.id}`);
     expect(detailRes.status).toBe(200);
     const { run } = (await detailRes.json()) as {
       run: { id: string; a2aTaskId: string | null; stats: RunStats; contextId: string };
@@ -138,13 +135,7 @@ describe("coordinator: eval-only batch via coordinate.run", () => {
     expect(run.a2aTaskId).toBeTruthy(); // joinable to tasks/get / tasks/resubscribe
     expect(run.contextId).toBeTruthy();
 
-    // when a token gates the route, no bearer must mean 401
-    if (edge) {
-      const denied = await fetch(`${coordinator.url}/store/runs`);
-      expect(denied.status).toBe(401);
-    }
-
-    const missing = await fetch(`${coordinator.url}/store/runs/not-a-run`, { headers });
+    const missing = await fetch(`${coordinator.url}/store/runs/not-a-run`);
     expect(missing.status).toBe(404);
   });
 
@@ -167,5 +158,34 @@ describe("coordinator: eval-only batch via coordinate.run", () => {
     }
     expect(finalState).toBe("failed");
     expect(note).toContain("unknown goal"); // route engine lists the valid routes
+  });
+});
+
+// /store/runs is edge-token gated when one is configured (mirrors /hooks).
+// Explicit gated spawn — never dependent on what the invoking shell exports.
+describe("coordinator: /store reads honor the edge token gate", () => {
+  const EDGE = "edge-secret-store";
+  let coordinator: AgentHandle;
+
+  beforeAll(async () => {
+    coordinator = await startAgent("coordinator", 14083, {
+      env: { A2A_EDGE_TOKEN: EDGE, COORDINATOR_UI: "off" },
+    });
+  });
+
+  afterAll(async () => {
+    await stopAgent(coordinator);
+  });
+
+  it("401 without a bearer, 200 with it", async () => {
+    const denied = await fetch(`${coordinator.url}/store/runs`);
+    expect(denied.status).toBe(401);
+
+    const ok = await fetch(`${coordinator.url}/store/runs`, {
+      headers: { Authorization: `Bearer ${EDGE}` },
+    });
+    expect(ok.status).toBe(200);
+    const { runs } = (await ok.json()) as { runs: unknown[] };
+    expect(Array.isArray(runs)).toBe(true);
   });
 });
