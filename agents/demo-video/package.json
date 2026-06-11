@@ -1,0 +1,13 @@
+{
+  "name": "demo-video",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Demo video recordings of the coordinator dashboard (playwright-demo-video skill). Not an npm workspace — install locally: npm install.",
+  "type": "module",
+  "scripts": {
+    "record": "playwright test --config=playwright.video.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}
