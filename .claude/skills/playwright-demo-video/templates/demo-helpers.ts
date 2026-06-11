@@ -14,7 +14,7 @@
  *   import { pause, scenicPause, quickPause, smoothScroll, setViewport, dragAndDrop } from './helpers';
  */
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
 // Pause helpers -- descriptive wrappers for timing control
@@ -58,6 +58,11 @@ export async function quickPause(page: Page, ms: number = 600): Promise<void> {
  * Smoothly scrolls an element into view using native smooth scroll behavior
  * rather than Playwright's instant jump.
  *
+ * IMPORTANT: `selector` must be a CSS selector — it is passed straight to
+ * document.querySelector. Playwright selector engines (text=, role=,
+ * getByRole etc.) will throw "not a valid selector". For those, use
+ * scrollToLocator() below.
+ *
  * Timing: 800ms (internal waitForTimeout for scroll animation).
  */
 export async function smoothScroll(page: Page, selector: string): Promise<void> {
@@ -67,6 +72,19 @@ export async function smoothScroll(page: Page, selector: string): Promise<void> 
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, selector);
+  await page.waitForTimeout(800);
+}
+
+/**
+ * Smooth-scroll variant that accepts any Playwright Locator, so text=,
+ * getByRole(), getByText() etc. all work (smoothScroll above is CSS-only).
+ *
+ * Timing: 800ms (internal waitForTimeout for scroll animation).
+ */
+export async function scrollToLocator(page: Page, locator: Locator): Promise<void> {
+  await locator
+    .first()
+    .evaluate((el) => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
   await page.waitForTimeout(800);
 }
 

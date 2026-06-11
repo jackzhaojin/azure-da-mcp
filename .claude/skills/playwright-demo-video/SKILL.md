@@ -99,6 +99,8 @@ test('demo scene 1 - landing page @demo', async ({ page }) => {
    ```
    Example: a 72-char caption → `caption(page, text, 5760)` not `caption(page, text, 3000)`. Short captions (< 40 chars) can use 3000ms.
 8. **Add a closing pause.** The last scene must include `await page.waitForTimeout(5000)` AFTER the final caption so the voiceover finishes before the Playwright recording ends. The merge script adds a tail freeze for safety, but the spec should still provide enough buffer.
+9. **Act before you narrate when UI state is ephemeral.** `caption()` blocks for seconds — live dashboards, "running now" cards, toasts, and progress banners can complete and disappear mid-caption, so a click queued after the caption targets an element that no longer exists. Assert the ephemeral element, click through to a stable destination page immediately, and put the captions there. (Real case: a job card that lived ~7s vanished during an 8s caption; the follow-up "Watch live" click timed out.)
+10. **Parameterize expensive real actions via env.** If the demo triggers something slow or costly (a real LLM run, a deploy, a paid API), select it with an env var (`const BACKEND = process.env.DEMO_BACKEND ?? 'dryrun'`) so scene iteration runs against the cheap path and only the final take pays. Gate the captions/assertions that only apply to the real path behind the same flag.
 
 ## Visual Verification (MANDATORY)
 
@@ -129,6 +131,9 @@ Known issues that cause demos to record error pages or blank screens:
 | Voiceover cut off | Narration abruptly stops mid-sentence near the end of the video | Playwright recording ends before voiceover finishes; `caption()` hold times too short for text length | Use `holdMs = max(textLength * 80, 3000)` for caption timing; add 5s `waitForTimeout` after the final caption |
 | **Video freezes, audio continues** | Video shows the same frame for the last 30-50% while voiceover keeps narrating different content | **Multiple `@demo` specs ran during `--record`**, mixing their `__CAPTION_TS__` markers into one log | Use `--grep "Exact Test Name"` to run only one spec — see below and [references/troubleshooting.md](references/troubleshooting.md) |
 | Wrong video for captions | Video shows content from a different demo while narration describes the intended demo | `findRecordedVideo()` picks the most recently modified `.webm` — the LAST test's video when multiple tests run | Pass `--video <path>` explicitly: `test-results/<test-folder>/video.webm` |
+| Spec crashes in `smoothScroll` | `SyntaxError: ... 'text=...' is not a valid selector` from `page.evaluate` | `smoothScroll()` passes the selector to `document.querySelector`, which only understands CSS — Playwright engines (`text=`, `role=`) throw | Use CSS selectors with `smoothScroll`, or `scrollToLocator(page, page.getByRole(...))` for Playwright locators |
+| Click times out on a vanished element | A click fails on an element that was just asserted visible (job card, toast, "watch live" link) | The element is ephemeral and a multi-second `caption()` ran between the assert and the click — the underlying state completed and the element unmounted | Click through to a stable page first, narrate there (Demo Script Writing Rule 9) |
+| App behind SSO / OAuth login | Recording shows the login page; Playwright can't complete Google/GitHub sign-in | Dashboard auth is enabled in the dev environment | Restart the app for the recording with the auth env vars unset (most dashboards treat unset = open), or seed a session cookie — never record the login wall |
 
 When any of these are detected during the pre-recording health check, fix the underlying issue before proceeding. **Never record a demo of a broken application.**
 
@@ -270,7 +275,7 @@ All scripts live in `scripts/` and use Node.js builtins only (zero npm dependenc
 Copy these into your target project.
 
 - **`templates/caption-overlay.ts`** — Caption CSS + `showCaption`/`hideCaption`/`caption` functions + `startTimestampRecording()`. When recording starts, each caption function emits `__CAPTION_TS__` markers to stdout that the pipeline parses for exact video-audio sync. extract-captions.mjs parses these function calls, so the naming convention matters.
-- **`templates/demo-helpers.ts`** — Demo pacing utilities: `pause`, `scenicPause`, `quickPause`, `smoothScroll`, `setViewport`, `naturalType`, `dragAndDrop`. Each has documented internal timing that extract-captions.mjs uses for timestamp estimation.
+- **`templates/demo-helpers.ts`** — Demo pacing utilities: `pause`, `scenicPause`, `quickPause`, `smoothScroll` (CSS selectors only), `scrollToLocator` (any Playwright Locator), `setViewport`, `naturalType`, `dragAndDrop`. Each has documented internal timing that extract-captions.mjs uses for timestamp estimation.
 - **`templates/playwright.video.config.ts`** — Playwright config optimized for video recording: headless mode, 1280x800 viewport, generous timeouts, sequential execution, auto-start dev server.
 
 ## Reference Files

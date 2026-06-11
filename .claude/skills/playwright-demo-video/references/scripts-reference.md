@@ -186,6 +186,7 @@ Used by extract-captions.mjs heuristic mode (fallback when `startTimestampRecord
 | `scenicPause(page, N)` | N/1000 s (default 1800ms) |
 | `quickPause(page, N)` | N/1000 s (default 600ms) |
 | `smoothScroll(...)` | 0.8 s |
+| `scrollToLocator(...)` | 0.8 s |
 | `setViewport(...)` | 0.4 s |
 | `dragAndDrop(..., {holdMs})` | holdMs*2 + 300 ms |
 | `page.goto(...)` | 1.0 s (estimated) |
