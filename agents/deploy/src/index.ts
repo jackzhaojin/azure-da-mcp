@@ -74,7 +74,7 @@ function commonEnv(env: Env): Record<string, string> {
 
 export class CoordinatorContainer extends Container<Env> {
   defaultPort = 8080;
-  sleepAfter = "15m";
+  sleepAfter = "30m"; // dashboard host — longer window so demo browsing stays warm
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.envVars = {
