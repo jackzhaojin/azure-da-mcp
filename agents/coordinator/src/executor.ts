@@ -272,17 +272,26 @@ async function runPipelineBranch(opts: {
   runId: string;
   target?: string; // evaluate-only routes: the page to score
   onStage: (note: string) => void;
+  /** Live snapshot of this branch after every stage transition (for runs.live). */
+  onUpdate?: (snapshot: BranchResult) => void;
 }): Promise<BranchResult> {
-  const { branch, route, payload, contextId, runId, target, onStage } = opts;
-  const result: BranchResult = { branch, state: "completed", stages: [], target };
+  const { branch, route, payload, contextId, runId, target, onStage, onUpdate } = opts;
+  const result: BranchResult = { branch, state: "running", stages: [], target };
   let sourceUrl = payload.sourceLocation;
   let targetUrl = target ?? payload.alreadyMigratedUrl;
+  onUpdate?.({ ...result, stages: [...result.stages] });
 
   for (const stage of route) {
     const t0 = Date.now();
     let call: Awaited<ReturnType<typeof callAgent>>;
     let agent = "";
     const forwardNote = (note: string) => onStage(`branch ${branch} · ${stage}: ${note}`);
+
+    // mark the stage as in-flight before calling the agent — this is what the
+    // dashboard's live branch grid renders while the run executes
+    const stageAgent = stage === "generate" ? "content-gen" : stage === "migrate" ? "migration" : "eval";
+    result.stages.push({ stage, agent: stageAgent, state: "working", durationMs: 0 });
+    onUpdate?.({ ...result, stages: [...result.stages] });
 
     if (stage === "generate") {
       agent = "content-gen";
@@ -341,18 +350,30 @@ async function runPipelineBranch(opts: {
       }
     }
 
-    result.stages.push({ stage, agent, taskId: call.taskId, state: call.state, durationMs: Date.now() - t0, ...(call.error ? { error: call.error } : {}) });
+    // replace the in-flight placeholder with the real stage outcome
+    result.stages[result.stages.length - 1] = {
+      stage,
+      agent,
+      taskId: call.taskId,
+      state: call.state,
+      durationMs: Date.now() - t0,
+      ...(call.error ? { error: call.error } : {}),
+    };
     onStage(`branch ${branch} · ${stage}: ${call.state}${call.error ? ` — ${call.error.slice(0, 120)}` : ""}`);
 
     if (call.state !== "completed") {
       result.state = "failed";
       result.error = call.error ?? `${stage} stage ${call.state}`;
+      onUpdate?.({ ...result, stages: [...result.stages] });
       break; // failFast within the branch; other branches continue
     }
+    onUpdate?.({ ...result, stages: [...result.stages] });
   }
 
+  if (result.state === "running") result.state = "completed";
   result.sourceUrl = sourceUrl;
   result.target = targetUrl ?? result.target;
+  onUpdate?.({ ...result, stages: [...result.stages] });
   return result;
 }
 
@@ -437,6 +458,19 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
           .catch(() => {});
       };
 
+      // Live branch snapshots → runs.live, so the dashboard renders the
+      // branch/stage grid WHILE the run executes (stats.branchResults only
+      // exist after completion). Best-effort, same rule as progress notes.
+      const liveBranches = new Map<number, BranchResult>();
+      const persistLive = (snapshot: BranchResult) => {
+        liveBranches.set(snapshot.branch, snapshot);
+        const ordered = [...liveBranches.values()].sort((a, b) => a.branch - b.branch);
+        void db
+          .prepare("update runs set live = ? where id = ?")
+          .run(JSON.stringify(ordered), runId)
+          .catch(() => {});
+      };
+
       // evaluate-only fans out per target; pipeline routes fan out per fanOut
       const evaluateOnly = route.length === 1 && route[0] === "evaluate";
       const targets = evaluateOnly ? (payload.targets ?? [payload.alreadyMigratedUrl!]) : [undefined];
@@ -464,6 +498,7 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
                     bus.publish(status("working", note));
                     persistNote(note);
                   },
+                  onUpdate: persistLive,
                 })
               ) as Promise<BranchResult>
           )
@@ -473,7 +508,8 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
         const runStatus = stats.failed === 0 ? "completed" : "completed_with_failures";
         // branchResults ride along in the stats JSON so the UI can render the
         // branch/stage grid from the store (the A2A artifact isn't persisted here).
-        await db.prepare("update runs set status = ?, stats = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(
+        // live is cleared — stats.branchResults is the durable record now
+        await db.prepare("update runs set status = ?, stats = ?, live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(
           runStatus,
           JSON.stringify({ ...stats, branchResults: results }),
           runId
@@ -492,7 +528,10 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
         bus.publish(status("completed", undefined, true));
         log.info("coordinate.run completed", { a2a_task_id: taskId, run_id: runId, route: route.join("→"), ...stats.overall, failed: stats.failed });
       } catch (err) {
-        await db.prepare("update runs set status = 'failed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(runId);
+        // persist WHY — a failed run with no reason is undebuggable from the UI
+        await db
+          .prepare("update runs set status = 'failed', error = ?, live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?")
+          .run(String(err).slice(0, 2000), runId);
         bus.publish(status("failed", String(err), true));
         log.error("coordinate.run failed", { a2a_task_id: taskId, run_id: runId, error: String(err) });
       } finally {

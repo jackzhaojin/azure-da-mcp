@@ -48,7 +48,11 @@ for (const row of interrupted) {
   void taskStore.save(task);
   log.warn("marked interrupted coordinate.run as failed (resubmit the batch)", { a2a_task_id: task.id });
 }
-await db.prepare("update runs set status = 'failed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where status = 'running'").run();
+await db
+  .prepare(
+    "update runs set status = 'failed', error = 'interrupted by a coordinator restart — resubmit the run', live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where status = 'running'"
+  )
+  .run();
 
 // ── Next.js dashboard, same process + port ─────────────────────────────────
 // The A2A wire surface above is served by the exact same Express middleware as

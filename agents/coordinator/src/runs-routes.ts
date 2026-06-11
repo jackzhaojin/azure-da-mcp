@@ -1,11 +1,14 @@
 import type express from "express";
-import type { StoreDb } from "@agents/a2a-common";
+import { meshClientFactory, type StoreDb } from "@agents/a2a-common";
 
 /**
  * Domain read endpoints, owned by the A2A layer (the store's only owner):
- *   GET /store/runs            → { runs }  light list (no branchResults, trimmed progress)
- *   GET /store/runs?contextId= → { run }   resolve a trigger's contextId to its run
- *   GET /store/runs/:id        → { run }   full detail (branchResults, full progress, a2aTaskId)
+ *   GET /store/runs                 → { runs }     light list (no branchResults, trimmed progress)
+ *   GET /store/runs?contextId=      → { run }      resolve a trigger's contextId to its run
+ *   GET /store/runs/:id             → { run }      full detail (branchResults, full progress, a2aTaskId)
+ *   GET /store/evidence/:evalTaskId → { evidence } the eval report behind a branch score —
+ *                                     fetched live from the eval agent via A2A tasks/get
+ *                                     (the report artifact rides on the eval task)
  *
  * The Next.js dashboard consumes these over loopback HTTP — it has NO database
  * access of its own. Bearer-gated by the edge token when one is configured
@@ -23,13 +26,15 @@ interface RunRow {
   status: string;
   stats: string | null;
   progress: string | null;
+  live: string | null;
+  error: string | null;
   context_id: string | null;
   user_email: string | null;
   created_at: string;
   completed_at: string | null;
 }
 
-const COLS = "id, kind, config, status, stats, progress, context_id, user_email, created_at, completed_at";
+const COLS = "id, kind, config, status, stats, progress, live, error, context_id, user_email, created_at, completed_at";
 const LIST_PROGRESS_TAIL = 10; // dashboard cards show the last few notes; keep list payloads light
 
 function parseJson<T>(raw: string | null, fallback: T): T {
@@ -60,6 +65,9 @@ function toView(row: RunRow, { full = false } = {}) {
     config: parseJson<Record<string, unknown>>(row.config, {}),
     stats,
     progress,
+    // live branch/stage snapshots while running (null once stats land)
+    liveBranches: parseJson<Array<Record<string, unknown>> | null>(row.live, null),
+    error: row.error,
   };
 }
 
@@ -97,6 +105,57 @@ export function mountRunsRoutes(ctx: { app: express.Express; db: StoreDb; edgeTo
       res.json({ runs: rows.map((r) => toView(r)) });
     } catch (err) {
       res.status(500).json({ error: String(err) });
+    }
+  });
+
+  const EVAL_AGENT_URL = process.env.EVAL_AGENT_URL ?? "http://localhost:4001";
+
+  interface EvalDimensionResult {
+    score: number;
+    findings?: Array<{ dimension: string; severity: string; issue: string; recommendation: string }>;
+    metadata?: { mode?: string; modeReason?: string; screenshot?: { path?: string; url?: string } };
+  }
+
+  app.get("/store/evidence/:evalTaskId", async (req, res) => {
+    if (!guard(req, res)) return;
+    try {
+      const client = await meshClientFactory().createFromUrl(EVAL_AGENT_URL);
+      const task = await client.getTask({ id: req.params.evalTaskId });
+      const part = (task.artifacts ?? []).flatMap((a) => a.parts).find((p) => p.kind === "data");
+      if (!part || part.kind !== "data") return res.status(404).json({ error: "no eval artifact on this task" });
+      const data = part.data as {
+        overallScore?: number;
+        grade?: string;
+        report?: {
+          summary?: { overallScore: number; grade: string; passedDimensions: number; totalDimensions: number };
+          results?: Record<string, EvalDimensionResult | undefined>;
+          findings?: Array<{ dimension: string; severity: string; issue: string; recommendation: string }>;
+        };
+      };
+      const results = data.report?.results ?? {};
+      const dimensions = Object.entries(results)
+        .filter((e): e is [string, EvalDimensionResult] => Boolean(e[1]))
+        .map(([dimension, r]) => ({
+          dimension,
+          score: r.score,
+          mode: r.metadata?.mode,
+          modeReason: r.metadata?.modeReason,
+          screenshotUrl: r.metadata?.screenshot?.url,
+          findings: (r.findings ?? []).slice(0, 12),
+        }));
+      // skip/fail notes live only at report level (their dimension has no result)
+      const notes = (data.report?.findings ?? []).filter((f) => !results[f.dimension]);
+      res.json({
+        evidence: {
+          overallScore: data.overallScore,
+          grade: data.grade,
+          summary: data.report?.summary,
+          dimensions,
+          notes,
+        },
+      });
+    } catch (err) {
+      res.status(502).json({ error: `evidence fetch failed: ${String(err)}` });
     }
   });
 

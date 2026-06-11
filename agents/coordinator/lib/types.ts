@@ -18,7 +18,9 @@ export interface BranchResult {
   branch: number;
   target?: string;
   sourceUrl?: string;
+  /** running (live snapshots) | completed | failed */
   state: string;
+  evalTaskId?: string;
   overallScore?: number;
   dimensionScores?: Record<string, number>;
   confidence?: number;
@@ -67,6 +69,10 @@ export interface RunView {
   } & Record<string, unknown>;
   stats: RunStats | null;
   progress: ProgressNote[];
+  /** Per-branch stage snapshots while the run executes; null once stats land. */
+  liveBranches?: BranchResult[] | null;
+  /** Why a failed run failed (status='failed'). */
+  error?: string | null;
 }
 
 export interface MeshStatus {

@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Loader2 } from "lucide-react";
-import type { HistoryEntry } from "@/lib/types";
+import { Rocket, Loader2, AlertTriangle } from "lucide-react";
+import { usePoll } from "@/lib/hooks";
+import type { HistoryEntry, MeshStatus, RunView } from "@/lib/types";
 
 const GOALS = [
   { value: "full-loop", label: "Full loop — generate → migrate → evaluate" },
@@ -25,6 +26,18 @@ const BACKENDS = [
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
+/** Which downstream agents a route actually needs (mesh ids from /api/mesh). */
+function requiredAgents(goal: string): string[] {
+  switch (goal) {
+    case "evaluate":
+      return ["eval"];
+    case "generate+migrate":
+      return ["content-gen", "migration"];
+    default: // full-loop, auto
+      return ["content-gen", "migration", "eval"];
+  }
+}
+
 export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry) => void }) {
   const [goal, setGoal] = useState<string>("full-loop");
   const [topic, setTopic] = useState("");
@@ -36,6 +49,9 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
   const [owner, setOwner] = useState("jackzhaojin");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: mesh } = usePoll<MeshStatus>("/api/mesh", 10000);
+  const downAgents = requiredAgents(goal).filter((id) => mesh?.agents.some((a) => a.id === id && !a.up));
 
   const evaluateOnly = goal === "evaluate";
   const realBackend = backend !== "dryrun" && !evaluateOnly;
@@ -61,10 +77,25 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = (await res.json()) as { runId?: string; error?: string };
-      if (!res.ok || !json.runId) throw new Error(json.error ?? "trigger failed (no run id)");
+      const json = (await res.json()) as { runId?: string; contextId?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `trigger failed (HTTP ${res.status})`);
+
+      // The run was accepted (we have a contextId) — the runs row usually
+      // resolves within the server's wait, but under load it can land late.
+      // Keep resolving client-side instead of reporting a false failure.
+      let runId = json.runId;
+      if (!runId && json.contextId) {
+        for (let i = 0; i < 10 && !runId; i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          const lookup = await fetch(`/api/runs?contextId=${encodeURIComponent(json.contextId)}`, { cache: "no-store" });
+          const found = (await lookup.json().catch(() => null)) as { run?: RunView | null } | null;
+          runId = found?.run?.id;
+        }
+      }
+      if (!runId) throw new Error("run submitted but not yet visible — it should appear in Recent runs shortly");
+
       onTriggered({
-        runId: json.runId,
+        runId,
         goal,
         label: evaluateOnly ? targets.split(/\n+/)[0]?.trim() ?? "evaluation" : topic || "untitled run",
         backend: evaluateOnly ? undefined : backend,
@@ -178,6 +209,16 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
                 </div>
               )}
             </>
+          )}
+
+          {downAgents.length > 0 && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                This route needs <span className="font-semibold">{downAgents.join(", ")}</span> — currently unreachable. The run
+                will fail at that stage unless the agent comes back.
+              </span>
+            </div>
           )}
 
           {error && <div className="p-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">{error}</div>}

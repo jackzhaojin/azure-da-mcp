@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge, ScoreText } from "@/components/StatusBadge";
 import { TriggerCard } from "@/components/TriggerCard";
 import { usePoll, useRunHistory, useElapsed } from "@/lib/hooks";
+import { fmtLocal } from "@/lib/utils";
 import type { RunView, MeshStatus, HistoryEntry } from "@/lib/types";
-import { Activity, History, Trash2, ArrowRight } from "lucide-react";
+import { Activity, History, Trash2, ArrowRight, CheckCircle, XCircle, Loader2, Rocket } from "lucide-react";
 
 function MeshChips() {
   const { data } = usePoll<MeshStatus>("/api/mesh", 10000);
@@ -26,6 +27,43 @@ function MeshChips() {
           <span className={`h-1.5 w-1.5 rounded-full ${a.up ? "bg-green-600" : "bg-red-600"}`} />
           {a.id}
         </span>
+      ))}
+    </div>
+  );
+}
+
+/** Compact per-branch stage pipeline for the running card (from runs.live). */
+function LiveStageRows({ run }: { run: RunView }) {
+  const branches = run.liveBranches ?? [];
+  if (branches.length === 0) return null;
+  return (
+    <div className="mb-3 space-y-1.5">
+      {branches.map((b) => (
+        <div key={b.branch} className="flex items-center gap-2 text-xs">
+          <span className="w-16 shrink-0 font-mono text-muted-foreground">branch {b.branch}</span>
+          <div className="flex flex-wrap gap-1.5">
+            {b.stages.map((s) => {
+              const ok = s.state === "completed";
+              const failed = s.state === "failed" || s.state === "canceled" || s.state === "rejected";
+              return (
+                <span
+                  key={s.stage}
+                  className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+                    ok
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : failed
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : "bg-blue-50 text-blue-700 border-blue-200"
+                  }`}
+                >
+                  {ok ? <CheckCircle className="h-2.5 w-2.5" /> : failed ? <XCircle className="h-2.5 w-2.5" /> : <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                  {s.stage}
+                </span>
+              );
+            })}
+          </div>
+          {b.overallScore !== undefined && <ScoreText score={b.overallScore} className="text-xs ml-auto" />}
+        </div>
       ))}
     </div>
   );
@@ -51,6 +89,7 @@ function RunningCard({ run }: { run: RunView }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <LiveStageRows run={run} />
         <div className="space-y-1 p-3 bg-white rounded-md border font-mono text-xs text-muted-foreground">
           {tail.length === 0 && <div>starting…</div>}
           {tail.map((n, i) => (
@@ -71,15 +110,12 @@ function RunningCard({ run }: { run: RunView }) {
   );
 }
 
-function fmt(ts: string): string {
-  return ts.replace("T", " ").slice(0, 19);
-}
-
 export function Dashboard() {
-  const { data } = usePoll<{ runs: RunView[] }>("/api/runs", 2500);
+  const { data, error, lastUpdated } = usePoll<{ runs: RunView[] }>("/api/runs", 2500);
   const runs = data?.runs ?? [];
   const running = runs.filter((r) => r.status === "running");
   const { history, add, update, clear } = useRunHistory();
+  const loading = !data && !error;
 
   // Reconcile browser history with store outcomes (terminal status + score).
   useEffect(() => {
@@ -100,8 +136,20 @@ export function Dashboard() {
           <h1 className="text-3xl font-bold">Coordinator</h1>
           <p className="text-muted-foreground mt-2">Trigger pipeline runs, watch them live, and compare results across the mesh.</p>
         </div>
-        <MeshChips />
+        <div className="flex flex-col items-end gap-2">
+          <MeshChips />
+          <span className="text-[11px] text-muted-foreground font-mono">
+            {error ? "refresh failing" : lastUpdated ? `updated ${lastUpdated.toLocaleTimeString()}` : "loading…"} · auto-refresh 2.5s
+          </span>
+        </div>
       </div>
+
+      {error && (
+        <div className="p-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
+          Can&apos;t reach the coordinator ({error}) — showing the last data received
+          {lastUpdated ? ` at ${lastUpdated.toLocaleTimeString()}` : ""}.
+        </div>
+      )}
 
       {running.length > 0 ? (
         <div className="space-y-4">
@@ -122,8 +170,20 @@ export function Dashboard() {
           <CardDescription>Everything the coordinator has executed (from the store — survives restarts).</CardDescription>
         </CardHeader>
         <CardContent>
-          {runs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No runs yet — start one above.</p>
+          {loading ? (
+            <div className="space-y-2 animate-pulse">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-9 rounded-md bg-gray-100" />
+              ))}
+            </div>
+          ) : runs.length === 0 ? (
+            <div className="py-10 text-center space-y-2">
+              <Rocket className="h-8 w-8 mx-auto text-muted-foreground/50" />
+              <p className="text-sm font-medium">No runs yet</p>
+              <p className="text-sm text-muted-foreground">
+                Start one above — try a full loop with the dryrun backend for an instant end-to-end demo.
+              </p>
+            </div>
           ) : (
             <div className="rounded-md border">
               <Table>
@@ -141,7 +201,7 @@ export function Dashboard() {
                 <TableBody>
                   {runs.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="font-mono text-xs whitespace-nowrap">{fmt(r.createdAt)}</TableCell>
+                      <TableCell className="font-mono text-xs whitespace-nowrap">{fmtLocal(r.createdAt)}</TableCell>
                       <TableCell className="max-w-64 truncate">
                         <Link href={`/runs/${r.id}`} className="hover:underline font-medium">
                           {r.config.topic ?? r.config.targets?.[0] ?? r.kind}
@@ -149,7 +209,7 @@ export function Dashboard() {
                       </TableCell>
                       <TableCell className="font-mono text-xs">{r.stats?.route ?? r.config.goal ?? r.kind}</TableCell>
                       <TableCell className="text-xs">{r.config.backend ?? "—"}</TableCell>
-                      <TableCell>
+                      <TableCell title={r.error ?? undefined}>
                         <StatusBadge status={r.status} />
                       </TableCell>
                       <TableCell className="text-right">
@@ -195,7 +255,7 @@ export function Dashboard() {
                       {h.label}
                     </Link>
                     <span className="text-xs text-muted-foreground font-mono">
-                      {fmt(h.triggeredAt)} · {h.goal}
+                      {fmtLocal(h.triggeredAt)} · {h.goal}
                       {h.backend ? ` · ${h.backend}` : ""}
                     </span>
                   </div>
