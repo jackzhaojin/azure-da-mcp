@@ -1,16 +1,13 @@
 name: Deploy Content Authoring Eval to Oracle VM
 
-# Triggers only on version tags (v*) for deterministic releases
-# Deploys when:
-# 1. A version tag (v1.0.0, v1.0.1, etc.) is pushed
-# 2. Tag includes changes to content-authoring-eval/** or this workflow file
+# Triggers only on v1.x version tags — the frozen content-authoring-eval line (D5).
+# v2.x+ tags belong to the agents/ A2A platform and must NOT deploy this app.
+# NOTE: GitHub ignores `paths` filters on tag pushes, so the tag pattern is the
+# only effective gate here. Keep it scoped to v1.*.
 on:
   push:
     tags:
-      - 'v*'
-    paths:
-      - 'content-authoring-eval/**'
-      - '.github/workflows/deploy-content-authoring-eval.yml'
+      - 'v1.*'
   workflow_dispatch:
 
 env:

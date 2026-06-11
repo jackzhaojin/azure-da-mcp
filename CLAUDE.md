@@ -227,7 +227,7 @@ gh release create v1.0.3 --generate-notes
 
 ### Deployment Mechanics
 
-**Workflow**: `.github/workflows/deploy-content-authoring-eval.yml` — triggered by `push: tags: ['v*']` *and* the tag touching `content-authoring-eval/**` or the workflow file itself.
+**Workflow**: `.github/workflows/deploy-content-authoring-eval.yml` — triggered by `push: tags: ['v1.*']` only (the frozen v1.x line). GitHub ignores `paths` filters on tag pushes, so the tag pattern is the only effective gate — `v2.x+` tags (the agents/ platform) deliberately do NOT match and trigger no Oracle deploy.
 
 1. Multi-arch Docker build (`linux/amd64,linux/arm64`) from `content-authoring-eval/Dockerfile`
 2. Push to GHCR: `ghcr.io/jackzhaojin/azure-da-mcp/content-authoring-eval:vX.Y.Z` + `:latest`

@@ -111,7 +111,7 @@ git pull
 Deployment to Oracle Cloud VM is automated via GitHub Actions:
 
 **Trigger**:
-- A `v*` tag is pushed AND the tag's commit touches `content-authoring-eval/**` or the workflow file itself
+- A `v1.*` tag is pushed (the frozen v1.x line — `v2.x+` tags belong to the `agents/` platform and never deploy this app). GitHub ignores `paths` filters on tag pushes, so the tag pattern is the only effective gate.
 - Manual via `workflow_dispatch` (handy for re-deploying without a new tag)
 
 **Workflow**: `.github/workflows/deploy-content-authoring-eval.yml`
@@ -194,10 +194,10 @@ If a future minor version needs an LTS line (e.g., supporting both `v1.x` and `v
 
 ### v2.0: A2A Agent Platform Line (2026-06)
 
-The `agents/` A2A platform is the **v2.0** line — a ground-up re-architecture (a mesh of A2A servers), hence a **major** bump rather than a feature increment on v1.x. Today it is **not yet tagged or deployed**: deployment is the last milestone (D6), and it currently runs locally + via a `cloudflared` tunnel. When it's ready to ship (Cloudflare Containers, M5), it gets its own `v2.x` tags from `main`.
+The `agents/` A2A platform is the **v2.0** line — a ground-up re-architecture (a mesh of A2A servers), hence a **major** bump rather than a feature increment on v1.x. It **deployed to Cloudflare Workers + Containers on 2026-06-10** (M5): deploys happen via `wrangler` from `agents/deploy/`, not via any GitHub Actions workflow. `v2.x` tags from `main` mark releases of the platform but trigger no automation.
 
-- **v1.x** (`v1.1.0`) — legacy `content-authoring-eval` on Oracle; **frozen backup** (D5). Its tag-triggered deploy is the only automated deploy today.
-- **v2.x** — the agents platform; version tracked in `agents/package.json` (`2.0.0`). Deploy mechanics TBD at M5 (separate from the v1.x Oracle workflow — never trigger `deploy-content-authoring-eval.yml` for platform work).
+- **v1.x** (`v1.1.0`) — legacy `content-authoring-eval` on Oracle; **frozen backup** (D5). Its deploy workflow is scoped to `v1.*` tags only.
+- **v2.x** — the agents platform; version tracked in `agents/package.json` (`2.0.0`). Deployed manually with `wrangler deploy` (see `agents/deploy/CLAUDE.md`) — never trigger `deploy-content-authoring-eval.yml` for platform work.
 
 ## Related Documentation
 
