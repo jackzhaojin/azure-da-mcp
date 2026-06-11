@@ -1,40 +1,62 @@
 # agents/ — A2A Agent Platform (v2.0)
 
-The flagship **v2.0** platform: a decoupled mesh of A2A agents (generate → migrate → evaluate, intelligently routed). One Express A2A server per agent (D4); local-first, Cloudflare Containers at M5 (D6); `content-authoring-eval/` is the **frozen v1.x backup** and not part of this system (D5).
+The flagship **v2.0** platform: a decoupled mesh of A2A agents (generate → migrate → evaluate, intelligently routed), built for the adaptTo() 2026 demo. One Express A2A server per agent (D4). **Deployed on Cloudflare Workers + Containers since 2026-06-10** (M5/D6) — and still fully runnable locally with zero cloud dependencies. `content-authoring-eval/` is the **frozen v1.x backup** and not part of this system (D5).
 
-**Docs**: [build report (as-built)](../ai-docs/2026-06-08-a2a-platform-v2.0/) · [PRD / plan](../ai-docs/2026-06-05-a2a-agent-platform/) · [dev hub `CLAUDE.md`](./CLAUDE.md) · each workspace below has its own `CLAUDE.md`.
+**Docs**: [build report (as-built)](../ai-docs/2026-06-08-a2a-platform-v2.0/) — see especially [07: the M5 deployment chronicle](../ai-docs/2026-06-08-a2a-platform-v2.0/07-m5-cloudflare-deployment.md) · [PRD / plan](../ai-docs/2026-06-05-a2a-agent-platform/) · [dev hub `CLAUDE.md`](./CLAUDE.md) · [deploy runbook](./deploy/CLAUDE.md) · each workspace below has its own `CLAUDE.md`.
+
+---
+
+## Live deployment
+
+| URL | What |
+|---|---|
+| **https://content-factor-dash.xpri.ai** | The coordinator dashboard — Google SSO, trigger runs, live agent activity, branch grids, variance. Runs you trigger are tied to your Google identity (`runs.user_email`). |
+| `https://content-factory.xpri.ai` | Coordinator A2A surface (`/a2a` mesh-token gated, `/store/runs` edge-token gated, agent card + `/health` public) |
+| `https://content-factory-eval.xpri.ai` | Eval agent (real engine: Chromium + axe + agentic Claude tiers) |
+| `https://content-factory-gen.xpri.ai` | Content-gen agent (synthetic legacy sources → R2) |
+| `https://content-factory-migrate.xpri.ai` | Migration agent (dryrun / makecom / **opencode = Kimi K2.6**) |
+
+Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#cost-model--sleep-behavior)) and cold-start in ~5–30s on the next request. The first dashboard hit after a quiet period takes a few extra seconds — that's the deal.
+
+**Acceptance status (2026-06-10)**: cloud e2e **4/4**, including the headline — Kimi K2.6, running inside the migration container, authored and preview-published a real da.live page in a ~9-minute agentic turn, and the real eval engine (deterministic + agentic Claude tiers, in-container) scored it **91** (structure 83 / accessibility 100 / content 79 / visual 100), watched live in the dashboard.
+
+---
 
 ## Layout
 
-| Package | Port | What |
+| Package | Local port | What |
 |---|---|---|
-| `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), SQLite/D1 store adapter + migrations, **push notifications (SQLite-backed config store)**, **mesh bearer auth** (`A2A_MESH_TOKEN`), **edge webhook shim** (`POST /hooks/{agent}/{skill}`), mesh-aware client factory, structured logging. |
-| `eval-service/` | 4001 | Eval agent — real engine (copied from frozen app), job queue, browser semaphore, `eval.run` executor; visual screenshots stored to R2 (public r2.dev) when configured, else a local stand-in; `EVAL_ENGINE=stub` for the fake |
-| `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources stored to R2 (public r2.dev) when configured, else a local stand-in |
-| `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): **routed pipelines** — `evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto` (deterministic state-table routing) with fan-out + **variance stats**; forwards child working-notes (live `K2.6 → <tool>` observability); CLI `hello` + `batch` + `loop`; **+ its own Next.js dashboard on the same port** (`:4004/` — trigger, live activity feed, branch grid, localStorage history; Next backend is database-free over `/store/runs`) |
+| `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), **the dual-driver store seam** (`StoreDb`: better-sqlite3 locally / D1-via-Worker-proxy in containers) + migrations, push notifications (store-backed), mesh bearer auth (`A2A_MESH_TOKEN`), edge webhook shim (`POST /hooks/{agent}/{skill}`), mesh-aware client factory, structured logging |
+| `eval-service/` | 4001 | Eval agent — real engine (copied from the frozen app), job queue, browser semaphore, `eval.run` executor; screenshots → R2; `EVAL_ENGINE=stub` for the fake; heartbeats while queued *and* evaluating; restart rebuild with a 30-min age guard |
+| `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources → R2 (public r2.dev) |
+| `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), `makecom` (webhook out → callback in, restart-tolerant), **`opencode` (Kimi K2.6 via `opencode serve` — reuses the `da-live-author-playwright` skill + da.live/Playwright MCP; verified against real da.live, locally AND in-container)**, `sdk` (M3) |
+| `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): routed pipelines (`evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto`) with fan-out + variance stats; **stream-cut recovery via `tasks/get`** + cold-start retries; CLI `hello`/`batch`/`loop`; **+ the Next.js dashboard on the same port** (Google SSO via Auth.js, per-user runs, live activity, database-free backend over `/store/runs`) |
+| `deploy/` | — | **The M5 Cloudflare deployment** (standalone, NOT an npm workspace — wrangler needs Node 22): the `content-factory` Worker, four Dockerfiles, wrangler config. See [deploy/CLAUDE.md](./deploy/CLAUDE.md) |
 | `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
-| `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), **`makecom` (primary — webhook out → `/callbacks/makecom/{taskId}` in, restart-tolerant; needs only the tunnel + scenario URLs)**, **`opencode` (Kimi K2.6 via `opencode serve` — reuses the `da-live-author-playwright` skill + da.live/Playwright MCP; verified end-to-end against real da.live)**, `sdk` (M3) |
-| `ui/` | 3000 | **Legacy** thin Next.js dashboard (M4 scaffold): shared-secret auth (middleware), Runs list + run detail, Trigger (`goal: evaluate` only). Superseded by the coordinator's own dashboard on `:4004/` |
-| `store-mcp/` | — | Read-only MCP server (stdio) over the coordinator + eval stores: conversational store queries via MCP (oq #8) — `list_runs` / `get_run` / `list_eval_reports` / `query_store` (single-SELECT escape hatch). The adaptTo() "ask Claude about run results in natural language" moment |
-| `e2e/` | 14xxx | E2E suite (vitest) — real servers, real A2A over HTTP, no mocks |
+| `ui/` | 3000 | **Legacy** thin dashboard — superseded by the coordinator's own dashboard; reads local SQLite directly so it cannot run against the cloud store |
+| `store-mcp/` | stdio | Read-only MCP server over the local stores — "ask Claude about run results in natural language" |
+| `e2e/` | 14xxx | E2E suites (vitest) — real servers, real A2A over HTTP, no mocks: **fast**, **live**, **soak**, and **cloud** tiers |
 
-## Run the walking skeleton
+---
+
+## Run it locally (unchanged by the cloud deploy)
+
+Local dev uses SQLite + localhost ports — no Cloudflare dependency, no behavior drift (same SQL, same code paths; the store driver is selected by env).
 
 ```bash
-npm install
-npm run dev:eval          # terminal 1 → :4001 (real engine; EVAL_ENGINE=stub for fakes)
-npm run dev:content-gen   # terminal 2 → :4002
-npm run dev:migration     # terminal 3 → :4003 (dryrun backend by default)
-npm run dev:coordinator   # terminal 4 → :4004
-npm run dev:ui            # terminal 5 → :3000 (set UI_PASSWORD to enable auth)
-npm run hello             # mesh smoke: cards + one task through each agent
+npm install                      # Node 20
+set -a; source .env; set +a      # cp .env.example .env first; secrets gitignored
+npm run dev:eval                 # :4001 (real engine; EVAL_ENGINE=stub for fakes)
+npm run dev:content-gen          # :4002
+npm run dev:migration            # :4003 (dryrun backend by default)
+npm run dev:coordinator          # :4004 (A2A + dashboard at http://localhost:4004/)
+
+npm run hello                    # mesh smoke: cards + one task through each agent
 npm run batch -- https://example.com https://example.org --fan-out 2
-                          # eval-only batch via coordinate.run → variance stats
 npm run loop -- "ski wax temperature guide" --fan-out 2 --legacy-style messy
-                          # THE CLOSED LOOP: generate → migrate (dryrun) → eval (real engine)
+                                 # THE CLOSED LOOP: generate → migrate (dryrun) → eval (real engine)
 npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner jackzhaojin
-                          # the REAL loop: Kimi K2.6 authors + publishes an actual da.live page (~10 min)
-# coordinator dashboard: http://localhost:4004/  (trigger runs, watch tool/skill activity live)
+                                 # the REAL loop: Kimi K2.6 authors an actual da.live page (~10 min)
 ```
 
 External callers skip A2A entirely via the edge shim (one flat POST, webhook back):
@@ -46,83 +68,143 @@ curl -X POST localhost:4001/hooks/eval/eval.run \
 # → 202 {"taskId":...}; the completed task POSTs to callbackUrl (A2A push notification)
 ```
 
-Each agent writes its store to `<package>/data/store.db` (schema: `a2a-common/migrations/`,
-SQLite dialect = same SQL as Cloudflare D1). Tasks survive server restarts — that's the
-point of the SQLite task store (and the sleep-tolerance rule for Containers later).
+The same shim works against the cloud (bearer required there):
+
+```bash
+curl -X POST https://content-factor-dash.xpri.ai/hooks/coordinator/coordinate.run \
+  -H "Authorization: Bearer $A2A_EDGE_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"goal":"full-loop","topic":"anything","fanOut":1,"backend":"dryrun"}'
+```
+
+---
+
+## Cloud architecture (M5)
+
+```
+                        ┌────────────────────────── Cloudflare ──────────────────────────┐
+  browser / curl / e2e  │  Worker "content-factory"                                      │
+  ──────────────────────┤   • hostname → container routing                               │
+  content-factor-dash ──┼─→ CoordinatorContainer (basic) ── Next dashboard + A2A         │
+  content-factory ──────┘    │        ▲                                                  │
+  content-factory-eval ────→ EvalContainer (standard-3, non-root, Chromium ×2 revisions) │
+  content-factory-gen ─────→ ContentGenContainer (lite)                                  │
+  content-factory-migrate ─→ MigrationContainer (standard-1, opencode + Kimi config)     │
+                        │    │ mesh calls between containers go via the public hostnames │
+                        │    ▼                                                           │
+                        │  POST /d1/query (x-d1-secret) ──→ D1 "a2a-agents"              │
+                        │  R2 "a2a-agents-artifacts" (S3 API from containers)            │
+                        └────────────────────────────────────────────────────────────────┘
+```
+
+Key facts (each measured or learned the hard way — full chronicle in [build-report 07](../ai-docs/2026-06-08-a2a-platform-v2.0/07-m5-cloudflare-deployment.md)):
+
+- **Containers get NO native bindings.** The Worker owns the D1 binding and serves a secret-gated `/d1/query`; `a2a-common`'s `D1ProxyDb` calls back into it (~100 ms/query). Selected by `D1_PROXY_URL` + `D1_PROXY_SECRET` env — local dev keeps better-sqlite3 with identical SQL.
+- **The store, not the stream, is the contract.** Quiet SSE dies at ~3–5 min crossing the Worker↔container hop, and containers can restart mid-task. So: heartbeats at every silent layer (eval queue-wait, eval in-flight, coordinator recovery polls) AND the coordinator recovers severed streams by polling `tasks/get` — which is what makes 9–20-min Kimi turns safe.
+- **The agentic eval tier requires the v1 hardening recipe**: non-root user (the Claude CLI refuses agentic mode as root), runtime-generated `.claude.json`, and two merged Playwright browser caches. Don't touch `deploy/docker/eval.Dockerfile` without reading the frozen v1 app's Dockerfile first.
+- **Rollouts kill in-flight runs** (the coordinator's boot policy marks running runs failed — safe, but blunt). Deploy between demos, never during.
+
+### Deploy / operate
+
+```bash
+export PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH"   # wrangler needs Node 22 (agents stay Node 20)
+cd agents/deploy && npm install
+npm run deploy        # builds + pushes changed images (Docker required), syncs the da.live skill
+npm run tail          # live worker logs (NOTE: container stdout is NOT here — debug via the store)
+npx wrangler containers list
+```
+
+Secrets (13, set once via `printf '%s' "$VAL" | npx wrangler secret put NAME`): `D1_PROXY_SECRET`, `A2A_MESH_TOKEN`, `A2A_EDGE_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET`, `MOONSHOT_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_ACCOUNT_UUID`, `CLAUDE_EMAIL`, `CLAUDE_ORG_UUID`.
+
+Schema changes: append-only migration files in `a2a-common/migrations/` (local SQLite applies them automatically) **plus** `npx wrangler d1 execute a2a-agents --remote --file <migration>` for D1 (it has no `_migrations` table — file-by-file is the convention).
+
+### Cost model / sleep behavior
+
+Containers bill only while awake; everything here is scale-to-zero:
+
+| Container | Instance | `sleepAfter` idle | Why |
+|---|---|---|---|
+| coordinator | basic (1 GiB) | **30m** | dashboard host — demo browsing stays warm |
+| eval | standard-3 (8 GiB) | **15m** | the expensive one; sleep it aggressively |
+| content-gen | lite (256 MiB) | **15m** | nearly free anyway |
+| migration | standard-1 (4 GiB) | **15m** | wakes for migrations only |
+
+- An **open SSE stream blocks sleep** (by design — a 20-min Kimi turn won't be killed); the idle clock starts when the last stream closes.
+- A dashboard visit wakes the coordinator; triggering a run wakes whichever agents the route needs. Cold start ≈ 5–30s (the coordinator additionally 404s `/` for a few seconds while Next mounts — refresh).
+- Changing `sleepAfter`: edit `deploy/src/index.ts`, `npx wrangler deploy` (worker-only change, seconds).
+
+### Performance (measured)
+
+| Operation | Cloud timing |
+|---|---|
+| D1 query via the proxy | ~100 ms (65–300 ms range) |
+| Deterministic-only eval | ~15–40 s |
+| Full agentic eval (4 dims, both tiers) | ~2 min |
+| Kimi K2.6 real migration | ~9 min |
+| Full closed loop, real everything | ~11 min |
+| Re-deploy with no image changes | ~10 s |
+
+---
 
 ## Tests
 
 ```bash
-npm run test:e2e    # fast tier (~5s): protocol contract, stub engine
-npm run test:live   # live tier (~15s): REAL engine — Chromium, axe, screenshots; $0 (no API keys)
+npm run test:e2e     # fast tier (~16s): 46 tests, protocol contract, stub engine — the CI gate
+npm run test:live    # live tier: REAL engine — Chromium, axe, screenshots; $0 (no API keys)
+npm run test:soak    # 10× loop endurance
+npm run test:cloud   # CLOUD tier: drives the DEPLOYED mesh on content-factory*.xpri.ai
 ```
 
-Monorepo philosophy: **real tests only, no mocks.** Each suite spawns the actual agent
-servers as child processes (isolated ports 14xxx + throwaway SQLite files) and drives
-them with the real `@a2a-js/sdk` client over HTTP.
+Monorepo philosophy: **real tests only, no mocks.** Fast/live/soak spawn actual agent servers (isolated 14xxx ports + throwaway SQLite); the cloud tier spawns nothing — it drives the public hostnames with the real A2A client and asserts store state through `/store/runs` + `tasks/get`, exactly like a production consumer.
 
-Fast tier (`tests/`, stub engine pins the A2A contract):
-- `agent-card` — well-known card discovery, skill enumeration, health
-- `task-lifecycle` — full SSE choreography, contextId threading, `tasks/get`,
-  Part-2 store row mapping, A2A `-32001` error shape
-- `persistence` — restart survival: completed tasks outlive the process
-- `browser-semaphore` — 10 concurrent acquisitions cap at exactly 3 permits
-- `push-notifications` — webhook delivery of completed tasks + config restart survival
-- `mesh-auth` — `/a2a` 401s without the bearer; card/health stay public
-- `edge-shim` — flat POST → 202 → callback round-trip; 404/401 paths
-- `coordinator-batch` — 3 targets × fanOut 2 → 6 children, one contextId, variance stats, runs row;
-  **`/store/runs` + `/store/runs/:id` domain reads** (light vs full payloads, `a2aTaskId` join, 401-when-gated, 404)
-- `migration-agent` — dryrun contract artifact, per-slug determinism, makecom/unknown/invalid failure paths
-- `content-gen` — brief structure, fetchable synthetic source matching its own groundTruth, skill inference,
-  **chain: synthesize-source → migration.run** over real HTTP (first two-agent composition)
-- `closed-loop` — all four servers: full-loop × 2 with one contextId across 3 agents' stores,
-  generate+migrate stops without eval (no mandatory end), migrate-only (no mandatory start),
-  deterministic auto routing, per-branch failure isolation
-- `makecom-roundtrip` — fake Make.com speaking the exact wire protocol: webhook trigger with
-  1:1 runtime vars + callbackUrl → final-report callback completes the task; clean timeout;
-  **callback after a restart completes the task from the store** (scenario outlives our process)
-- `store-mcp` — spawns the real `store-mcp` server over stdio (MCP SDK `Client`): `tools/list`
-  returns the 4 store tools, `list_runs`/`list_eval_reports` parse JSON columns from seeded
-  SQLite, `query_store` runs a SELECT but rejects `DELETE` and stacked `select 1; delete …`,
-  `get_run` on an unknown id returns not-found (no crash)
+Cloud tier (`e2e/tests-cloud/`, gated on `A2A_MESH_TOKEN` in env):
+- `cloud-mesh` — all four `/health`s; Agent Cards advertise public origins; `/a2a` + `/store/runs` 401 without bearers; a dryrun full-loop completes with the D1 run row, R2 source URL, live progress, and a real eval score
+- `cloud-kimi` — **opt-in** (`DALIVE_TEST_OWNER` + `DALIVE_TEST_SITE`; writes to real da.live, spends a K2.6 turn): full-loop with `backend: opencode` → asserts a real `*.aem.page` preview URL, all three stages completed, all four dimensions scored, run durable in D1. ~11 min.
 
-Live tier (`tests-live/`, real engine, API keys stripped → agentic falls back to
-deterministic; real browsers, zero spend):
-- live page eval: streamed dimension progress, real axe/screenshot scores, `eval_reports` row
-- **restart mid-queue** (Part-2 DoD): kill the server mid-eval, boot rebuild re-enqueues
-  from the store, task completes
-- **5 concurrent evals** (Part-2 DoD): all complete, live Chromiums never exceed 3 permits
-- **coordinator batch over the real engine**: 2 branches, genuine scores aggregated into
-  variance stats, `eval_reports` joined through one contextId
-- **ui smoke**: real `next dev` — middleware 401/redirect, login, authenticated read of a
-  seeded runs row with parsed variance stats
-- **closed loop over the real engine**: generated legacy pages scored by real Chromium —
-  structure penalizes the messy markup, content scores fidelity against the source,
-  eval_reports threaded under one contextId
+The fast tier's 13 suites and live tier's 6 are enumerated in [`e2e/`](./e2e/) and the [build report](../ai-docs/2026-06-08-a2a-platform-v2.0/04-testing-and-status.md).
 
-Full agentic runs (with `CLAUDE_CODE_OAUTH_TOKEN`) are manual for now — same code path,
-the fallback just doesn't trigger.
+---
 
-## Cloudflare resources (provisioned 2026-06-07)
+## Cloudflare resources
 
 | Resource | Name / ID |
 |---|---|
-| D1 database | `a2a-agents` — `db84ebfc-2132-45ac-902d-7ef7117786e8` (same migration files apply at M5) |
-| R2 bucket | `a2a-agents-artifacts` — public at `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev`; content-gen sources wired (S3 API). See [docs/r2-setup.md](docs/r2-setup.md) — mint an API token to flip dev from the local stand-in to real R2 |
+| Worker | `content-factory` — 5 custom domains, the D1 proxy, all secrets; source in [`deploy/`](./deploy/) |
+| Containers | `content-factory-{coordinator,eval,contentgen,migration}container` — singletons, scale-to-zero |
+| D1 database | `a2a-agents` — `db84ebfc-2132-45ac-902d-7ef7117786e8` (schema = the same `a2a-common/migrations/` files, applied via wrangler) |
+| R2 bucket | `a2a-agents-artifacts` — public at `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev` (S3 API from containers; [docs/r2-setup.md](docs/r2-setup.md)) |
+| Tunnel (legacy) | `a2a-mesh` → `a2a.xpri.ai` → local `:4003` only — the Make.com ingress to a LOCAL migration agent; the dashboard hostname moved to the Worker at M5 |
 
-## Status
+---
 
-- [x] Walking skeleton: cards, `message/stream` (SSE), `tasks/get`, store-backed task store, restart survival — verified 2026-06-07
-- [x] M1 core: engine copied (model bump → `claude-sonnet-4-6`), job queue (concurrency 2), browser semaphore (3 permits), real `eval.run` executor, `eval_reports` writes, restart rebuild-from-store — Part-2 DoD tests green 2026-06-07
-- [x] R2 artifact storage: `createArtifactStore()` (S3 API / local fallback), content-gen sources + eval visual screenshots wired, `artifacts` rows recorded, bucket public, round-trip proven, env-gated live tests + soak — 2026-06-08
-- [ ] M1 remainder: full-agentic smoke run (CLAUDE_CODE_OAUTH_TOKEN)
-- [x] M2 core: push notifications (store-backed), mesh bearer auth, edge webhook shim, coordinator server face (`coordinate.run`) + CLI batch + variance stats — tests green 2026-06-07
-- [x] M3 scaffolding: migration facade (backend seam + dryrun), content-gen real contracts (template tier) + public synthetic sources, synthesize→migrate chain test — 2026-06-07
-- [x] M4 head start: `agents/ui` scaffold — auth middleware, Runs + variance view (polling), Trigger; `next build` clean + live smoke — 2026-06-07
-- [ ] M2 remainder — **config only, agent code done**: `cloudflared` named tunnel, paste the Make.com webhook URL → `MAKECOM_WEBHOOK_URL` + add the scenario's final HTTP module POSTing to our `callbackUrl` (R2 done; mint an API token per docs/r2-setup.md to use real R2 in dev)
-- [x] M3 routes: coordinator route engine — `full-loop`/`generate+migrate`/`migrate`/`evaluate`/`auto` (deterministic state table), ≥3 routes incl. non-eval-terminating demonstrated by tests; closed loop runs end-to-end locally (CLI: `npm run loop`) — 2026-06-07
-- [x] M3 real backend — **migration `opencode` / Kimi K2.6**: headless `opencode serve`, reuses the `da-live-author-playwright` skill + da.live & Playwright MCP; **migrated a real page end-to-end** (authored → preview-published → validated, PASS) against `da-live-postal-2025-07` — live test `e2e/tests-live/opencode-migration.live.test.ts` — 2026-06-08
-- [x] **Kimi K2.6 through the FULL closed loop**: `npm run loop --backend opencode` — content-gen source (R2) → K2.6 authors + publishes a real page (conf 90, skill + 11 tools, preview HTTP 200) → real eval scores it (86). Exposed + fixed undici's 300s fetch/SSE timeouts mesh-wide (`a2a-common/src/net.ts`); coordinator now forwards child working-notes (live observability + keepalive) — 2026-06-10
-- [x] **Coordinator dashboard** (M4 superseding `agents/ui`): Next.js 15 riding the same :4004 Express process (A2A wire surface byte-identical), v1-eval-app styling; trigger any route/backend, live activity feed (`runs.progress` via migration `0003_runs_live`), branch grid, variance; Next backend **database-free** — reads via the A2A layer's `/store/runs` (edge-token gated), writes via `/a2a`, `tasks/get` enrichment — 2026-06-10
-- [ ] M3 real backends (remaining): migration `sdk` (Claude Agent SDK) backend, content-gen Agent SDK generator; LLM planner upgrade for `goal: auto`
-- [ ] Full suite: 46 fast + 12 live (+ 1 soak) — fast tier green in CI; live R2 + agentic tiers run locally with creds
+## The whole v2.0 story — what this is and why it exists
+
+### The thesis
+
+v1.x (`content-authoring-eval/`, now frozen) proved the *idea*: AI can migrate web content into da.live and AI can judge the quality of that migration. But it proved it as a single coupled Next.js app — one process, one vendor, one entry point, evaluation and migration welded together. v2.0 is the same idea rebuilt as **a mesh of independently-addressable agents speaking an open protocol (A2A)**, because the interesting questions for 2026 aren't "can a model do this?" — they're architectural:
+
+- **Can agents from different runtimes and vendors compose?** The migration agent's backends are the proof: the *same* `migration.run` contract is served by a simulation, by a Make.com cloud scenario, and by **Kimi K2.6** (a non-Anthropic model driven through `opencode serve`) — while the eval agent judging the output runs on **Claude**. One pipeline, two model vendors, zero contract changes. That's the multi-vendor thesis made concrete.
+- **Can quality be measured, not vibed?** Every migration is scored by a real 4-dimension engine (structure, accessibility, content fidelity, visual) with deterministic tools (cheerio, axe, Playwright screenshots) *and* an agentic Claude tier on top. Fan-out + variance stats (`μ ± σ`, pass rate, per-dimension distributions) turn "run it once and hope" into "run it ×N and know."
+- **Can the whole thing survive reality?** Processes restart, containers sleep, streams sever, scenarios outlive callers. The store — not process memory, not an open stream — is the contract. Every agent persists full A2A Tasks; every consumer can recover from `tasks/get`. This rule was written in the PRD and then proven the hard way during the cloud deploy.
+
+### The shape
+
+Four agents, one protocol, one shared chassis:
+
+- **`a2a-common`** is the chassis every agent boots from: Agent Card at `/.well-known/agent-card.json`, JSON-RPC + SSE at `/a2a` (mesh-token gated), an **edge webhook shim** (`POST /hooks/{agent}/{skill}` — one flat POST + callback webhook, so Make.com/curl/cron never need to speak A2A), store-backed tasks and push configs, and the dual-driver store seam (SQLite locally, D1 in the cloud — same SQL, selected by env).
+- **content-gen** manufactures the demo's raw material: synthetic "legacy" pages (clean / dated / messy) with a `groundTruth` the eval can score fidelity against, published to a public URL (R2) because downstream agents and cloud scenarios must be able to fetch them.
+- **migration** is a facade — one Agent Card, swappable backends. The seam is the point: "Claude vs Kimi on the same 10 migrations" is a config change, not a rewrite. The Kimi backend reuses the `da-live-author-playwright` **skill as a service** — the same skill file a human-driven Claude session uses, executed headlessly by a different vendor's model.
+- **eval** is the v1 engine, decoupled: headless, job-queued, browser-pooled, restart-rebuilding, with reports persisted to `eval_reports` and screenshots to R2.
+- **coordinator** composes them: deterministic route table (`evaluate` | `migrate` | `generate+migrate` | `full-loop` | `auto` — any subset, no mandatory start or end), fan-out with capped concurrency, one `contextId` threaded through every child so the stores tell one joinable story, variance aggregation, and live forwarding of child working-notes (the dashboard's `K2.6 → dalive_save_dalive_content` lines are real-time observability of another vendor's tool calls).
+- **The dashboard** rides the coordinator's own process: Google SSO (Auth.js), per-user run attribution in the store, trigger any route/backend, watch the live activity trail, read branch grids and variance — its Next backend owns no database and consumes the same `/store/runs` surface any other client would.
+
+### The journey (June 5 → June 10, 2026)
+
+1. **PRD + decisions** (D1–D6): Cloudflare D1+R2 as the eventual home, official A2A SDK, one server per agent, freeze v1 as the safety net, deploy *last* — prove everything on localhost first.
+2. **M1–M2**: walking skeleton → real eval engine extracted from v1 → push notifications, mesh auth, edge shim, coordinator with batch + variance. Two M2 spikes answered the scary Cloudflare questions early (how containers reach D1; whether long SSE survives) — both POCs stayed in `references/cloudflare/` and paid for themselves at M5.
+3. **M3**: routed pipelines and the closed loop locally; then the breakthrough — **Kimi K2.6 authoring real da.live pages** through the migration facade, which also surfaced and fixed undici's 300s timeout ambush on long agentic turns.
+4. **M4**: the coordinator dashboard (v1-app styling, database-free backend), then Google SSO with per-user runs.
+5. **M5 (2026-06-10)**: the whole mesh containerized and deployed behind one Worker — and hardened through six observed production failure modes (container crashloops, quiet-SSE cuts, queue silence, rollout collateral, orphan resurrection, and the root-CLI agentic break whose fix was hiding in the frozen v1 Dockerfile). Full chronicle: [build-report 07](../ai-docs/2026-06-08-a2a-platform-v2.0/07-m5-cloudflare-deployment.md). Acceptance: cloud e2e 4/4, Kimi-authored real page scored 91 by the real agentic eval, end to end on Cloudflare.
+
+### What's deliberately still open
+
+Make.com scenario re-validation against the cloud callback base · the `sdk` (Claude Agent SDK) migration backend and the content-gen agentic tier · an LLM planner upgrading `goal: auto` beyond the state table · graceful run-aware deploys · container-log visibility · the v2.0 release tag.
