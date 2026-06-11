@@ -74,7 +74,7 @@ function commonEnv(env: Env): Record<string, string> {
 
 export class CoordinatorContainer extends Container<Env> {
   defaultPort = 8080;
-  sleepAfter = "1h";
+  sleepAfter = "15m";
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.envVars = {
@@ -94,7 +94,7 @@ export class CoordinatorContainer extends Container<Env> {
 
 export class EvalContainer extends Container<Env> {
   defaultPort = 8080;
-  sleepAfter = "30m";
+  sleepAfter = "15m";
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.envVars = {
@@ -118,7 +118,7 @@ export class EvalContainer extends Container<Env> {
 
 export class ContentGenContainer extends Container<Env> {
   defaultPort = 8080;
-  sleepAfter = "20m";
+  sleepAfter = "15m";
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.envVars = {
@@ -130,7 +130,7 @@ export class ContentGenContainer extends Container<Env> {
 
 export class MigrationContainer extends Container<Env> {
   defaultPort = 8080;
-  sleepAfter = "30m";
+  sleepAfter = "15m";
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.envVars = {
