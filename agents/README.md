@@ -39,9 +39,27 @@ Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#
 
 ---
 
-## Run it locally (unchanged by the cloud deploy)
+## Local architecture
 
 Local dev uses SQLite + localhost ports — no Cloudflare dependency, no behavior drift (same SQL, same code paths; the store driver is selected by env).
+
+```
+  browser / curl / npm run loop                Make.com ── a2a.xpri.ai (tunnel)
+  ───────────────┬──────────────                              │
+                 ▼                                            ▼
+  :4004 coordinator (A2A + Next dashboard) ─── coordinator/data/store.db
+  :4001 eval-service ─────────────────────────── eval-service/data/store.db
+  :4002 content-gen ──────────────────────────── content-gen/data/store.db
+  :4003 migration-agent ──────────────────────── migration-agent/data/store.db
+                 │
+                 └─ artifacts → ./output/** served at /artifacts
+                    (or real R2 when all R2_* env vars are set — check the
+                     startup log line: "artifact store: r2|local")
+```
+
+Each agent is its own process with its own SQLite file (see [Data persistence](#data-persistence--local-vs-cloud) for every path and table). Mesh calls between agents are plain HTTP to the localhost ports.
+
+### Run it (unchanged by the cloud deploy)
 
 ```bash
 npm install                      # Node 20
@@ -98,7 +116,7 @@ curl -X POST https://content-factor-dash.xpri.ai/hooks/coordinator/coordinate.ru
 
 Key facts (each measured or learned the hard way — full chronicle in [build-report 07](../ai-docs/2026-06-08-a2a-platform-v2.0/07-m5-cloudflare-deployment.md)):
 
-- **Containers get NO native bindings.** The Worker owns the D1 binding and serves a secret-gated `/d1/query`; `a2a-common`'s `D1ProxyDb` calls back into it (~100 ms/query). Selected by `D1_PROXY_URL` + `D1_PROXY_SECRET` env — local dev keeps better-sqlite3 with identical SQL.
+- **Containers get NO native bindings.** The Worker owns the D1 binding and serves a secret-gated `/d1/query`; `a2a-common`'s `D1ProxyDb` calls back into it (~100 ms/query). Selected by `D1_PROXY_URL` + `D1_PROXY_SECRET` env — local dev keeps better-sqlite3 with identical SQL. Full detail: [Data persistence](#data-persistence--local-vs-cloud).
 - **The store, not the stream, is the contract.** Quiet SSE dies at ~3–5 min crossing the Worker↔container hop, and containers can restart mid-task. So: heartbeats at every silent layer (eval queue-wait, eval in-flight, coordinator recovery polls) AND the coordinator recovers severed streams by polling `tasks/get` — which is what makes 9–20-min Kimi turns safe.
 - **The agentic eval tier requires the v1 hardening recipe**: non-root user (the Claude CLI refuses agentic mode as root), runtime-generated `.claude.json`, and two merged Playwright browser caches. Don't touch `deploy/docker/eval.Dockerfile` without reading the frozen v1 app's Dockerfile first.
 - **Rollouts kill in-flight runs** (the coordinator's boot policy marks running runs failed — safe, but blunt). Deploy between demos, never during.
@@ -142,6 +160,92 @@ Containers bill only while awake; everything here is scale-to-zero:
 | Kimi K2.6 real migration | ~9 min |
 | Full closed loop, real everything | ~11 min |
 | Re-deploy with no image changes | ~10 s |
+
+---
+
+## Data persistence — local vs cloud
+
+Nothing important lives only in process memory. Every agent persists its A2A tasks, runs, reports, and push registrations through one seam — `a2a-common/src/store/db.ts`'s `StoreDb` interface — with two drivers behind it. The driver is chosen at boot by `openDb()`: if **both** `D1_PROXY_URL` and `D1_PROXY_SECRET` are set (Cloudflare Containers), it's the D1 proxy; otherwise it's local SQLite. Same SQL, same tables, same code paths either way.
+
+### What gets stored (the schema)
+
+One schema, defined once in `a2a-common/migrations/*.sql` (append-only, ordered by filename):
+
+| Table | Written by | What |
+|---|---|---|
+| `runs` | coordinator | One row per triggered run: goal/route, status, fan-out, variance, `context_id`, `progress` (the live `{ts,note}[]` activity trail), `user_email` (Google SSO identity; `NULL` = system run from CLI/shim/mesh) |
+| `tasks` | every agent | The **full A2A Task JSON**, upserted on every state change, keyed by `a2a_task_id` — this is what makes restart/sleep-wake recovery and `tasks/get` polling possible |
+| `eval_reports` | eval agent | Per-evaluation scores + the full 4-dimension report JSON |
+| `artifacts` | all agents | Index of produced artifacts (URL, kind, task FK) — the bytes live elsewhere (R2/FS, below) |
+| `push_configs` | a2a-common | Webhook callback registrations (A2A push notifications) — persisted because the SDK ships in-memory only |
+| `_migrations` | a2a-common | **Local SQLite only** — tracks which migration files have been applied. D1 has no such table (see below) |
+
+### Local: one SQLite file per agent
+
+Driver: **better-sqlite3** (WAL mode, foreign keys on). On boot each agent opens its file and auto-applies any unapplied `a2a-common/migrations/*.sql`, so a fresh checkout self-initializes.
+
+**The default DB name is `data/store.db`, relative to each agent's package directory** (`STORE_DB_PATH` env overrides it). Because every agent is its own process, **each agent has its own separate database file** locally:
+
+| Agent | Default local DB |
+|---|---|
+| coordinator | `agents/coordinator/data/store.db` ← runs, the dashboard's source of truth |
+| eval-service | `agents/eval-service/data/store.db` ← eval_reports |
+| content-gen | `agents/content-gen/data/store.db` |
+| migration-agent | `agents/migration-agent/data/store.db` |
+
+Two consumers read these files directly (read-only, no server): the legacy `ui/` dashboard (`COORDINATOR_DB`, default `../coordinator/data/store.db`) and `store-mcp/` (`COORDINATOR_DB` + `EVAL_DB`). That's also why neither can run against the cloud store.
+
+- **Inspect**: any SQLite client — e.g. `sqlite3 agents/coordinator/data/store.db 'select id, goal, status from runs order by created_at desc limit 5'`
+- **Reset**: delete the `data/store.db` file(s); they're recreated + migrated on next boot. All `data/`, `*.db` are gitignored.
+- **E2E tests** never touch these — they spawn servers on isolated 14xxx ports with throwaway SQLite files.
+
+### Cloud: one shared D1 database for the whole mesh
+
+In Cloudflare there is **one database for all four containers**: D1 **`a2a-agents`** (`db84ebfc-2132-45ac-902d-7ef7117786e8`). The local "four separate files" split disappears — coordinator, eval, content-gen, and migration all read/write the same D1 store, which is also what lets the dashboard join runs, tasks, and eval reports without any cross-agent API calls.
+
+How a container reaches it — **containers get NO native bindings**, so a direct D1 binding is impossible. Instead:
+
+1. The Worker (`deploy/src/index.ts`) owns the D1 binding and exposes `POST /d1/query`, gated by the `x-d1-secret` header (`D1_PROXY_SECRET`).
+2. The Worker injects `D1_PROXY_URL` (= `https://content-factory.xpri.ai`) + `D1_PROXY_SECRET` into every container's env, which flips `openDb()` to the `D1ProxyDb` driver.
+3. Every `prepare().run/get/all()` becomes an HTTPS round trip: container → Worker → D1 → back. Measured ~100 ms/query (65–300 ms range) — fine for this workload, and it fails fast at boot (`select 1`) if misconfigured.
+
+Schema changes on D1 are **manual and file-by-file** — it has no `_migrations` table: `npx wrangler d1 execute a2a-agents --remote --file a2a-common/migrations/000N_*.sql`. Keep the SQL plain-SQLite-dialect and positional-`?`-only (D1 has no named parameter binding) so the same file serves both worlds.
+
+### Artifacts (the actual bytes) — R2 or local `./output`
+
+The store tables hold metadata; the blobs themselves go through `a2a-common`'s `createArtifactStore()`, which has two backends:
+
+| Where | Backend | Public URL |
+|---|---|---|
+| Cloud (always) | **R2 bucket `a2a-agents-artifacts`** via the S3 API (`aws4fetch`, SigV4) | `https://pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev/<key>` |
+| Local, `R2_*` keys filled in `.env` (the usual setup here) | same real R2 bucket | same |
+| Local, no R2 creds | `<agent>/output/<key>` on disk, served by the owning agent at `/artifacts` | `http://localhost:<port>/artifacts/<key>` |
+
+Selection is all-or-nothing (all five `R2_*` vars present → R2, else silent local fallback) — confirm via the boot log line `artifact store: r2|local`. The local fallback deliberately produces the identical URL contract as r2.dev, so the closed loop, CI, and prod share one URL shape.
+
+Who writes what (the `<key>` is the same in both backends):
+
+| Artifact | Producer | Key | Local fallback path | Local URL |
+|---|---|---|---|---|
+| **Synthetic legacy source pages** (the content generator's output — full HTML, clean/dated/messy) | content-gen | `sources/<taskId>.html` | `agents/content-gen/output/sources/<taskId>.html` | `http://localhost:4002/artifacts/sources/<taskId>.html` |
+| **Eval screenshots** (target + diff PNGs from the visual dimension) | eval-service | `screenshots/<file>.png` | `agents/eval-service/output/screenshots/<file>.png` | `http://localhost:4001/artifacts/screenshots/<file>.png` |
+
+Two things to know about the content-gen pages specifically:
+
+- **They must be publicly fetchable to be useful beyond localhost.** The migration backends (Make.com's cloud scenario, Kimi in the cloud container) and the cloud eval agent fetch the source page by URL — a `localhost:4002` URL only works when the whole loop runs locally. That's why R2 is the usual setup even for local dev: a locally generated page lands on the public r2.dev URL and any backend, local or cloud, can consume it.
+- **The URL is the handoff, the row is the index.** The generated page's URL is returned in the A2A task result and threaded into the migration step; an `artifacts` row (URL, kind, task FK) records it for queries. The HTML bytes are never stored in the database.
+
+Local `output/` dirs are gitignored and safe to delete (you lose old local-fallback artifacts; R2-stored ones are unaffected).
+
+### Login sessions: no database at all
+
+The dashboard's Google SSO (Auth.js v5) uses **JWT sessions** — the session is an encrypted cookie in your browser, signed with `AUTH_SECRET`. Nothing server-side to store or lose: a container can sleep, restart, or be redeployed and you stay signed in. The only durable trace of identity is `runs.user_email`, written at run-creation time from the JWT.
+
+### Why this matters operationally
+
+- **Container sleep/wake is lossless** — wake the coordinator after a quiet night and every run, task, and report is still in D1; the in-browser JWT means you're still logged in.
+- **The store, not the stream, is the contract** — severed SSE streams recover via `tasks/get` against the persisted Task rows; the eval agent rebuilds its queue from `tasks` on boot (with a 30-min `created_at` age guard so churn can't resurrect zombies).
+- **Local and cloud never share data** — local runs land in your local SQLite files; cloud runs land in D1. The dashboards show whichever store their process is pointed at. (Keep `D1_PROXY_URL` commented out in `agents/.env` unless you *want* a local agent writing to the production store.)
 
 ---
 
