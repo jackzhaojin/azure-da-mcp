@@ -193,6 +193,24 @@ export default {
             ? env.MIGRATION
             : env.COORDINATOR; // content-factory / content-factor-dash / workers.dev fallback
 
+    // Bot gate (cost): these are public hostnames — CT-log scanners hit them
+    // every few minutes (measured: 3 req/4 min at 2am), which resets sleepAfter
+    // and keeps containers awake 24/7. Agent surfaces only use known prefixes;
+    // answer junk from the Worker so it never wakes a container. The
+    // coordinator/dash hostname can't be path-gated (Next serves everything).
+    if (ns !== env.COORDINATOR) {
+      const p = url.pathname;
+      const legit =
+        p === "/a2a" ||
+        p === "/health" ||
+        p.startsWith("/.well-known/") ||
+        p.startsWith("/hooks/") ||
+        p.startsWith("/callbacks/") ||
+        p.startsWith("/artifacts/") ||
+        p.startsWith("/store/");
+      if (!legit) return json({ error: "not found" }, 404);
+    }
+
     return getContainer(ns, "singleton").fetch(request);
   },
 };
