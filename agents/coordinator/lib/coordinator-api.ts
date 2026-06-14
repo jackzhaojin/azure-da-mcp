@@ -20,6 +20,17 @@ export async function coordinatorGet<T>(path: string): Promise<{ status: number;
   return { status: res.status, body: (await res.json()) as T };
 }
 
+export async function coordinatorPost<T>(path: string, payload: unknown): Promise<{ status: number; body: T }> {
+  const token = edgeToken();
+  const res = await fetch(`${COORDINATOR_BASE()}${path}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(payload),
+  });
+  return { status: res.status, body: (await res.json()) as T };
+}
+
 /** Bearer-injecting fetch for a2a-js clients (mesh token, not edge token). */
 export function meshFetch(): typeof fetch {
   const token = process.env.A2A_MESH_TOKEN;

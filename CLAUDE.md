@@ -87,7 +87,7 @@ This repository contains 7 independent projects:
 
 ### 7. `agents/` - A2A Agent Platform (v2.0) ⭐ flagship workstream
 **Purpose**: A decoupled mesh of independently-addressable AI agents (content-gen, migration, eval, coordinator) speaking the **A2A protocol** — the ground-up v2.0 re-architecture for the adaptTo() Sept 2026 demo
-**Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard + legacy ui), vitest e2e
+**Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard — the sole UI: single/bulk/direct-eval lanes, sample downloads, JSON export), vitest e2e
 **Status**: **M1–M5 DEPLOYED ON CLOUDFLARE (2026-06-10)** — the whole mesh runs as Workers + Containers (worker `content-factory`, agents/deploy/): dashboard at `content-factor-dash.jackzhaojin.com` (Google SSO, per-user runs), agents at `content-factory{,-eval,-gen,-migrate}.jackzhaojin.com`, store on D1 via the Worker's `/d1/query` proxy, artifacts on R2. Cloud acceptance green: full-loop with **Kimi K2.6 authoring a REAL da.live page from a container** + the real agentic eval scoring it 91 (cloud e2e `npm run test:cloud`, 4/4). Local dev unchanged (SQLite + localhost ports); the tunnel keeps only `a2a.jackzhaojin.com` → local :4003 for Make.com
 **Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · hardening sprint [ai-docs/2026-06-11-v2.1-hardening-sprint/](./ai-docs/2026-06-11-v2.1-hardening-sprint/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/)
 
@@ -295,7 +295,7 @@ cp .env.example .env
 ### agents/ (A2A Agent Platform — v2.0, flagship)
 - `agents/CLAUDE.md` - Hub: structure, run, conventions, Cloudflare infra
 - `agents/README.md` - User-facing overview + status
-- `agents/<workspace>/CLAUDE.md` - Per-workspace AI context (a2a-common, eval-service, content-gen, migration-agent, coordinator, ui, store-mcp, e2e)
+- `agents/<workspace>/CLAUDE.md` - Per-workspace AI context (a2a-common, eval-service, content-gen, migration-agent, coordinator, store-mcp, e2e)
 - `agents/docs/` - `r2-setup.md`, `tunnel-setup.md`, `makecom-scenario-checklist.md`
 - `ai-docs/2026-06-08-a2a-platform-v2.0/` - As-built build report (architecture + sequence diagrams)
 - `ai-docs/2026-06-11-v2.1-hardening-sprint/` - v2.1 hardening sprint (eval scoring honesty, local agentic eval, live runs + evidence UX, env-proof e2e)

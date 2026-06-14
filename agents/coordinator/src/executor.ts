@@ -31,6 +31,8 @@ export interface CoordinateRunPayload {
   backend?: string;
   fanOut?: number;
   labels?: Record<string, string>;
+  /** Groups the N runs fired by one bulk submission → runs.batch_id. */
+  batchId?: string;
   /** SSO identity of the human who triggered the run (dashboard) → runs.user_email. */
   requestedBy?: string;
 }
@@ -44,7 +46,7 @@ interface StageResult {
   error?: string;
 }
 
-interface BranchResult {
+export interface BranchResult {
   branch: number;
   target?: string; // what was (or would be) evaluated
   sourceUrl?: string;
@@ -169,7 +171,7 @@ const STREAM_RECOVERY_POLL_MS = 10_000;
  * terminal state falls back to polling tasks/get — the task store, not the
  * stream, is the source of truth (sleep-tolerance rule).
  */
-async function callAgent(
+export async function callAgent(
   agentUrl: string,
   data: Record<string, unknown>,
   contextId: string,
@@ -436,12 +438,13 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
 
       const fanOut = payload.fanOut ?? 1;
       const runId = randomUUID();
-      await db.prepare("insert into runs (id, kind, config, status, context_id, user_email) values (?, ?, ?, 'running', ?, ?)").run(
+      await db.prepare("insert into runs (id, kind, config, status, context_id, user_email, batch_id) values (?, ?, ?, 'running', ?, ?, ?)").run(
         runId,
         route.length > 1 || route[0] !== "evaluate" ? "pipeline" : "eval-batch",
         JSON.stringify(payload),
         contextId,
-        payload.requestedBy ?? null
+        payload.requestedBy ?? null,
+        payload.batchId ?? null
       );
 
       // Live progress trail for the UI: every working-note (stage transitions +

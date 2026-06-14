@@ -54,6 +54,8 @@ export interface RunView {
   status: string;
   contextId: string | null;
   userEmail?: string | null;
+  /** Groups the runs fired by one bulk submission (runs.batch_id); null = one-off. */
+  batchId?: string | null;
   createdAt: string;
   completedAt: string | null;
   config: {

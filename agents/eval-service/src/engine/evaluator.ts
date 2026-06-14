@@ -572,13 +572,16 @@ export async function runEvaluation(
   // Track completed agents count for accurate progress calculation
   const completedCountRef = { value: 0 };
 
-  // Run all 4 agents in parallel
-  const agentPromises = [
-    runAgent('structure', request, onProgress, completedCountRef),
-    runAgent('accessibility', request, onProgress, completedCountRef),
-    runAgent('content', request, onProgress, completedCountRef),
-    runAgent('visual', request, onProgress, completedCountRef),
-  ];
+  // Dimensions subset (eval.run.v1): run only the requested dimensions; the rest
+  // are recorded as skipped (excluded from the score), not scored 0.
+  const ALL_DIMENSIONS = ['structure', 'accessibility', 'content', 'visual'] as const;
+  const requested = request.dimensions?.length
+    ? ALL_DIMENSIONS.filter((d) => request.dimensions!.includes(d))
+    : ALL_DIMENSIONS;
+  const notSelected = ALL_DIMENSIONS.filter((d) => !requested.includes(d));
+
+  // Run the requested agents in parallel
+  const agentPromises = requested.map((d) => runAgent(d, request, onProgress, completedCountRef));
 
   const agentResults = await Promise.all(agentPromises);
 
@@ -596,8 +599,16 @@ export async function runEvaluation(
     visual?: AgentResult;
   } = {};
 
-  const skippedDimensions: Array<{ dimension: AgentExecutionResult['dimension']; reason: string }> = [];
+  const skippedDimensions: Array<{ dimension: AgentExecutionResult['dimension']; reason: string; recommendation?: string }> = [];
   const failedDimensions: Array<{ dimension: AgentExecutionResult['dimension']; message: string }> = [];
+  // Dimensions the caller deselected — excluded from the score, kept visible.
+  for (const d of notSelected) {
+    skippedDimensions.push({
+      dimension: d,
+      reason: 'not selected for this run (dimensions subset)',
+      recommendation: `Include "${d}" in the dimensions list to score it`,
+    });
+  }
   for (const agentResult of agentResults) {
     if (agentResult.result) {
       results[agentResult.dimension] = agentResult.result;
@@ -622,7 +633,7 @@ export async function runEvaluation(
       dimension: s.dimension,
       severity: 'info',
       issue: `${s.dimension} dimension skipped: ${s.reason}`,
-      recommendation: 'Provide a sourceLocation (PDF or webpage) to enable this dimension',
+      recommendation: s.recommendation ?? 'Provide a sourceLocation (PDF or webpage) to enable this dimension',
     });
   }
   for (const f of failedDimensions) {

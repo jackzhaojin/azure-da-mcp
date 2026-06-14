@@ -10,7 +10,6 @@
     "content-gen",
     "migration-agent",
     "coordinator",
-    "ui",
     "store-mcp",
     "e2e"
   ],
@@ -23,7 +22,6 @@
     "test:live": "npm run test:live -w e2e",
     "dev:coordinator": "npm run dev -w coordinator",
     "dev:migration": "npm run dev -w migration-agent",
-    "dev:ui": "npm run dev -w ui",
     "loop": "npm run loop -w coordinator --",
     "test:soak": "npm run test:soak -w e2e",
     "test:cloud": "npm run test:cloud -w e2e"

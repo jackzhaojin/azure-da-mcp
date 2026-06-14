@@ -59,5 +59,5 @@ Fast tests (from `agents/`, `npm run test:e2e`): `coordinator-batch` (3×2 → 6
 ## Conventions
 - Persistence: local SQLite `data/store.db` — same SQL as Cloudflare D1 (`a2a-common/migrations/`). The `runs` row (config + stats JSON) is the coordinator's record; eval rows live in eval-service's store, joined by contextId.
 - Env from `agents/.env` via `set -a && source .env && set +a`.
-- Ports: eval 4001 / content-gen 4002 / migration 4003 / coordinator 4004 / ui 3000.
+- Ports: eval 4001 / content-gen 4002 / migration 4003 / coordinator 4004 (the sole UI).
 - Contract: `agents/contracts/coordinate.run.v1.json`.

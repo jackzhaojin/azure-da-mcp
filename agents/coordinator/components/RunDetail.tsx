@@ -21,6 +21,8 @@ import {
   ChevronRight,
   RotateCcw,
   Camera,
+  Download,
+  Layers,
 } from "lucide-react";
 
 function StageChip({ stage, state, durationMs }: { stage: string; state: string; durationMs?: number }) {
@@ -283,6 +285,17 @@ export function RunDetail({ id }: { id: string }) {
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
   };
 
+  const downloadJson = () => {
+    if (!run) return;
+    const blob = new Blob([JSON.stringify(run, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `run-${run.id.slice(0, 8)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const rerun = async () => {
     if (!run) return;
     setRerunning(true);
@@ -351,8 +364,19 @@ export function RunDetail({ id }: { id: string }) {
               {stats?.route ?? run.config.goal ?? run.kind} · run {run.id.slice(0, 8)} · started {fmtLocal(run.createdAt)}
               {running ? ` · ${elapsed}` : ` · finished ${fmtLocal(run.completedAt)}`}
             </p>
+            {run.batchId && (
+              <Link
+                href={`/batch/${run.batchId}`}
+                className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+              >
+                <Layers className="h-3 w-3" /> part of batch {run.batchId.slice(0, 8)}
+              </Link>
+            )}
           </div>
           <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={downloadJson}>
+              <Download className="h-3 w-3" /> Download JSON
+            </Button>
             {!running && (
               <Button variant="outline" size="sm" onClick={rerun} disabled={rerunning}>
                 {rerunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />} Run again
