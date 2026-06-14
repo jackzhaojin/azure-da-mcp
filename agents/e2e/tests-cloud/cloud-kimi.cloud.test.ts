@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
  * DALIVE_TEST_SITE in addition to the mesh token.
  */
 
-const COORDINATOR = process.env.CLOUD_COORDINATOR_URL ?? "https://content-factory.xpri.ai";
+const COORDINATOR = process.env.CLOUD_COORDINATOR_URL ?? "https://content-factory.jackzhaojin.com";
 const MESH_TOKEN = process.env.A2A_MESH_TOKEN;
 const EDGE_TOKEN = process.env.A2A_EDGE_TOKEN || MESH_TOKEN;
 const SITE = process.env.DALIVE_TEST_SITE;

@@ -1,7 +1,7 @@
 # Domain Migration — Re-fronting the A2A Mesh on `jackzhaojin.com` (as-built)
 
 **Date**: 2026-06-14
-**Status**: **COMPLETE & verified live.** All mesh surfaces serve on `*.jackzhaojin.com`; apex `jackzhaojin.com` 301-redirects to `www`; coordinator dashboard + Google SSO confirmed via Playwright. `*.xpri.ai` is kept running **in parallel** (deliberate grace period — see "What's left"). Code changes uncommitted at time of writing.
+**Status**: **COMPLETE & verified live.** All mesh surfaces serve on `*.jackzhaojin.com`; apex `jackzhaojin.com` 301-redirects to `www`; coordinator dashboard + Google SSO confirmed via Playwright. **All code + active docs swept to `jackzhaojin.com`** (2026-06-14). The legacy `*.xpri.ai` **live infrastructure** (Worker custom-domain routes, the `a2a.xpri.ai` Make.com tunnel, DNS, the xpri OAuth redirect URI) still resolves in parallel and is **deferred to manual teardown** by Jack (next-day/next-week). Code changes committed; infra teardown pending.
 **Author**: Jack Jin (with Claude Code)
 **Companion to**: the M5 deploy in [`ai-docs/2026-06-08-a2a-platform-v2.0/07-m5-cloudflare-deployment.md`](../2026-06-08-a2a-platform-v2.0/07-m5-cloudflare-deployment.md) and the hardening sprint at [`ai-docs/2026-06-11-v2.1-hardening-sprint/`](../2026-06-11-v2.1-hardening-sprint/) (whose pending D1 migration became the one incident here).
 
@@ -75,13 +75,13 @@ Root cause: `wrangler deploy` rebuilt the coordinator image from current `main`,
 
 ## What's left + recommendation
 
-`*.xpri.ai` is still routed **in parallel** (intentional). **Recommendation: hold the grace period 1–2 days** before retiring `xpri.ai`, to catch any external references (Make.com scenarios, bookmarks, saved agent-card URLs) while both domains answer.
+**Code + active docs are fully swept to `jackzhaojin.com`** (2026-06-14): all `*.xpri.ai` references in source, config, and current docs (READMEs, CLAUDE.md files, e2e defaults, `.env.example`) now name `jackzhaojin.com`. The dated **historical** build reports + prompt-logs under `ai-docs/2026-06-08-*` and `ai-docs/2026-06-11-*` were **intentionally preserved** as point-in-time records (the prompt-logs quote the user verbatim); this June-14 doc is the forward pointer.
 
-To fully retire `xpri.ai` afterward (one final pass + one redeploy):
-1. Remove the 5 `*.xpri.ai` entries from [`wrangler.jsonc`](../../agents/deploy/wrangler.jsonc) and redeploy (one more container rollout / brief coordinator cold-start — deploy between runs).
-2. Update stragglers still naming xpri: `agents/e2e/tests-cloud/*` defaults, `agents/.env.example`, `agents/CLAUDE.md`, `agents/deploy/CLAUDE.md`.
-3. Optionally remove the `content-factor-dash.xpri.ai` OAuth redirect URI in Google Cloud Console.
-4. **Do not** tear down the `a2a.xpri.ai` **cloudflared tunnel** (→ local `:4003`) when retiring xpri — it is the **Make.com ingress to a local migration agent**, a separate concern from the Worker routes. Retire it only after Make.com is moved off it.
+What remains is **live infrastructure teardown — a manual follow-up Jack will do next-day/next-week** (no fixed date). The `*.xpri.ai` hosts still resolve in parallel until then:
+1. **Worker routes**: delete the 5 `*.xpri.ai` entries from [`wrangler.jsonc`](../../agents/deploy/wrangler.jsonc) and redeploy (one container rollout / brief coordinator cold-start — deploy between runs). Routing already matches by subdomain prefix, so jackzhaojin keeps working.
+2. **The `a2a.xpri.ai` Make.com tunnel** (the last live xpri host): add `a2a.jackzhaojin.com` (CNAME → tunnel `8af08294-…` + an ingress rule in `~/.cloudflared/config.yml`), **repoint the Make.com scenario's callback URL** to it, then drop `a2a.xpri.ai`. The Make.com edit is external (Jack-only).
+3. **DNS**: the `xpri.ai` zone / records, once nothing references them.
+4. **OAuth**: remove the two `content-factor-dash.xpri.ai` redirect URIs from the Google OAuth client.
 
 ## Appendix — key facts
 

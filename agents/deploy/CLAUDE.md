@@ -6,10 +6,10 @@
 
 | Hostname | Container | Image | Instance |
 |---|---|---|---|
-| `content-factory.xpri.ai` (+ `content-factor-dash.xpri.ai`, workers.dev fallback) | CoordinatorContainer | `docker/coordinator.Dockerfile` (Next build baked) | basic |
-| `content-factory-eval.xpri.ai` | EvalContainer | `docker/eval.Dockerfile` (non-root appuser, dual Chromium caches, Claude CLI + MCP servers, runtime .claude.json) | standard-3 |
-| `content-factory-gen.xpri.ai` | ContentGenContainer | `docker/content-gen.Dockerfile` | lite |
-| `content-factory-migrate.xpri.ai` | MigrationContainer | `docker/migration.Dockerfile` (opencode + kimi config + skill + Chromium) | standard-1 |
+| `content-factory.jackzhaojin.com` (+ `content-factor-dash.jackzhaojin.com`, workers.dev fallback) | CoordinatorContainer | `docker/coordinator.Dockerfile` (Next build baked) | basic |
+| `content-factory-eval.jackzhaojin.com` | EvalContainer | `docker/eval.Dockerfile` (non-root appuser, dual Chromium caches, Claude CLI + MCP servers, runtime .claude.json) | standard-3 |
+| `content-factory-gen.jackzhaojin.com` | ContentGenContainer | `docker/content-gen.Dockerfile` | lite |
+| `content-factory-migrate.jackzhaojin.com` | MigrationContainer | `docker/migration.Dockerfile` (opencode + kimi config + skill + Chromium) | standard-1 |
 
 - **D1 access**: containers have NO bindings — the Worker serves secret-gated `POST /d1/query` (header `x-d1-secret`) and a2a-common's `D1ProxyDb` calls back into it (`D1_PROXY_URL`/`D1_PROXY_SECRET` env). ~100ms/query (measured, references/cloudflare/d1-container). Schema changes: `wrangler d1 execute a2a-agents --remote --file …` — D1 has no `_migrations` table.
 - **Env into containers**: ONLY string env vars, injected in each Container class constructor (src/index.ts) from Worker vars/secrets. Change an env → redeploy → containers pick it up on next cold start.
@@ -41,4 +41,4 @@ Validate: `cd agents && set -a && source .env && set +a && npm run test:cloud` (
 - **The skill is synced, not sourced**: `npm run sync-skill` copies `/.claude/skills/da-live-author-playwright` → `deploy/skills/` (gitignored) because the Docker build context is `agents/`. Runs automatically via `predeploy`.
 - **opencode global config is baked** (`docker/opencode-global.jsonc` → `/root/.config/opencode/opencode.jsonc`): kimi-code provider, key via `{env:MOONSHOT_API_KEY}`. The generated per-task config (OPENCODE_CONFIG) merges on top.
 - **Cold starts**: ~5-30s per container (bigger images slower). First request after idle pays it; sleepAfter: coordinator 30m (demo browsing stays warm), others 15m (cost: scale-to-zero; any dashboard visit wakes the coordinator, mesh calls wake the rest).
-- **content-factor-dash.xpri.ai** is the Google-OAuth-registered dashboard hostname — its DNS is flipped from the cloudflared-tunnel CNAME to this Worker (route in wrangler.jsonc). The Worker preserves Host headers, so the coordinator's Auth.js origin-rewrite works unchanged.
+- **content-factor-dash.jackzhaojin.com** is the Google-OAuth-registered dashboard hostname — its DNS is flipped from the cloudflared-tunnel CNAME to this Worker (route in wrangler.jsonc). The Worker preserves Host headers, so the coordinator's Auth.js origin-rewrite works unchanged.

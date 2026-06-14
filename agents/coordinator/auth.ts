@@ -16,7 +16,7 @@ const allowedEmails = (process.env.AUTH_ALLOWED_EMAILS ?? "")
   .filter(Boolean);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // Served on localhost:4004 AND behind the tunnel (dash.xpri.ai) — derive the
+  // Served on localhost:4004 AND behind the tunnel (dash.jackzhaojin.com) — derive the
   // callback origin from the request rather than a fixed AUTH_URL.
   trustHost: true,
   secret: process.env.AUTH_SECRET ?? (authEnabled ? undefined : "auth-disabled-placeholder"),

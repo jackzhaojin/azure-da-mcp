@@ -12,15 +12,15 @@ import { randomUUID } from "node:crypto";
  */
 
 const HOSTS = {
-  coordinator: process.env.CLOUD_COORDINATOR_URL ?? "https://content-factory.xpri.ai",
-  eval: process.env.CLOUD_EVAL_URL ?? "https://content-factory-eval.xpri.ai",
-  gen: process.env.CLOUD_GEN_URL ?? "https://content-factory-gen.xpri.ai",
-  migrate: process.env.CLOUD_MIGRATE_URL ?? "https://content-factory-migrate.xpri.ai",
+  coordinator: process.env.CLOUD_COORDINATOR_URL ?? "https://content-factory.jackzhaojin.com",
+  eval: process.env.CLOUD_EVAL_URL ?? "https://content-factory-eval.jackzhaojin.com",
+  gen: process.env.CLOUD_GEN_URL ?? "https://content-factory-gen.jackzhaojin.com",
+  migrate: process.env.CLOUD_MIGRATE_URL ?? "https://content-factory-migrate.jackzhaojin.com",
 };
 const MESH_TOKEN = process.env.A2A_MESH_TOKEN;
 const EDGE_TOKEN = process.env.A2A_EDGE_TOKEN || MESH_TOKEN;
 
-describe.skipIf(!MESH_TOKEN)("cloud mesh: deployed agents on content-factory*.xpri.ai", () => {
+describe.skipIf(!MESH_TOKEN)("cloud mesh: deployed agents on content-factory*.jackzhaojin.com", () => {
   it("all four agents are healthy and their cards advertise the public origin", async () => {
     for (const [name, base] of Object.entries(HOSTS)) {
       const health = await fetch(`${base}/health`);

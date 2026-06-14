@@ -44,7 +44,7 @@ npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner
 - **Model-vendor-swappable migration**: the same contract, MCP server, and skill run under `dryrun`, Make.com, or **Kimi K2.6 headless via opencode** — real da.live pages authored, published, and scored
 - **Coordinator dashboard** (Next.js 15 riding the same :4004 process — A2A wire surface untouched): trigger runs, watch live tool/skill activity (`K2.6 → dalive_save_dalive_content`), branch grids, variance tables
 - Persistence on **Cloudflare D1** (same SQL as local SQLite) + artifacts on **R2** (public `r2.dev`)
-- **Make.com interop** through a live named `cloudflared` tunnel (`a2a.xpri.ai`)
+- **Make.com interop** through a live named `cloudflared` tunnel (`a2a.jackzhaojin.com`)
 - Browser-pooled, job-queued, restart-survivable eval; deterministic always + agentic when Claude creds are configured
 - Three real-server test tiers (fast/CI, live, soak) — no mocks
 

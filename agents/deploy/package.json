@@ -1,7 +1,7 @@
 {
   "name": "@agents/deploy",
   "private": true,
-  "description": "M5: Cloudflare Workers + Containers deployment of the A2A mesh (content-factory*.xpri.ai). Standalone (NOT an npm workspace) — wrangler needs Node 22.",
+  "description": "M5: Cloudflare Workers + Containers deployment of the A2A mesh (content-factory*.jackzhaojin.com). Standalone (NOT an npm workspace) — wrangler needs Node 22.",
   "scripts": {
     "sync-skill": "rm -rf skills && mkdir -p skills && cp -R ../../.claude/skills/da-live-author-playwright skills/",
     "predeploy": "npm run sync-skill",

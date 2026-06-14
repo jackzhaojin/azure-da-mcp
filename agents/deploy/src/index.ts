@@ -12,8 +12,8 @@ import { Container, getContainer } from "@cloudflare/containers";
  *   *.workers.dev                          → coordinator (fallback)
  *
  * Routing matches by SUBDOMAIN PREFIX (not full host) so the legacy *.xpri.ai
- * hostnames keep routing correctly during the jackzhaojin.com cutover. Drop the
- * xpri.ai custom_domain routes (wrangler.jsonc) once migration is verified.
+ * hostnames still route correctly while they remain in parallel. The xpri.ai
+ * custom_domain routes (wrangler.jsonc) are pending manual infra teardown.
  *
  * The Worker also owns the D1 binding and exposes the secret-gated /d1/query
  * proxy that the containers' StoreDb d1-proxy driver calls back into (containers

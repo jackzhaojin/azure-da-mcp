@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-// Cloud tier: the DEPLOYED mesh on Cloudflare Containers (content-factory*.xpri.ai).
+// Cloud tier: the DEPLOYED mesh on Cloudflare Containers (content-factory*.jackzhaojin.com).
 // No servers are spawned — tests drive the public hostnames over the real A2A
 // protocol with the mesh token, and assert store state via /store/runs (no
 // direct sqlite/D1 access). Cold starts + real Kimi turns → long timeouts.
