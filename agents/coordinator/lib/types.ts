@@ -62,7 +62,11 @@ export interface RunView {
     goal?: string;
     topic?: string;
     targets?: string[];
+    targetUrl?: string;
+    sourceType?: "none" | "webpage" | "pdf";
     sourceLocation?: string;
+    dimensions?: string[];
+    title?: string;
     backend?: string;
     legacyStyle?: string;
     fanOut?: number;

@@ -13,6 +13,10 @@ import { callAgent, computeStats, type BranchResult } from "./executor.ts";
 
 const EVAL_AGENT_URL = process.env.EVAL_AGENT_URL ?? "http://localhost:4001";
 const FANOUT_CONCURRENCY = Number(process.env.COORD_FANOUT_CONCURRENCY ?? 2);
+// How many bulk items evaluate at once (each item still fans out FANOUT_CONCURRENCY
+// branches internally). Keeps a 50-page batch from hammering the eval agent's
+// browser pool all at once. Mirrors v1's bounded batch-stream processing.
+const BULK_CONCURRENCY = Number(process.env.COORD_BULK_CONCURRENCY ?? 3);
 
 export interface EvalDirectPayload {
   targetUrl: string;
@@ -22,6 +26,8 @@ export interface EvalDirectPayload {
   fanOut?: number;
   batchId?: string;
   requestedBy?: string;
+  /** Optional human label (v1 BatchPage.title) — surfaced in the batch table. */
+  title?: string;
 }
 
 export function validateEvalDirect(p: EvalDirectPayload): void {
@@ -91,18 +97,18 @@ async function runEvalBranch(opts: {
 }
 
 /**
- * Insert an `eval-direct` run, fan out branches against the eval agent directly,
- * aggregate variance, persist. Returns the runId immediately; the eval itself runs
- * detached (submit-and-detach), exactly like coordinate.run. Progress + live
- * snapshots land on the run row so the dashboard renders it live.
+ * Insert one `eval-direct` run row (status=running) and return its ids. The config
+ * carries `targets` so the dashboard's existing label logic shows the URL, the
+ * source so the batch table can render it, and `goal: eval-direct` marks the lane.
  */
-export async function runDirectEval(db: StoreDb, payload: EvalDirectPayload): Promise<string> {
-  validateEvalDirect(payload);
+async function insertEvalRun(
+  db: StoreDb,
+  payload: EvalDirectPayload,
+  fanOut: number,
+  batchId: string | null
+): Promise<{ runId: string; contextId: string }> {
   const runId = randomUUID();
   const contextId = randomUUID();
-  const fanOut = Math.max(1, payload.fanOut ?? 1);
-  // config carries `targets` so the dashboard's existing label logic shows the URL,
-  // and `goal: eval-direct` marks the lane.
   const config = {
     goal: "eval-direct",
     targetUrl: payload.targetUrl,
@@ -110,12 +116,28 @@ export async function runDirectEval(db: StoreDb, payload: EvalDirectPayload): Pr
     sourceType: payload.sourceType ?? "none",
     ...(payload.sourceLocation ? { sourceLocation: payload.sourceLocation } : {}),
     ...(payload.dimensions?.length ? { dimensions: payload.dimensions } : {}),
+    ...(payload.title ? { title: payload.title } : {}),
     fanOut,
   };
   await db
     .prepare("insert into runs (id, kind, config, status, context_id, user_email, batch_id) values (?, ?, ?, 'running', ?, ?, ?)")
-    .run(runId, "eval-direct", JSON.stringify(config), contextId, payload.requestedBy ?? null, payload.batchId ?? null);
+    .run(runId, "eval-direct", JSON.stringify(config), contextId, payload.requestedBy ?? null, batchId);
+  return { runId, contextId };
+}
 
+/**
+ * Execute one already-inserted eval-direct run: fan out `fanOut` branches against
+ * the eval agent, stream progress + live snapshots onto the row, finalize stats.
+ * Resolves when the run row reaches a terminal status (never rejects — it records
+ * its own failure). Shared by the single (runDirectEval) and bulk (runBulkEval) lanes.
+ */
+async function executeDirectEval(
+  db: StoreDb,
+  runId: string,
+  contextId: string,
+  payload: EvalDirectPayload,
+  fanOut: number
+): Promise<void> {
   const progress: Array<{ ts: string; note: string }> = [];
   const persistNote = (note: string) => {
     progress.push({ ts: new Date().toISOString(), note });
@@ -129,36 +151,121 @@ export async function runDirectEval(db: StoreDb, payload: EvalDirectPayload): Pr
     void db.prepare("update runs set live = ? where id = ?").run(JSON.stringify(ordered), runId).catch(() => {});
   };
 
-  // Detach: run the eval(s) in the background, return the runId now.
-  void (async () => {
-    persistNote(`eval-direct: ${payload.targetUrl} × ${fanOut} branch(es)${payload.dimensions?.length ? ` · dims ${payload.dimensions.join(",")}` : ""}`);
-    try {
-      const queue = new PQueue({ concurrency: FANOUT_CONCURRENCY });
-      const results = await Promise.all(
-        Array.from({ length: fanOut }, (_, i) =>
-          queue.add(() =>
-            runEvalBranch({
-              branch: i + 1,
-              payload,
-              contextId,
-              runId,
-              onStage: persistNote,
-              onUpdate: persistLive,
-            })
-          ) as Promise<BranchResult>
-        )
-      );
-      const stats = computeStats(results, ["evaluate"]);
-      const runStatus = stats.failed === 0 ? "completed" : "completed_with_failures";
-      await db
-        .prepare("update runs set status = ?, stats = ?, live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?")
-        .run(runStatus, JSON.stringify({ ...stats, branchResults: results }), runId);
-    } catch (err) {
-      await db
-        .prepare("update runs set status = 'failed', error = ?, live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?")
-        .run(String(err).slice(0, 2000), runId);
-    }
-  })();
+  const sourceNote = payload.sourceType && payload.sourceType !== "none" ? ` ← ${payload.sourceType} ${payload.sourceLocation}` : "";
+  persistNote(
+    `eval-direct: ${payload.targetUrl}${sourceNote} × ${fanOut} branch(es)${payload.dimensions?.length ? ` · dims ${payload.dimensions.join(",")}` : ""}`
+  );
+  try {
+    const queue = new PQueue({ concurrency: FANOUT_CONCURRENCY });
+    const results = await Promise.all(
+      Array.from({ length: fanOut }, (_, i) =>
+        queue.add(() =>
+          runEvalBranch({
+            branch: i + 1,
+            payload,
+            contextId,
+            runId,
+            onStage: persistNote,
+            onUpdate: persistLive,
+          })
+        ) as Promise<BranchResult>
+      )
+    );
+    const stats = computeStats(results, ["evaluate"]);
+    const runStatus = stats.failed === 0 ? "completed" : "completed_with_failures";
+    await db
+      .prepare("update runs set status = ?, stats = ?, live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?")
+      .run(runStatus, JSON.stringify({ ...stats, branchResults: results }), runId);
+  } catch (err) {
+    await db
+      .prepare("update runs set status = 'failed', error = ?, live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?")
+      .run(String(err).slice(0, 2000), runId);
+  }
+}
 
+/**
+ * Insert an `eval-direct` run, fan out branches against the eval agent directly,
+ * aggregate variance, persist. Returns the runId immediately; the eval itself runs
+ * detached (submit-and-detach), exactly like coordinate.run. Progress + live
+ * snapshots land on the run row so the dashboard renders it live.
+ */
+export async function runDirectEval(db: StoreDb, payload: EvalDirectPayload): Promise<string> {
+  validateEvalDirect(payload);
+  const fanOut = Math.max(1, payload.fanOut ?? 1);
+  const { runId, contextId } = await insertEvalRun(db, payload, fanOut, payload.batchId ?? null);
+  // Detach: run the eval(s) in the background, return the runId now.
+  void executeDirectEval(db, runId, contextId, payload, fanOut);
   return runId;
+}
+
+/**
+ * One bulk submission = N source→target eval items under ONE batch. This is the v1
+ * bulk-comparison capability, backend-owned: the browser POSTs the whole parsed
+ * batch once; the server fans out per-item evals (each its own durable eval-direct
+ * run, grouped by batchId) so the dashboard's batch grid + per-run evidence light up.
+ *
+ * Each item carries its own source (sourceType + sourceLocation), so content + visual
+ * run the real source-vs-target fidelity comparison — exactly like v1. Items without
+ * a source are scored target-only (content honestly excluded, not zeroed). Item-level
+ * `dimensions` override the batch-level default.
+ */
+export interface BulkEvalPayload {
+  items: EvalDirectPayload[];
+  fanOut?: number;
+  /** Batch-level dimension subset; an item's own `dimensions` wins when present. */
+  dimensions?: string[];
+  batchId?: string;
+  requestedBy?: string;
+}
+
+export function validateBulkEval(p: BulkEvalPayload): void {
+  if (!Array.isArray(p.items) || p.items.length === 0) {
+    throw new Error("eval-bulk: 'items' must be a non-empty array");
+  }
+  if (p.items.length > 100) {
+    throw new Error(`eval-bulk: at most 100 items per batch (got ${p.items.length})`);
+  }
+  if (p.fanOut !== undefined && (!Number.isInteger(p.fanOut) || p.fanOut < 1)) {
+    throw new Error("eval-bulk: 'fanOut' must be a positive integer");
+  }
+  p.items.forEach((it, i) => {
+    try {
+      validateEvalDirect({ ...it, dimensions: it.dimensions ?? p.dimensions });
+    } catch (err) {
+      throw new Error(`eval-bulk: item ${i + 1} (${it.targetUrl ?? "?"}) — ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
+}
+
+export async function runBulkEval(
+  db: StoreDb,
+  payload: BulkEvalPayload
+): Promise<{ batchId: string; runIds: string[] }> {
+  validateBulkEval(payload);
+  const batchId = payload.batchId?.trim() || randomUUID();
+  const fanOut = Math.max(1, payload.fanOut ?? 1);
+  // Per-item payload: item dimensions override the batch default; carry identity + fanOut.
+  const itemPayloads: EvalDirectPayload[] = payload.items.map((it) => ({
+    ...it,
+    sourceType: it.sourceType ?? "none",
+    fanOut,
+    dimensions: it.dimensions ?? payload.dimensions,
+    requestedBy: payload.requestedBy,
+  }));
+  // Insert every run row up front so the batch page shows all items immediately.
+  const inserted: Array<{ runId: string; contextId: string; payload: EvalDirectPayload }> = [];
+  for (const it of itemPayloads) {
+    const { runId, contextId } = await insertEvalRun(db, it, fanOut, batchId);
+    inserted.push({ runId, contextId, payload: it });
+  }
+  // Detach: evaluate the items with bounded concurrency, return the batch now.
+  void (async () => {
+    const queue = new PQueue({ concurrency: BULK_CONCURRENCY });
+    await Promise.all(
+      inserted.map(({ runId, contextId, payload: it }) =>
+        queue.add(() => executeDirectEval(db, runId, contextId, it, fanOut))
+      )
+    );
+  })();
+  return { batchId, runIds: inserted.map((r) => r.runId) };
 }

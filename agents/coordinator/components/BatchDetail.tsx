@@ -30,7 +30,17 @@ function gradeOf(score: number): string {
 }
 
 function label(run: RunView): string {
-  return run.config.topic ?? run.config.targets?.[0] ?? (run.config.targetUrl as string) ?? run.id.slice(0, 8);
+  return run.config.title ?? run.config.topic ?? run.config.targets?.[0] ?? run.config.targetUrl ?? run.id.slice(0, 8);
+}
+
+function sourceLabel(run: RunView): string {
+  const t = run.config.sourceType;
+  if (!t || t === "none") return "—";
+  return run.config.sourceLocation ? `${t} · ${run.config.sourceLocation}` : t;
+}
+
+function isEvalDirect(run: RunView): boolean {
+  return run.kind === "eval-direct" || run.config.goal === "eval-direct";
 }
 
 function isFailed(run: RunView): boolean {
@@ -73,22 +83,39 @@ export function BatchDetail({ batchId }: { batchId: string }) {
       const failures = runs.filter(isFailed);
       for (const run of failures) {
         const c = run.config;
-        await fetch("/api/trigger", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            goal: c.goal,
-            topic: c.topic,
-            targets: c.targets,
-            sourceLocation: c.sourceLocation,
-            fanOut: c.fanOut,
-            legacyStyle: c.legacyStyle,
-            backend: c.backend,
-            site: c.site,
-            owner: c.owner,
-            batchId,
-          }),
-        });
+        // eval-direct items re-run through the direct-eval lane (carrying their
+        // source); full-loop/coordinate items re-run through /api/trigger.
+        if (isEvalDirect(run)) {
+          await fetch("/api/eval-direct", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              targetUrl: c.targetUrl ?? c.targets?.[0],
+              sourceType: c.sourceType ?? "none",
+              sourceLocation: c.sourceLocation,
+              dimensions: c.dimensions,
+              fanOut: c.fanOut,
+              batchId,
+            }),
+          });
+        } else {
+          await fetch("/api/trigger", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              goal: c.goal,
+              topic: c.topic,
+              targets: c.targets,
+              sourceLocation: c.sourceLocation,
+              fanOut: c.fanOut,
+              legacyStyle: c.legacyStyle,
+              backend: c.backend,
+              site: c.site,
+              owner: c.owner,
+              batchId,
+            }),
+          });
+        }
       }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
@@ -210,6 +237,7 @@ export function BatchDetail({ batchId }: { batchId: string }) {
                   <TableRow className="bg-gray-50">
                     <TableHead>started</TableHead>
                     <TableHead>item</TableHead>
+                    <TableHead>source</TableHead>
                     <TableHead>route</TableHead>
                     <TableHead>status</TableHead>
                     <TableHead className="text-right">score</TableHead>
@@ -223,6 +251,9 @@ export function BatchDetail({ batchId }: { batchId: string }) {
                         <Link href={`/runs/${r.id}`} className="hover:underline font-medium">
                           {label(r)}
                         </Link>
+                      </TableCell>
+                      <TableCell className="max-w-56 truncate font-mono text-xs text-muted-foreground" title={sourceLabel(r)}>
+                        {sourceLabel(r)}
                       </TableCell>
                       <TableCell className="font-mono text-xs">{r.stats?.route ?? r.config.goal ?? r.kind}</TableCell>
                       <TableCell title={r.error ?? undefined}>

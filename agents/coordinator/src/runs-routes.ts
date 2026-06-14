@@ -1,6 +1,13 @@
 import express from "express";
 import { meshClientFactory, type StoreDb } from "@agents/a2a-common";
-import { runDirectEval, validateEvalDirect, type EvalDirectPayload } from "./direct-eval.ts";
+import {
+  runDirectEval,
+  validateEvalDirect,
+  runBulkEval,
+  validateBulkEval,
+  type EvalDirectPayload,
+  type BulkEvalPayload,
+} from "./direct-eval.ts";
 
 /**
  * Domain read endpoints, owned by the A2A layer (the store's only owner):
@@ -199,6 +206,22 @@ export function mountRunsRoutes(ctx: { app: express.Express; db: StoreDb; edgeTo
       validateEvalDirect(payload);
       const runId = await runDirectEval(db, payload);
       res.status(202).json({ runId });
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // The bulk lane: one POST of the whole parsed batch (N source→target items);
+  // the server mints the batch and fans out per-item eval-direct runs grouped by
+  // batchId. This is the v1 bulk-comparison capability — backend-owned so the
+  // dashboard stays thin (no client-side fan-out). Edge-gated like the rest of /store/*.
+  app.post("/store/eval-bulk", express.json({ limit: "4mb" }), async (req, res) => {
+    if (!guard(req, res)) return;
+    try {
+      const payload = (req.body ?? {}) as BulkEvalPayload;
+      validateBulkEval(payload);
+      const result = await runBulkEval(db, payload);
+      res.status(202).json(result);
     } catch (err) {
       res.status(400).json({ error: String(err) });
     }
