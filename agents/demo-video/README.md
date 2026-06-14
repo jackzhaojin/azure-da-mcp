@@ -34,12 +34,51 @@ node ../../.claude/skills/playwright-demo-video/scripts/run-pipeline.mjs \
   --spec demo/loop-demo.spec.ts \
   --grep "@loop-demo" \
   --music <path-to-background.mp3> \
-  --output-dir ./demo-output \
+  --output-dir ./$(date +%F)-content-factory-loop \
   --project-dir "$(pwd)"
 ```
 
-Output: `demo-output/demo-final.mp4` (~2.2 min). The spec emits `__CAPTION_TS__`
-markers (`startTimestampRecording()`), so voice timing is exact — no drift.
+Output: `<YYYY-MM-DD>-content-factory-loop/demo-final.mp4` (~2.2 min). The spec emits
+`__CAPTION_TS__` markers (`startTimestampRecording()`), so voice timing is exact — no
+drift. Each run is archived in its own dated `YYYY-MM-DD-slug/` directory (gitignored);
+the last recorded loop demo is in `2026-06-11-content-factory-loop/`.
+
+## Tour demo (coordinator + eval, no live trigger)
+
+`demo/factory-tour.spec.ts` (`@factory-tour`) is a guided tour that narrates the
+**retro coordinator flow** (dashboard / previous runs → a completed full-loop run
+with branches + variance → a bulk batch) **and the new eval flow** (Direct eval +
+the evidence panel). It does **not** trigger a live run — with the agentic eval
+token enabled a full-loop's eval stage takes 1–2 min — so it navigates REAL
+completed runs already in the store (resolved dynamically via `/api/runs`). Seed
+one full-loop, one bulk batch, and one Direct eval first.
+
+Run the coordinator in **production** mode for the recording (`NODE_ENV=production
+npm run start -w coordinator`, SSO off): no dev-tools overlay, and it avoids the
+Next dev hot-reload chunk corruption that 500s `/runs/[id]` after a component edit.
+
+```bash
+cd agents/demo-video && set -a; source ../.env; set +a
+SK=../../.claude/skills/playwright-demo-video/scripts
+OUT=$(date +%F)-factory-tour; mkdir -p "$OUT"   # dated archive dir (gitignored)
+# 1) record (captures __CAPTION_TS__ markers → exact timestamps)
+npx playwright test --config=playwright.video.config.ts --grep "@factory-tour" \
+  2>&1 | tee "$OUT/recording.log"
+# 2) exact captions from the log (heuristic mode drops the ${score} caption + drifts)
+node $SK/extract-captions.mjs demo/factory-tour.spec.ts \
+  --from-log "$OUT/recording.log" --output "$OUT/captions.json"
+# 3) voice + 4) merge
+node $SK/generate-voice.mjs "$OUT/captions.json" \
+  --output-dir "$OUT/audio" --env-file ../.env
+node $SK/merge-video.mjs --video test-results/*factory-tour*/video.webm \
+  --manifest "$OUT/captions.json" --audio-dir "$OUT/audio" \
+  --output "$OUT/factory-tour-final.mp4"
+```
+
+Output: `<YYYY-MM-DD>-factory-tour/factory-tour-final.mp4` (~2.2 min). Use `--from-log`
+for exact sync — `run-pipeline.mjs --video` (without `--record`) falls back to heuristic
+timing, which both drifts and fails to parse captions containing `${…}`. The last
+recorded tour is in `2026-06-14-factory-tour/`.
 
 ## Notes
 
