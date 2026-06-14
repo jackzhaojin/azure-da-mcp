@@ -40,6 +40,16 @@ The sprint was **self-directed**: two exploration agents surveyed the eval servi
 | [`04-coordinator-live-runs-and-failure-reasons.md`](./04-coordinator-live-runs-and-failure-reasons.md) | Migration `0005`, the `onUpdate` snapshot pipeline, restart-policy reasons, the new fast-tier suite |
 | [`05-dashboard-evidence-and-ux.md`](./05-dashboard-evidence-and-ux.md) | The evidence read path (`/store/evidence/:taskId` → A2A `tasks/get`), the EvidencePanel component, and the seven smaller UX fixes |
 
+### Part 2 — PR #6 parity hardening + demo (2026-06-14)
+
+A second pass on top of PR #6 (the coordinator's v1.0 eval-app UI parity — Single/Bulk/Direct-eval lanes — and the `agents/ui` retirement). Reconstructed what #6 did, reviewed it, drove every lane through a real browser, and hardened one real eval-quality bug it exposed.
+
+| File | Covers |
+|------|--------|
+| [`06-coordinator-v1-parity-and-ui-retire.md`](./06-coordinator-v1-parity-and-ui-retire.md) | What PR #6 changed (3 lanes, backend, eval `dimensions`, `agents/ui` retire) + a pre-test senior-engineer correctness review (findings F1–F5) |
+| [`07-pr6-hardening-and-ui-validation.md`](./07-pr6-hardening-and-ui-validation.md) | Live UI validation of all lanes on the real agentic engine; **fix #1** tolerant agentic JSON parsing (a chatty Claude response was zeroing a whole dimension); **fix #2** batch poll backoff; final verification matrix |
+| [`DEMO-SCRIPT.md`](./DEMO-SCRIPT.md) | The runnable demo walkthrough — coordinator (Single + Bulk) **and** eval (Direct eval + evidence) — written so a Playwright spec can drive a recorded video |
+
 ## Verification (the whole sprint, end to end)
 
 - **Typecheck**: `npm run typecheck` (root + eval-service tsconfigs) — clean

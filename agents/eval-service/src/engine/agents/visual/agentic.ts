@@ -10,6 +10,7 @@ import { requireAgentAuth, agenticAbort } from '@/lib/agent-auth';
 import type { TextBlockParam, ImageBlockParam, DocumentBlockParam } from '@anthropic-ai/sdk/resources/messages.mjs';
 import fs from 'fs';
 import { createLogger, Timer } from '@/lib/logger';
+import { extractJsonText } from '@/lib/extract-json';
 import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './types';
 import visualNoSourcePrompt from '@/lib/prompts/visual-no-source.json';
 import visualHtmlSourcePrompt from '@/lib/prompts/visual-html-source.json';
@@ -103,11 +104,10 @@ export function parseClaudeResponse(response: string): AgenticAnalysisResult {
   logger.debug('Parsing Claude response', { responseLength: response.length });
 
   try {
-    // Claude sometimes wraps JSON in markdown code blocks
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    const jsonText = jsonMatch ? jsonMatch[1] : response;
+    // Tolerate fenced, pure, or prose-wrapped JSON (see extract-json.ts).
+    const jsonText = extractJsonText(response);
 
-    const parsed = JSON.parse(jsonText.trim());
+    const parsed = JSON.parse(jsonText);
 
     // Validate required fields
     if (!Array.isArray(parsed.findings)) {

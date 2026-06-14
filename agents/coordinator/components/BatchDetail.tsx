@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,12 +41,22 @@ export function BatchDetail({ batchId }: { batchId: string }) {
   const [retrying, setRetrying] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { data, error } = usePoll<{ runs: RunView[] }>(`/api/runs?batchId=${encodeURIComponent(batchId)}`, 2500);
+  // Poll fast while anything is in flight (or still landing), then back off to a
+  // heartbeat once every item is terminal — don't hammer the store on an idle
+  // finished batch. Never stops, so a "Retry failed" (or a late-landing item)
+  // still gets picked up; the effect re-arms the fast cadence when work resumes.
+  const [pollMs, setPollMs] = useState(2500);
+  const { data, error } = usePoll<{ runs: RunView[] }>(`/api/runs?batchId=${encodeURIComponent(batchId)}`, pollMs);
   const runs = data?.runs ?? [];
 
   const total = runs.length;
   const running = runs.filter((r) => !TERMINAL.has(r.status)).length;
   const failed = runs.filter(isFailed).length;
+  // settled = rows present and none in flight → drop to a heartbeat; otherwise
+  // (running, or rows still landing) keep the fast cadence.
+  useEffect(() => {
+    setPollMs(total > 0 && running === 0 ? 15000 : 2500);
+  }, [total, running]);
   const completed = runs.filter((r) => r.status === "completed").length;
   const scores = runs.map((r) => r.stats?.overall?.mean).filter((s): s is number => typeof s === "number");
   const avg = scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : null;
@@ -57,6 +67,8 @@ export function BatchDetail({ batchId }: { batchId: string }) {
   const retryFailed = async () => {
     setRetrying(true);
     setActionError(null);
+    setPollMs(2500); // re-arm fast polling: the retried items are about to run
+
     try {
       const failures = runs.filter(isFailed);
       for (const run of failures) {
