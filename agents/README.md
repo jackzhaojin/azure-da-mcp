@@ -10,11 +10,11 @@ The flagship **v2.0** platform: a decoupled mesh of A2A agents (generate → mig
 
 | URL | What |
 |---|---|
-| **https://content-factor-dash.xpri.ai** | The coordinator dashboard — Google SSO, trigger runs, live agent activity, branch grids, variance. Runs you trigger are tied to your Google identity (`runs.user_email`). |
-| `https://content-factory.xpri.ai` | Coordinator A2A surface (`/a2a` mesh-token gated, `/store/runs` edge-token gated, agent card + `/health` public) |
-| `https://content-factory-eval.xpri.ai` | Eval agent (real engine: Chromium + axe + agentic Claude tiers) |
-| `https://content-factory-gen.xpri.ai` | Content-gen agent (synthetic legacy sources → R2) |
-| `https://content-factory-migrate.xpri.ai` | Migration agent (dryrun / makecom / **opencode = Kimi K2.6**) |
+| **https://content-factor-dash.jackzhaojin.com** | The coordinator dashboard — Google SSO, trigger runs, live agent activity, branch grids, variance. Runs you trigger are tied to your Google identity (`runs.user_email`). |
+| `https://content-factory.jackzhaojin.com` | Coordinator A2A surface (`/a2a` mesh-token gated, `/store/runs` edge-token gated, agent card + `/health` public) |
+| `https://content-factory-eval.jackzhaojin.com` | Eval agent (real engine: Chromium + axe + agentic Claude tiers) |
+| `https://content-factory-gen.jackzhaojin.com` | Content-gen agent (synthetic legacy sources → R2) |
+| `https://content-factory-migrate.jackzhaojin.com` | Migration agent (dryrun / makecom / **opencode = Kimi K2.6**) |
 
 Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#cost-model--sleep-behavior)) and cold-start in ~5–30s on the next request. The first dashboard hit after a quiet period takes a few extra seconds — that's the deal.
 
@@ -43,7 +43,7 @@ Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#
 Local dev uses SQLite + localhost ports — no Cloudflare dependency, no behavior drift (same SQL, same code paths; the store driver is selected by env).
 
 ```
-  browser / curl / npm run loop                Make.com ── a2a.xpri.ai (tunnel)
+  browser / curl / npm run loop                Make.com ── a2a.jackzhaojin.com (tunnel)
   ───────────────┬──────────────                              │
                  ▼                                            ▼
   :4004 coordinator (A2A + Next dashboard) ─── coordinator/data/store.db
@@ -88,7 +88,7 @@ curl -X POST localhost:4001/hooks/eval/eval.run \
 The same shim works against the cloud (bearer required there):
 
 ```bash
-curl -X POST https://content-factor-dash.xpri.ai/hooks/coordinator/coordinate.run \
+curl -X POST https://content-factor-dash.jackzhaojin.com/hooks/coordinator/coordinate.run \
   -H "Authorization: Bearer $A2A_EDGE_TOKEN" -H 'Content-Type: application/json' \
   -d '{"goal":"full-loop","topic":"anything","fanOut":1,"backend":"dryrun"}'
 ```
@@ -205,7 +205,7 @@ In Cloudflare there is **one database for all four containers**: D1 **`a2a-agent
 How a container reaches it — **containers get NO native bindings**, so a direct D1 binding is impossible. Instead:
 
 1. The Worker (`deploy/src/index.ts`) owns the D1 binding and exposes `POST /d1/query`, gated by the `x-d1-secret` header (`D1_PROXY_SECRET`).
-2. The Worker injects `D1_PROXY_URL` (= `https://content-factory.xpri.ai`) + `D1_PROXY_SECRET` into every container's env, which flips `openDb()` to the `D1ProxyDb` driver.
+2. The Worker injects `D1_PROXY_URL` (= `https://content-factory.jackzhaojin.com`) + `D1_PROXY_SECRET` into every container's env, which flips `openDb()` to the `D1ProxyDb` driver.
 3. Every `prepare().run/get/all()` becomes an HTTPS round trip: container → Worker → D1 → back. Measured ~100 ms/query (65–300 ms range) — fine for this workload, and it fails fast at boot (`select 1`) if misconfigured.
 
 Schema changes on D1 are **manual and file-by-file** — it has no `_migrations` table: `npx wrangler d1 execute a2a-agents --remote --file a2a-common/migrations/000N_*.sql`. Keep the SQL plain-SQLite-dialect and positional-`?`-only (D1 has no named parameter binding) so the same file serves both worlds.
@@ -254,7 +254,7 @@ The dashboard's Google SSO (Auth.js v5) uses **JWT sessions** — the session is
 npm run test:e2e     # fast tier (~16s): 46 tests, protocol contract, stub engine — the CI gate
 npm run test:live    # live tier: REAL engine — Chromium, axe, screenshots; $0 (no API keys)
 npm run test:soak    # 10× loop endurance
-npm run test:cloud   # CLOUD tier: drives the DEPLOYED mesh on content-factory*.xpri.ai
+npm run test:cloud   # CLOUD tier: drives the DEPLOYED mesh on content-factory*.jackzhaojin.com
 ```
 
 Monorepo philosophy: **real tests only, no mocks.** Fast/live/soak spawn actual agent servers (isolated 14xxx ports + throwaway SQLite); the cloud tier spawns nothing — it drives the public hostnames with the real A2A client and asserts store state through `/store/runs` + `tasks/get`, exactly like a production consumer.
@@ -275,7 +275,7 @@ The fast tier's 13 suites and live tier's 6 are enumerated in [`e2e/`](./e2e/) a
 | Containers | `content-factory-{coordinator,eval,contentgen,migration}container` — singletons, scale-to-zero |
 | D1 database | `a2a-agents` — `db84ebfc-2132-45ac-902d-7ef7117786e8` (schema = the same `a2a-common/migrations/` files, applied via wrangler) |
 | R2 bucket | `a2a-agents-artifacts` — public at `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev` (S3 API from containers; [docs/r2-setup.md](docs/r2-setup.md)) |
-| Tunnel (legacy) | `a2a-mesh` → `a2a.xpri.ai` → local `:4003` only — the Make.com ingress to a LOCAL migration agent; the dashboard hostname moved to the Worker at M5 |
+| Tunnel (legacy) | `a2a-mesh` → `a2a.jackzhaojin.com` → local `:4003` only — the Make.com ingress to a LOCAL migration agent; the dashboard hostname moved to the Worker at M5 |
 
 ---
 

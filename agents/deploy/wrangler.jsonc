@@ -9,8 +9,9 @@
   // also owns the D1 binding and serves the secret-gated /d1/query proxy the
   // containers' StoreDb driver calls back into (containers get no bindings —
   // pattern + latency measured in references/cloudflare/d1-container).
-  // jackzhaojin.com is the live brand; *.xpri.ai kept only for the cutover window
-  // (remove the xpri.ai entries + redeploy once jackzhaojin.com is verified).
+  // jackzhaojin.com is the live brand. The *.xpri.ai routes still resolve in
+  // parallel and are PENDING MANUAL INFRA TEARDOWN — when retiring xpri, delete
+  // the 5 xpri.ai entries below and redeploy (deploy between runs, not during).
   "routes": [
     { "pattern": "content-factory.jackzhaojin.com", "custom_domain": true },
     { "pattern": "content-factor-dash.jackzhaojin.com", "custom_domain": true },
