@@ -3,13 +3,17 @@ import { Container, getContainer } from "@cloudflare/containers";
 /**
  * content-factory — the M5 Worker fronting the whole A2A mesh.
  *
- *   hostname                          → container
- *   content-factory.xpri.ai           → coordinator (A2A + dashboard)
- *   content-factor-dash.xpri.ai       → coordinator (Google-OAuth-registered dashboard host)
- *   content-factory-eval.xpri.ai      → eval agent
- *   content-factory-gen.xpri.ai       → content-gen agent
- *   content-factory-migrate.xpri.ai   → migration agent
- *   *.workers.dev                     → coordinator (fallback)
+ *   hostname (prefix)                      → container
+ *   content-factory.jackzhaojin.com        → coordinator (A2A + dashboard)
+ *   content-factor-dash.jackzhaojin.com    → coordinator (Google-OAuth-registered dashboard host)
+ *   content-factory-eval.jackzhaojin.com   → eval agent
+ *   content-factory-gen.jackzhaojin.com    → content-gen agent
+ *   content-factory-migrate.jackzhaojin.com → migration agent
+ *   *.workers.dev                          → coordinator (fallback)
+ *
+ * Routing matches by SUBDOMAIN PREFIX (not full host) so the legacy *.xpri.ai
+ * hostnames keep routing correctly during the jackzhaojin.com cutover. Drop the
+ * xpri.ai custom_domain routes (wrangler.jsonc) once migration is verified.
  *
  * The Worker also owns the D1 binding and exposes the secret-gated /d1/query
  * proxy that the containers' StoreDb d1-proxy driver calls back into (containers
@@ -48,11 +52,11 @@ interface Env {
 }
 
 const HOSTS = {
-  coordinator: "https://content-factory.xpri.ai",
-  dash: "https://content-factor-dash.xpri.ai",
-  eval: "https://content-factory-eval.xpri.ai",
-  gen: "https://content-factory-gen.xpri.ai",
-  migrate: "https://content-factory-migrate.xpri.ai",
+  coordinator: "https://content-factory.jackzhaojin.com",
+  dash: "https://content-factor-dash.jackzhaojin.com",
+  eval: "https://content-factory-eval.jackzhaojin.com",
+  gen: "https://content-factory-gen.jackzhaojin.com",
+  migrate: "https://content-factory-migrate.jackzhaojin.com",
 } as const;
 
 /** Env every agent container gets: store driver, mesh auth, R2. */
@@ -182,14 +186,15 @@ export default {
       return json({ ok: true, worker: "content-factory", at: new Date().toISOString() });
     }
 
-    // ── hostname → container ──
+    // ── hostname → container (match by subdomain prefix so both *.xpri.ai and
+    // *.jackzhaojin.com route correctly through the cutover) ──
     const host = url.hostname;
     const ns =
-      host === "content-factory-eval.xpri.ai"
+      host.startsWith("content-factory-eval.")
         ? env.EVAL
-        : host === "content-factory-gen.xpri.ai"
+        : host.startsWith("content-factory-gen.")
           ? env.CONTENT_GEN
-          : host === "content-factory-migrate.xpri.ai"
+          : host.startsWith("content-factory-migrate.")
             ? env.MIGRATION
             : env.COORDINATOR; // content-factory / content-factor-dash / workers.dev fallback
 
