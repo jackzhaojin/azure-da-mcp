@@ -31,9 +31,17 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <Link href="/" className="text-xl font-bold">
                 Coordinator
               </Link>
-              <span className="text-sm text-muted-foreground hidden sm:inline">
-                generate → migrate → evaluate, across the A2A mesh
-              </span>
+              <div className="hidden sm:flex items-center gap-4 text-sm">
+                <Link href="/" className="text-muted-foreground hover:text-foreground">
+                  Single
+                </Link>
+                <Link href="/bulk" className="text-muted-foreground hover:text-foreground">
+                  Bulk
+                </Link>
+                <Link href="/eval" className="text-muted-foreground hover:text-foreground">
+                  Direct eval
+                </Link>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               {session?.user?.email && (

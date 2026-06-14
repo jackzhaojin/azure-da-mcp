@@ -15,8 +15,7 @@ The **v2.0** workstream: a decoupled mesh of independently-addressable AI agents
 | `eval-service/` | 4001 | Eval agent — engine **copied** from the frozen app; `eval.run` (4 dims) | [✓](./eval-service/CLAUDE.md) |
 | `content-gen/` | 4002 | Briefs + synthetic legacy source pages | [✓](./content-gen/CLAUDE.md) |
 | `migration-agent/` | 4003 | One Agent Card, backends `dryrun`/`makecom`/`sdk`; owns the Make.com callback | [✓](./migration-agent/CLAUDE.md) |
-| `coordinator/` | 4004 | A2A client+server: routing, fan-out, variance; CLI; **+ its own Next.js dashboard on :4004/** (trigger, live activity, branch grid) | [✓](./coordinator/CLAUDE.md) |
-| `ui/` | 3000 | Thin Next.js dashboard (auth, runs, trigger) | [✓](./ui/CLAUDE.md) |
+| `coordinator/` | 4004 | A2A client+server: routing, fan-out, variance; CLI; **+ its own Next.js dashboard on :4004/** — the sole UI: single/bulk/direct-eval lanes, sample downloads, JSON export, live activity, branch grid | [✓](./coordinator/CLAUDE.md) |
 | `store-mcp/` | stdio | MCP server — conversational read access to the store | [✓](./store-mcp/CLAUDE.md) |
 | `e2e/` | — | Real-server tests (fast/live/soak) | [✓](./e2e/CLAUDE.md) |
 | `docs/` | — | `r2-setup.md` · `tunnel-setup.md` · `makecom-scenario-checklist.md` | — |
@@ -32,8 +31,7 @@ set -a; source .env; set +a       # load env (cp .env.example .env first; secret
 npm run dev:eval                  # :4001
 npm run dev:content-gen           # :4002
 npm run dev:migration             # :4003
-npm run dev:coordinator           # :4004 (A2A + the coordinator dashboard at http://localhost:4004/)
-npm run dev:ui                    # :3000 (legacy thin dashboard)
+npm run dev:coordinator           # :4004 (A2A + the coordinator dashboard at http://localhost:4004/ — the sole UI)
 
 npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loop
 npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner jackzhaojin  # Kimi K2.6 real migration

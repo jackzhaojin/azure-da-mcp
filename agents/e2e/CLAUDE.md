@@ -41,10 +41,10 @@ npm run test:e2e     # fast (CI tier)
 npm run test:live    # live (creds-gated; skips R2/eval without creds)
 npm run test:soak    # full-loop-10x
 ```
-Fast tier needs nothing but the repo — it spawns real servers itself. ui-smoke (live) boots a real `next dev` against a seeded store.
+Fast tier needs nothing but the repo — it spawns real servers itself.
 
 ## Conventions
-- One Express A2A server per agent on `@agents/a2a-common`; ports eval 4001 / content-gen 4002 / migration 4003 / coordinator 4004 / ui 3000 (tests use `14xxx`).
+- One Express A2A server per agent on `@agents/a2a-common`; ports eval 4001 / content-gen 4002 / migration 4003 / coordinator 4004 (tests use `14xxx`).
 - Node 20; `@a2a-js/sdk@0.3.13` pinned across the mesh.
 - Persistence is local SQLite = **same SQL as Cloudflare D1** (migrations in `a2a-common/migrations/`); tests assert on store rows.
 - REAL tests, NO mocks: every suite drives the actual `npm run dev:*` processes over real HTTP with the real A2A client.

@@ -30,10 +30,9 @@ Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#
 | `eval-service/` | 4001 | Eval agent — real engine (copied from the frozen app), job queue, browser semaphore, `eval.run` executor; screenshots → R2; `EVAL_ENGINE=stub` for the fake; heartbeats while queued *and* evaluating; restart rebuild with a 30-min age guard |
 | `content-gen/` | 4002 | Content generator — `content.brief` + `content.synthesize-source` (template tier; Agent SDK backend at M3). Synthetic sources → R2 (public r2.dev) |
 | `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), `makecom` (webhook out → callback in, restart-tolerant), **`opencode` (Kimi K2.6 via `opencode serve` — reuses the `da-live-author-playwright` skill + da.live/Playwright MCP; verified against real da.live, locally AND in-container)**, `sdk` (M3) |
-| `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): routed pipelines (`evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto`) with fan-out + variance stats; **stream-cut recovery via `tasks/get`** + cold-start retries; CLI `hello`/`batch`/`loop`; **+ the Next.js dashboard on the same port** (Google SSO via Auth.js, per-user runs, live activity, database-free backend over `/store/runs`) |
+| `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): routed pipelines (`evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto`) with fan-out + variance stats; **stream-cut recovery via `tasks/get`** + cold-start retries; CLI `hello`/`batch`/`loop`; **+ the Next.js dashboard on the same port — the sole UI** (Google SSO via Auth.js, per-user runs; single/bulk/direct-eval lanes, sample downloads, JSON export, live activity; database-free backend over `/store/runs`) |
 | `deploy/` | — | **The M5 Cloudflare deployment** (standalone, NOT an npm workspace — wrangler needs Node 22): the `content-factory` Worker, four Dockerfiles, wrangler config. See [deploy/CLAUDE.md](./deploy/CLAUDE.md) |
 | `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
-| `ui/` | 3000 | **Legacy** thin dashboard — superseded by the coordinator's own dashboard; reads local SQLite directly so it cannot run against the cloud store |
 | `store-mcp/` | stdio | Read-only MCP server over the local stores — "ask Claude about run results in natural language" |
 | `e2e/` | 14xxx | E2E suites (vitest) — real servers, real A2A over HTTP, no mocks: **fast**, **live**, **soak**, and **cloud** tiers |
 
@@ -193,7 +192,7 @@ Driver: **better-sqlite3** (WAL mode, foreign keys on). On boot each agent opens
 | content-gen | `agents/content-gen/data/store.db` |
 | migration-agent | `agents/migration-agent/data/store.db` |
 
-Two consumers read these files directly (read-only, no server): the legacy `ui/` dashboard (`COORDINATOR_DB`, default `../coordinator/data/store.db`) and `store-mcp/` (`COORDINATOR_DB` + `EVAL_DB`). That's also why neither can run against the cloud store.
+One consumer reads these files directly (read-only, no server): `store-mcp/` (`COORDINATOR_DB` + `EVAL_DB`). That's also why it can't run against the cloud store. (The dashboard does NOT read SQLite directly — it goes through the coordinator's `/store/*` loopback API.)
 
 - **Inspect**: any SQLite client — e.g. `sqlite3 agents/coordinator/data/store.db 'select id, goal, status from runs order by created_at desc limit 5'`
 - **Reset**: delete the `data/store.db` file(s); they're recreated + migrated on next boot. All `data/`, `*.db` are gitignored.

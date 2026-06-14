@@ -1,5 +1,6 @@
-import type express from "express";
+import express from "express";
 import { meshClientFactory, type StoreDb } from "@agents/a2a-common";
+import { runDirectEval, validateEvalDirect, type EvalDirectPayload } from "./direct-eval.ts";
 
 /**
  * Domain read endpoints, owned by the A2A layer (the store's only owner):
@@ -30,11 +31,12 @@ interface RunRow {
   error: string | null;
   context_id: string | null;
   user_email: string | null;
+  batch_id: string | null;
   created_at: string;
   completed_at: string | null;
 }
 
-const COLS = "id, kind, config, status, stats, progress, live, error, context_id, user_email, created_at, completed_at";
+const COLS = "id, kind, config, status, stats, progress, live, error, context_id, user_email, batch_id, created_at, completed_at";
 const LIST_PROGRESS_TAIL = 10; // dashboard cards show the last few notes; keep list payloads light
 
 function parseJson<T>(raw: string | null, fallback: T): T {
@@ -60,6 +62,7 @@ function toView(row: RunRow, { full = false } = {}) {
     status: row.status,
     contextId: row.context_id,
     userEmail: row.user_email,
+    batchId: row.batch_id,
     createdAt: row.created_at,
     completedAt: row.completed_at,
     config: parseJson<Record<string, unknown>>(row.config, {}),
@@ -91,6 +94,14 @@ export function mountRunsRoutes(ctx: { app: express.Express; db: StoreDb; edgeTo
           .prepare(`select ${COLS} from runs where context_id = ? order by created_at desc limit 1`)
           .get<RunRow>(contextId);
         return res.json({ run: row ? toView(row) : null });
+      }
+      // ?batchId= returns every run a bulk submission fired (one item = one run).
+      const batchId = req.query.batchId;
+      if (typeof batchId === "string" && batchId) {
+        const rows = await db
+          .prepare(`select ${COLS} from runs where batch_id = ? order by created_at asc`)
+          .all<RunRow>(batchId);
+        return res.json({ runs: rows.map((r) => toView(r)) });
       }
       const limit = Math.min(Number(req.query.limit ?? 30) || 30, 100);
       // ?user= scopes to that user's runs PLUS unowned system runs (CLI / edge
@@ -174,6 +185,22 @@ export function mountRunsRoutes(ctx: { app: express.Express; db: StoreDb; edgeTo
       res.json({ run: { ...toView(row, { full: true }), a2aTaskId: task?.a2a_task_id ?? null } });
     } catch (err) {
       res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // The deterministic lane: address the eval agent DIRECTLY (not coordinate.run).
+  // Recorded as an `eval-direct` run in the shared store; renders through the same
+  // RunDetail grid + evidence panel. Edge-gated like the rest of /store/*.
+  // (JSON parsed per-route, mirroring the /hooks shim — no global body parser.)
+  app.post("/store/eval-direct", express.json({ limit: "1mb" }), async (req, res) => {
+    if (!guard(req, res)) return;
+    try {
+      const payload = (req.body ?? {}) as EvalDirectPayload;
+      validateEvalDirect(payload);
+      const runId = await runDirectEval(db, payload);
+      res.status(202).json({ runId });
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
     }
   });
 }

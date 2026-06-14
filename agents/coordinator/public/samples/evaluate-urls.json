@@ -1,0 +1,9 @@
+{
+  "mode": "evaluate",
+  "description": "A small batch of publicly reachable pages to score across structure, accessibility, content, and visual.",
+  "items": [
+    "https://example.com",
+    "https://example.org",
+    "https://www.iana.org/help/example-domains"
+  ]
+}

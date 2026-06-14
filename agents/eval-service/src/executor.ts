@@ -46,12 +46,17 @@ export function validatePayload(p: EvalRunPayload): void {
   }
 }
 
+const VALID_DIMENSIONS = ["structure", "accessibility", "content", "visual"] as const;
+type Dimension = (typeof VALID_DIMENSIONS)[number];
+
 export function toEvaluationRequest(p: EvalRunPayload): EvaluationRequest {
   const sourceType = p.sourceType ?? "none";
+  const dimensions = p.dimensions?.filter((d): d is Dimension => VALID_DIMENSIONS.includes(d as Dimension));
   return {
     migratedUrl: p.targetUrl,
     expectedUrl: sourceType === "webpage" ? p.sourceLocation : undefined,
     pdfPath: sourceType === "pdf" ? p.sourceLocation : undefined,
+    ...(dimensions?.length ? { dimensions } : {}),
   };
 }
 

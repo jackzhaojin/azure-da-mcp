@@ -54,7 +54,7 @@ npm run test:live    # live tier — real engine, $0 (no API keys)
 - REAL tests only — NO mocks/stubs (monorepo rule). Tests spawn actual agent servers on isolated 14xxx ports with throwaway SQLite files.
 
 ## Conventions
-- **One Express A2A server per agent** on this bootstrap. Ports: eval 4001 · content-gen 4002 · migration 4003 · coordinator 4004 · ui 3000.
+- **One Express A2A server per agent** on this bootstrap. Ports: eval 4001 · content-gen 4002 · migration 4003 · coordinator 4004 (also serves the dashboard, the sole UI).
 - **Persistence parity**: local SQLite (better-sqlite3) runs the EXACT SQL that runs on Cloudflare D1. Artifacts → R2 (S3 API) when `R2_*` env is set, else local `./output` served at `/artifacts`.
 - **No dotenv** — agents read `process.env` directly; always `source .env` first.
 - **D5 (hard rule)**: never touch `content-authoring-eval/`. It's the frozen v1.1.0 backup, not part of this system.

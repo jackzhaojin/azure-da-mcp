@@ -21,6 +21,7 @@ interface TriggerBody {
   backend?: string;
   site?: string;
   owner?: string;
+  batchId?: string;
 }
 
 /** POST /api/trigger — submit coordinate.run (non-blocking), then resolve the run id. */
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
   if (body.backend) data.backend = body.backend;
   if (body.site?.trim()) data.site = body.site.trim();
   if (body.owner?.trim()) data.owner = body.owner.trim();
+  if (body.batchId?.trim()) data.batchId = body.batchId.trim();
   // SSO identity → runs.user_email; comes from the session, never the client body.
   const requestedBy = await sessionEmail();
   if (requestedBy) data.requestedBy = requestedBy;

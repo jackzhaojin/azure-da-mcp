@@ -148,6 +148,33 @@ describe("eval scoring honesty (skip / fail / size-mismatch semantics)", () => {
     }
   }, 180_000);
 
+  it("dimensions subset: runs only the requested dimensions, renormalizes, records the rest as skipped", async () => {
+    const { finalState, data } = await runEval(agent, {
+      targetUrl: `http://localhost:${FIXTURE_PORT}/target.html`,
+      sourceType: "none",
+      dimensions: ["structure", "accessibility"],
+    });
+    expect(finalState).toBe("completed");
+    expect(data).toBeTruthy();
+
+    // only the two requested dimensions produced scores
+    expect(Object.keys(data!.dimensionScores).sort()).toEqual(["accessibility", "structure"]);
+    expect(data!.report.results.content).toBeUndefined();
+    expect(data!.report.results.visual).toBeUndefined();
+    expect(data!.report.summary.totalDimensions).toBe(2);
+
+    // overall renormalizes over just the two — not diluted by absent dimensions
+    const present = ["structure", "accessibility"].map((d) => data!.dimensionScores[d]);
+    expect(data!.overallScore).toBe(Math.round(present.reduce((a, b) => a + b, 0) / present.length));
+
+    // the deselected dimensions are visible as skip findings, not silent zeros
+    for (const dim of ["content", "visual"]) {
+      expect(
+        data!.report.findings.some((f) => f.dimension === dim && f.issue.includes("not selected"))
+      ).toBe(true);
+    }
+  }, 180_000);
+
   it("webpage source with mismatched page heights: comparison runs on the shared region with a size penalty", async () => {
     const { finalState, data } = await runEval(agent, {
       targetUrl: `http://localhost:${FIXTURE_PORT}/target.html`,

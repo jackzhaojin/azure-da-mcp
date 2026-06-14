@@ -69,6 +69,12 @@ export interface EvaluationRequest {
   pdfPath?: string; // Optional PDF reference (URL or file path)
   migratedUrl: string; // Required: URL of migrated page
   expectedUrl?: string; // Optional: Original page URL for comparison
+  /**
+   * Subset of dimensions to run (eval.run.v1). Default/empty = all four. Omitted
+   * dimensions are excluded from the score (weights renormalize, totalDimensions
+   * drops) and surfaced as report-level info findings — never scored 0.
+   */
+  dimensions?: Array<'structure' | 'accessibility' | 'content' | 'visual'>;
   options?: {
     skipVisual?: boolean;
     skipAccessibility?: boolean;

@@ -1,0 +1,10 @@
+{
+  "mode": "full-loop",
+  "description": "A batch of topics — each runs the full closed loop: generate a legacy source, migrate it, then evaluate. Pair with the dryrun backend for an instant end-to-end demo.",
+  "items": [
+    "rooftop solar panel maintenance guide",
+    "ski wax temperature selection guide",
+    "home espresso machine descaling steps",
+    "beginner sourdough starter schedule"
+  ]
+}
