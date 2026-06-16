@@ -1,6 +1,6 @@
 {
   "name": "agents",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "A2A agent platform (v2.0) \u2014 one Express A2A server per agent (PRD: ai-docs/2026-06-05-a2a-agent-platform/; build report: ai-docs/2026-06-08-a2a-platform-v2.0/)",
   "type": "module",
