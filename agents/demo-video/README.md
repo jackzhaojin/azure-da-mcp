@@ -80,6 +80,20 @@ for exact sync — `run-pipeline.mjs --video` (without `--record`) falls back to
 timing, which both drifts and fails to parse captions containing `${…}`. The last
 recorded tour is in `2026-06-14-factory-tour/`.
 
+### v2 tour — bulk source→target comparison (`@factory-tour-v2`)
+
+`demo/factory-tour-v2.spec.ts` (`@factory-tour-v2`) is the updated tour centered on
+the v2.1 **bulk source→target comparison** (v1 parity): scene 3 loads the bulk
+sample to show the read-only **source→target pairing table** (PDF / webpage / target-only
+badges), then a finished batch with the **source column** + per-item scores; scene 4
+opens a source-bearing eval's evidence (content fidelity scored agentically against
+the real source). Same fixtures plus **a bulk batch whose items carry a source** and
+**a completed source eval** — seed one with the bulk lane (upload `evaluate-pages.json`,
+or `POST /api/eval-bulk`). Record exactly as above but **grep `@factory-tour-v2`** (no
+file positional — `testDir` already scopes to `demo/`, and the grep uniquely matches
+this test) and write `captions-v2.json` / `audio-v2/` / `factory-tour-v2-final.mp4`.
+The last v2 take is `2026-06-14-factory-tour/factory-tour-v2-final.mp4` (~2.2 min).
+
 ## Notes
 
 - `DEMO_BACKEND=opencode` fires a **real** Kimi K2.6 migration that keeps running
