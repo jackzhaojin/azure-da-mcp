@@ -259,4 +259,21 @@ So the daily POC needs **less** than feared: no mesh change to make the loop saf
 
 ---
 
-*Design v0.2 — trigger settled (O5 GH Actions; Workflows is the durability upgrade because everything sleeps and cron is 15-min-capped). Key correction: the mesh is **already preview-only** (`preview_publish` never hits `/live/`), so the loop is safe by construction and the "hard gate" is the net-new **promote** path. Next: M-1 (the GH Actions workflow) once the §8 defaults are confirmed and the tokens are in GH secrets.*
+## 9. As-built & validation (2026-06-17, M-1 shipped)
+
+**Built & deployed:**
+- `content.ideate` skill in content-gen (`generator.ts` `ideateTopic()` + `index.ts`) — deterministic, date-seeded, lane-aware (default lane `postal-logistics`). Contract `content.ideate.v1.json`.
+- Coordinator ideates when a generate route arrives with no `topic` (`executor.ts`: `willIdeate`, `validateForRoute({skipTopic})`, writes the chosen topic back into the run config).
+- `.github/workflows/daily-content-loop.yml` + `.github/scripts/daily-content-loop.mjs` — pre-warm → submit (mesh-token, no `requestedBy`, no `topic`) → resolve → poll-keepalive → step summary. `schedule` (09:20 UTC) + `workflow_dispatch` (overrides; `dryrun` for cheap smokes).
+- e2e: fast `content.ideate` + coordinator no-topic tests; cloud `cloud-daily-loop` ideation test. Full fast suite 61/61 green.
+- Cloud: deployed all 4 containers (version `8f06deea`, incl. PR8 Dockerfile fix + `AUTH_ALLOWED_EMAILS=""`).
+- **D1 fix:** remote D1 was missing `batch_id` (migration `0006` never applied) — the coordinator INSERT failed, so the first run produced no row. Applied `0006_runs_batch.sql` to remote D1. (The deploy/CLAUDE.md gotcha "apply pending remote-D1 migrations" bit exactly here.)
+
+**Validated end-to-end on cloud (workflow_dispatch == the identical job `schedule` fires):**
+- ✅ **Wake-up:** pre-warm woke all 4 cold containers (every run; healthy on attempt 1 within seconds).
+- ✅ **Scheduled job — dryrun:** full loop completed in 92s — agent-led ideation picked *"A practical guide to postal address validation and standardization"*, generate→migrate→eval, score 75, preview URL, shared system run.
+- ✅ **Real loop — opencode:** run `20a3cf2a` in 454s — **Kimi K2.6 authored a real da.live page to `.aem.page` preview** (never `.aem.live`), eval **73**, `user_email` NULL (shared). The GH step summary surfaces topic + preview URL + score.
+
+**Known caveat — cold migration container (the one real reliability risk):** the *first* opencode turn on a freshly-cold migration container can exceed the 20-min `OPENCODE_MIGRATION_TIMEOUT_MS` (observed: first post-deploy run timed out; the warm retry succeeded in 7.6 min). Because everything sleeps between daily runs, **every daily run hits a cold migration container.** Mitigation shipped: the loop **auto-retries once** (`MAX_ATTEMPTS=2`) — the second attempt runs on now-warm containers with a fresh Kimi turn, which is what recovers it in practice. The loop also correctly reports a genuine failure (`completed_with_failures` → red GH run + summary). Deeper future option: a migration-agent `/warmup` endpoint to boot `opencode serve` + MCP during pre-warm (so the first real turn isn't paying cold-init).
+
+*Design v0.3 — M-1 shipped & validated end-to-end on Cloudflare (wake-up + scheduled + real Kimi preview, shared system run). Next (M-2, deferred): the dashboard "today's drafts" filter + the net-new gated **promote**-to-`.aem.live`.*

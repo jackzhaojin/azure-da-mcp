@@ -11,8 +11,9 @@ name: daily-content-loop
 
 on:
   schedule:
-    # TEMP (cron-fire proof): 03:36 UTC one-off verification. REVERT to "20 9 * * *".
-    - cron: "36 3 * * *"
+    # 09:20 UTC daily — a low-traffic hour. Cron is the unattended trigger; the
+    # job body is identical to a manual dispatch (validated via workflow_dispatch).
+    - cron: "20 9 * * *"
   workflow_dispatch:
     inputs:
       backend:
@@ -72,7 +73,7 @@ jobs:
           # Run params — empty on a scheduled run, so the script's defaults apply
           # (full-loop / opencode / da-live-postal-2025-07 / jackzhaojin / ideate).
           GOAL: ${{ github.event.inputs.goal }}
-          BACKEND: ${{ github.event.inputs.backend || 'dryrun' }}
+          BACKEND: ${{ github.event.inputs.backend }}
           SITE: ${{ github.event.inputs.site }}
           OWNER: ${{ github.event.inputs.owner }}
           TOPIC: ${{ github.event.inputs.topic }}

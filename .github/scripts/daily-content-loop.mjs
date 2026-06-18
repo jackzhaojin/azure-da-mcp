@@ -60,6 +60,11 @@ const PREWARM_BUDGET_S = Number(process.env.PREWARM_BUDGET_S || "150");
 const POLL_INTERVAL_S = Number(process.env.POLL_INTERVAL_S || "30");
 const MAX_WAIT_S = Number(process.env.MAX_WAIT_S || "2700"); // 45 min — covers a 20-min Kimi turn + eval
 const RESOLVE_BUDGET_S = Number(process.env.RESOLVE_BUDGET_S || "120");
+// Self-heal: the migration container is COLD on a daily run (everything sleeps
+// between runs), and the first opencode turn after a cold start — or an occasional
+// Kimi stall — can hit the 20-min migration timeout. A second attempt runs against
+// a now-warm container with a fresh Kimi turn, which is what recovers it in practice.
+const MAX_ATTEMPTS = Math.max(1, Number(process.env.MAX_ATTEMPTS || "2") || 2);
 
 if (!MESH_TOKEN) {
   console.error("FATAL: A2A_MESH_TOKEN is required (set it as a GitHub Actions secret).");
@@ -233,18 +238,33 @@ function summarize(run) {
   console.log("\n" + md);
 }
 
+const isWin = (run) => run && run.status === "completed" && (run.stats?.completed ?? 0) > 0;
+
+/** One full attempt: submit → resolve → poll to terminal. */
+async function attempt(n) {
+  log(`ATTEMPT ${n}/${MAX_ATTEMPTS}`);
+  const { contextId } = await submit();
+  const runId = await resolveRunId(contextId);
+  return poll(runId);
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 (async () => {
   const t0 = nowS();
   try {
-    await prewarm();
-    const { contextId } = await submit();
-    const runId = await resolveRunId(contextId);
-    const run = await poll(runId);
+    await prewarm(); // wake once; retries reuse the now-warm containers
+    let run;
+    for (let n = 1; n <= MAX_ATTEMPTS; n++) {
+      run = await attempt(n);
+      if (isWin(run)) break;
+      if (n < MAX_ATTEMPTS) {
+        log(`attempt ${n} ended '${run.status}' — retrying on warm containers in 10s…`);
+        await sleep(10_000);
+      }
+    }
     summarize(run);
     log(`DONE in ${nowS() - t0}s — status ${run.status}`);
-    const completed = run.status === "completed" && (run.stats?.completed ?? 0) > 0;
-    process.exit(completed ? 0 : 1);
+    process.exit(isWin(run) ? 0 : 1);
   } catch (err) {
     log(`FAILED: ${String(err)}`);
     if (process.env.GITHUB_STEP_SUMMARY) {
