@@ -37,11 +37,37 @@ describe("content-gen: brief + synthesize-source", () => {
     await stopAgent(agent);
   });
 
-  it("serves both skills on the card", async () => {
+  it("serves its skills on the card", async () => {
     const card = await (await fetch(`${agent.url}/.well-known/agent-card.json`)).json();
     const ids = card.skills.map((s: { id: string }) => s.id);
+    expect(ids).toContain("content.ideate");
     expect(ids).toContain("content.brief");
     expect(ids).toContain("content.synthesize-source");
+  });
+
+  it("content.ideate picks a deterministic, on-lane topic (agent-led initiation)", async () => {
+    const seed = "2026-06-17";
+    const a = await runSkill(agent.url, { skill: "content.ideate", seed });
+    expect(a.finalState).toBe("completed");
+    expect(a.artifactName).toBe("ideated-topic");
+    const t = a.artifact as unknown as { topic: string; lane: string; rationale: string; seed: string };
+    expect(typeof t.topic).toBe("string");
+    expect(t.topic.length).toBeGreaterThan(8);
+    expect(t.lane).toBe("postal-logistics");
+    expect(t.seed).toBe(seed);
+    expect(t.rationale).toContain(seed);
+
+    // Deterministic: same seed → identical topic (reproducible daily pick).
+    const again = await runSkill(agent.url, { skill: "content.ideate", seed });
+    expect((again.artifact as unknown as { topic: string }).topic).toBe(t.topic);
+
+    // Daily novelty: a different day's seed changes the pick.
+    const other = await runSkill(agent.url, { skill: "content.ideate", seed: "2026-06-18" });
+    expect((other.artifact as unknown as { topic: string }).topic).not.toBe(t.topic);
+
+    // Unknown lane falls back to the default lane (never throws).
+    const fallback = await runSkill(agent.url, { skill: "content.ideate", seed, lane: "no-such-lane" });
+    expect((fallback.artifact as unknown as { lane: string }).lane).toBe("postal-logistics");
   });
 
   it("content.brief produces a structured brief with EDS block targets", async () => {

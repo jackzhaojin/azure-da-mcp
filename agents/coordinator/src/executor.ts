@@ -21,6 +21,8 @@ export interface CoordinateRunPayload {
   alreadyMigratedUrl?: string;
   // generative routes
   topic?: string;
+  /** Editorial lane for agent-led topic ideation when `topic` is omitted (daily loop). */
+  lane?: string;
   legacyStyle?: "clean" | "dated" | "messy";
   // migrate route
   sourceLocation?: string;
@@ -84,14 +86,16 @@ export function resolveRoute(p: CoordinateRunPayload): Stage[] {
   }
 }
 
-export function validateForRoute(p: CoordinateRunPayload, route: Stage[]): void {
+export function validateForRoute(p: CoordinateRunPayload, route: Stage[], opts: { skipTopic?: boolean } = {}): void {
   const evaluateOnly = route.length === 1 && route[0] === "evaluate";
   if (evaluateOnly) {
     const targets = p.targets ?? (p.alreadyMigratedUrl ? [p.alreadyMigratedUrl] : []);
     if (!targets.length) throw new Error("coordinate.run.v1: evaluate route needs 'targets' (or 'alreadyMigratedUrl')");
     for (const t of targets) if (!/^https?:\/\//.test(t)) throw new Error(`coordinate.run.v1: invalid target '${t}'`);
   }
-  if (route.includes("generate") && !p.topic) {
+  // A generate route normally needs a topic — UNLESS the coordinator will ideate
+  // one (agent-led daily loop: no human topic, content.ideate supplies it).
+  if (route.includes("generate") && !p.topic && !opts.skipTopic) {
     throw new Error("coordinate.run.v1: generative routes need 'topic'");
   }
   if (route.includes("migrate") && !route.includes("generate") && !p.sourceLocation) {
@@ -424,12 +428,17 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
 
       let payload: CoordinateRunPayload;
       let route: Stage[];
+      let willIdeate = false;
       try {
         const part = userMessage.parts.find((p) => p.kind === "data");
         if (!part) throw new Error("coordinate.run payload not found: send a data part matching coordinate.run.v1");
         payload = part.data as unknown as CoordinateRunPayload;
         route = resolveRoute(payload);
-        validateForRoute(payload, route);
+        // Agent-led initiation: a generate route with no topic → the coordinator
+        // asks content-gen to ideate one (the daily-loop front door). Skip the
+        // topic requirement here; we fill it in (and re-assert it) before fan-out.
+        willIdeate = route.includes("generate") && !payload.topic?.trim();
+        validateForRoute(payload, route, { skipTopic: willIdeate });
       } catch (err) {
         bus.publish(status("failed", String(err), true));
         bus.finished();
@@ -485,6 +494,32 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
       bus.publish(status("working", `run ${runId}: route ${route.join("→")} × ${branches.length} branches`));
 
       try {
+        // Agent-led topic: fill in `topic` from content.ideate before fan-out.
+        // The run row already exists, so this step (and any failure) is visible
+        // in the dashboard/store; a failure throws into the catch below.
+        if (willIdeate) {
+          persistNote("no topic supplied — asking content-gen to ideate one (agent-led)");
+          bus.publish(status("working", "no topic supplied — asking content-gen to ideate one (agent-led)"));
+          const ide = await callAgent(
+            CONTENT_GEN_URL,
+            { skill: "content.ideate", ...(payload.lane ? { lane: payload.lane } : {}), runId },
+            contextId,
+            (note) => {
+              bus.publish(status("working", `ideate: ${note}`));
+              persistNote(`ideate: ${note}`);
+            }
+          );
+          const ideatedTopic = (ide.artifact as { topic?: string } | undefined)?.topic;
+          if (ide.state !== "completed" || !ideatedTopic) {
+            throw new Error(`topic ideation failed (${ide.state})${ide.error ? `: ${ide.error}` : ""}`);
+          }
+          payload.topic = ideatedTopic;
+          // reflect the chosen topic in the persisted run config (dashboard/GH show it)
+          await db.prepare("update runs set config = ? where id = ?").run(JSON.stringify(payload), runId);
+          persistNote(`ideated topic: ${ideatedTopic}`);
+          bus.publish(status("working", `ideated topic: ${ideatedTopic}`));
+        }
+
         const queue = new PQueue({ concurrency: FANOUT_CONCURRENCY });
         const results = await Promise.all(
           branches.map(

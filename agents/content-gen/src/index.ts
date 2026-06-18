@@ -2,7 +2,7 @@ import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, Message } fr
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
 import { startAgentServer, createLogger, createArtifactStore } from "@agents/a2a-common";
 import { randomUUID } from "node:crypto";
-import { generateBrief, synthesizeSource, type Brief } from "./generator.ts";
+import { generateBrief, synthesizeSource, ideateTopic, type Brief } from "./generator.ts";
 
 const log = createLogger("da-content-gen-agent");
 const PORT = Number(process.env.PORT ?? 4002);
@@ -13,7 +13,7 @@ const LOCAL_PUBLIC_BASE = process.env.CONTENT_PUBLIC_BASE ?? `http://localhost:$
 const artifactStore = createArtifactStore({ localDir: "./output", localPublicBase: LOCAL_PUBLIC_BASE });
 
 interface ContentPayload {
-  skill?: "content.brief" | "content.synthesize-source";
+  skill?: "content.brief" | "content.synthesize-source" | "content.ideate";
   topic?: string;
   pageType?: string;
   siteBrief?: string;
@@ -21,6 +21,9 @@ interface ContentPayload {
   brief?: Brief;
   briefTaskId?: string;
   legacyStyle?: "clean" | "dated" | "messy";
+  // content.ideate
+  lane?: string;
+  seed?: string;
   runId?: string;
 }
 
@@ -40,7 +43,7 @@ function extractPayload(message: Message): ContentPayload {
 }
 
 /** Skill discrimination: explicit `skill` field, else inferred from payload shape. */
-function resolveSkill(p: ContentPayload): "content.brief" | "content.synthesize-source" {
+function resolveSkill(p: ContentPayload): "content.brief" | "content.synthesize-source" | "content.ideate" {
   if (p.skill) return p.skill;
   if (p.brief || p.briefTaskId || p.legacyStyle) return "content.synthesize-source";
   return "content.brief";
@@ -86,7 +89,22 @@ const contentGenExecutor: AgentExecutor = {
       const skill = resolveSkill(payload);
       log.info(`${skill} received`, { a2a_task_id: taskId, context_id: contextId });
 
-      if (skill === "content.brief") {
+      if (skill === "content.ideate") {
+        // Agent-led topic selection — the mesh picks what to write about today.
+        bus.publish(status("working", `ideating a topic${payload.lane ? ` (lane: ${payload.lane})` : ""}`));
+        const ideated = ideateTopic({ lane: payload.lane, seed: payload.seed });
+        bus.publish(status("working", `picked: ${ideated.topic}`));
+        bus.publish({
+          kind: "artifact-update",
+          taskId,
+          contextId,
+          artifact: {
+            artifactId: randomUUID(),
+            name: "ideated-topic",
+            parts: [{ kind: "data", data: ideated as unknown as Record<string, unknown> }],
+          },
+        } satisfies TaskArtifactUpdateEvent);
+      } else if (skill === "content.brief") {
         if (!payload.topic) throw new Error("content.brief.v1: 'topic' is required");
         bus.publish(status("working", `generating brief: ${payload.topic} (template tier)`));
         const brief = generateBrief({
@@ -178,6 +196,15 @@ await startAgentServer({
   // local stand-in for the R2 public bucket; unused (but harmless) when R2 is configured
   staticRoutes: [{ route: "/artifacts", dir: "./output" }],
   skills: [
+    {
+      id: "content.ideate",
+      name: "Ideate a topic",
+      description:
+        "Pick a fresh on-lane topic for the day (deterministic per lane+seed; agent-led initiation). Contract: content.ideate.v1",
+      tags: ["content", "ideation", "agent-led"],
+      inputModes: ["application/json"],
+      outputModes: ["application/json"],
+    },
     {
       id: "content.brief",
       name: "Generate content brief",

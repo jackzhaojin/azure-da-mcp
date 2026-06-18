@@ -33,6 +33,88 @@ function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// ── Topic ideation (content.ideate) ─────────────────────────────────────────
+// The agent-led front door: the mesh picks what to write about today, instead of
+// a human typing a topic. Template tier on purpose — deterministic, $0, no creds,
+// no network in the critical path (the daily scheduled loop must not flake on an
+// RSS/LLM dependency). Same swap-the-body contract as generateBrief: a future
+// LLM / web-pull / site-grounded picker replaces ideateTopic() behind this shape.
+
+export interface IdeatedTopic {
+  topic: string;
+  lane: string;
+  rationale: string;
+  seed: string;
+}
+
+/** Editorial lanes: allowed subjects × angles the agent composes within (C7 seam). */
+const TOPIC_LANES: Record<string, { label: string; subjects: string[]; angles: string[] }> = {
+  "postal-logistics": {
+    label: "postal, shipping & logistics",
+    subjects: [
+      "international parcel customs declarations",
+      "last-mile delivery route optimization",
+      "cold-chain shipping for perishable goods",
+      "package tracking and proof of delivery",
+      "dimensional weight pricing",
+      "returns and reverse logistics",
+      "hazardous materials shipping compliance",
+      "postal address validation and standardization",
+      "cross-border e-commerce fulfillment",
+      "parcel locker and pickup-point networks",
+      "shipping insurance and liability claims",
+      "bulk mail and direct-mail campaigns",
+      "warehouse slotting and pick-pack efficiency",
+      "carrier rate shopping and negotiation",
+      "sustainable and carbon-neutral shipping",
+      "duties, taxes, and landed-cost calculation",
+    ],
+    angles: [
+      "A practical guide to",
+      "Common mistakes to avoid in",
+      "How small businesses can master",
+      "What every shipper should know about",
+      "Cost-saving strategies for",
+      "The complete checklist for",
+      "Trends reshaping",
+      "Comparing your options for",
+    ],
+  },
+};
+
+const DEFAULT_LANE = "postal-logistics";
+
+/** Deterministic 32-bit FNV-1a — stable topic selection from a seed (no RNG). */
+function fnv1a(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Pick today's topic. Deterministic per (lane, seed) — the seed defaults to the
+ * UTC calendar day, so each day yields a different, reproducible topic; tests
+ * pin the seed. Unknown lanes fall back to the default lane (never throws).
+ */
+export function ideateTopic(opts: { lane?: string; seed?: string } = {}): IdeatedTopic {
+  const laneKey = opts.lane && TOPIC_LANES[opts.lane] ? opts.lane : DEFAULT_LANE;
+  const lane = TOPIC_LANES[laneKey];
+  const seed = (opts.seed ?? new Date().toISOString().slice(0, 10)).trim();
+  const h = fnv1a(`${laneKey}::${seed}`);
+  const subject = lane.subjects[h % lane.subjects.length];
+  const angle = lane.angles[Math.floor(h / lane.subjects.length) % lane.angles.length];
+  const topic = `${angle} ${subject}`;
+  return {
+    topic,
+    lane: laneKey,
+    rationale: `Agent-picked ${lane.label} topic for ${seed}: "${angle}" × "${subject}".`,
+    seed,
+  };
+}
+
 export function generateBrief(opts: {
   topic: string;
   pageType?: string;

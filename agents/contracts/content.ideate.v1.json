@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "content.ideate.v1",
+  "title": "content.ideate task payload (v1)",
+  "description": "Input for the content generator's content.ideate skill — agent-led topic selection. Picks a fresh on-lane topic so the mesh can start its own work (daily loop) without a human-supplied topic. Deterministic per (lane, seed); the result feeds the topic of a generative coordinate.run.",
+  "type": "object",
+  "properties": {
+    "skill": { "const": "content.ideate", "description": "Skill discriminator (content-gen serves three skills)" },
+    "lane": {
+      "type": "string",
+      "description": "Editorial lane to pick within (allowed subjects/angles). Unknown values fall back to the default lane. Default: postal-logistics.",
+      "default": "postal-logistics"
+    },
+    "seed": {
+      "type": "string",
+      "description": "Determinism seed. Defaults to the UTC calendar day (YYYY-MM-DD) so each day yields a different, reproducible topic. Tests pin this."
+    },
+    "runId": { "type": "string" }
+  },
+  "$comment": "Output artifact 'ideated-topic' (application/json): { topic: string, lane: string, rationale: string, seed: string }."
+}

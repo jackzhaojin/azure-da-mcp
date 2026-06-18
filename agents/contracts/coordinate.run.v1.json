@@ -57,7 +57,12 @@
     },
     "topic": {
       "type": "string",
-      "description": "Generative routes: what to synthesize"
+      "description": "Generative routes: what to synthesize. OPTIONAL — if omitted on a generate route, the coordinator asks content-gen (content.ideate) to pick one (agent-led daily loop). The chosen topic is written back into the run config."
+    },
+    "lane": {
+      "type": "string",
+      "description": "Editorial lane for agent-led topic ideation when 'topic' is omitted. Passed to content.ideate. Default: postal-logistics.",
+      "default": "postal-logistics"
     },
     "legacyStyle": {
       "enum": [

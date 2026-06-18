@@ -58,6 +58,17 @@ function contextTaskCount(dbPath: string, contextId: string): number {
   }
 }
 
+function runRow(dbPath: string, contextId: string): { config: string; status: string } | undefined {
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    return db.prepare("select config, status from runs where context_id = ?").get(contextId) as
+      | { config: string; status: string }
+      | undefined;
+  } finally {
+    db.close();
+  }
+}
+
 // THE CLOSED LOOP (PRD part-6, M3 exit criteria): the coordinator demonstrates
 // ≥3 distinct routes including a non-eval-terminating one, with one contextId
 // threading every child task across all four agents.
@@ -117,6 +128,30 @@ describe("closed loop: routed pipelines via coordinate.run", () => {
     expect(contextTaskCount(contentGen.dbPath, contextId)).toBe(2);
     expect(contextTaskCount(migration.dbPath, contextId)).toBe(2);
     expect(contextTaskCount(evalAgent.dbPath, contextId)).toBe(2);
+  }, 90_000);
+
+  it("full-loop with NO topic: coordinator asks content-gen to ideate one (agent-led daily loop)", async () => {
+    const { contextId, finalState, stats } = await coordinate(coordinator.url, {
+      goal: "full-loop",
+      backend: "dryrun",
+      // no topic supplied — the coordinator must ideate one via content.ideate
+    });
+
+    expect(finalState).toBe("completed");
+    expect(stats!.route).toBe("generate→migrate→evaluate");
+    expect(stats!.completed).toBe(1);
+
+    const b = stats!.branchResults[0];
+    expect(b.stages.map((s) => s.stage)).toEqual(["generate", "migrate", "evaluate"]);
+    expect(b.stages.every((s) => s.state === "completed")).toBe(true);
+    expect(b.sourceUrl).toContain("/artifacts/sources/"); // generated from the ideated topic
+
+    // the ideated topic was written back into the persisted run config
+    const row = runRow(coordinator.dbPath, contextId);
+    expect(row?.status).toBe("completed");
+    const cfg = JSON.parse(row!.config) as { topic?: string };
+    expect(typeof cfg.topic).toBe("string");
+    expect((cfg.topic ?? "").length).toBeGreaterThan(8);
   }, 90_000);
 
   it("generate+migrate: stops WITHOUT eval (no mandatory end)", async () => {
