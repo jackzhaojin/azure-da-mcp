@@ -12,7 +12,6 @@ COPY eval-service/package.json eval-service/
 COPY content-gen/package.json content-gen/
 COPY migration-agent/package.json migration-agent/
 COPY coordinator/package.json coordinator/
-COPY ui/package.json ui/
 COPY store-mcp/package.json store-mcp/
 COPY e2e/package.json e2e/
 RUN npm ci -w @agents/migration-agent --include-workspace-root=false --ignore-scripts
