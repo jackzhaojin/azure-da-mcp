@@ -88,7 +88,7 @@
     "R2_BUCKET": "a2a-agents-artifacts",
     "R2_PUBLIC_BASE": "https://pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev",
     "R2_ACCOUNT_ID": "957b2690e54ade4c335d8e395c5b69d5",
-    "AUTH_ALLOWED_EMAILS": "jackzhaojin@gmail.com",
+    "AUTH_ALLOWED_EMAILS": "",
     "MIGRATION_DEFAULT_BACKEND": "dryrun",
     "DALIVE_MCP_URL": "https://jack-mcp-azure-ai-function.azurewebsites.net/api/mcp-streamable"
   }
