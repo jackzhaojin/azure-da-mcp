@@ -1,0 +1,82 @@
+# The agent-led daily content loop (v2.2). Once a day the mesh starts its own
+# work: pre-warm the scale-to-zero containers, submit a coordinate.run with NO
+# topic (the coordinator ideates one via content-gen), run generate→migrate→eval
+# to a da.live PREVIEW (never published live), and record it as a shared system
+# run (user_email NULL → visible to every dashboard user). A human curates +
+# promotes later. Design: ai-docs/2026-06-17-v2.2-agentic-loop/design.md
+#
+# Manual runs (workflow_dispatch) take overrides — use backend=dryrun for a cheap
+# end-to-end smoke that doesn't spend a Kimi turn or touch da.live.
+name: daily-content-loop
+
+on:
+  schedule:
+    # 09:20 UTC daily — a low-traffic hour. Cron is the unattended trigger; the
+    # job body is identical to a manual dispatch.
+    - cron: "20 9 * * *"
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: "Migration backend"
+        type: choice
+        default: opencode
+        options: [opencode, dryrun]
+      goal:
+        description: "Coordinator route"
+        type: choice
+        default: full-loop
+        options: [full-loop, generate+migrate]
+      site:
+        description: "da.live site (target)"
+        type: string
+        default: da-live-postal-2025-07
+      owner:
+        description: "da.live owner/org"
+        type: string
+        default: jackzhaojin
+      topic:
+        description: "Topic (leave blank → the mesh ideates one)"
+        type: string
+        default: ""
+      lane:
+        description: "Editorial lane for ideation (blank → default)"
+        type: string
+        default: ""
+      fanOut:
+        description: "Branches per run"
+        type: string
+        default: "1"
+
+# One daily loop at a time — never let a manual run race a scheduled one.
+concurrency:
+  group: daily-content-loop
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - name: Run the daily content loop
+        env:
+          # Mesh auth — these bypass Google SSO (token-gated A2A surface). System
+          # identity: no requestedBy is sent, so the run is NULL-owned (shared).
+          A2A_MESH_TOKEN: ${{ secrets.A2A_MESH_TOKEN }}
+          A2A_EDGE_TOKEN: ${{ secrets.A2A_EDGE_TOKEN }}
+          # Run params — empty on a scheduled run, so the script's defaults apply
+          # (full-loop / opencode / da-live-postal-2025-07 / jackzhaojin / ideate).
+          GOAL: ${{ github.event.inputs.goal }}
+          BACKEND: ${{ github.event.inputs.backend }}
+          SITE: ${{ github.event.inputs.site }}
+          OWNER: ${{ github.event.inputs.owner }}
+          TOPIC: ${{ github.event.inputs.topic }}
+          LANE: ${{ github.event.inputs.lane }}
+          FAN_OUT: ${{ github.event.inputs.fanOut }}
+        run: node .github/scripts/daily-content-loop.mjs
