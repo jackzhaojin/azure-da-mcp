@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Content generator agent — A2A server :4002 (skeleton: stub content.brief; real backend lands at M3)",
+  "description": "Content generator agent — A2A server :4002 (agentic brief/ideate via Claude Agent SDK; deterministic template fallback)",
   "scripts": {
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@agents/a2a-common": "*"
+    "@agents/a2a-common": "*",
+    "@anthropic-ai/claude-agent-sdk": "^0.1.76"
   },
   "devDependencies": {
     "tsx": "^4.20.0",

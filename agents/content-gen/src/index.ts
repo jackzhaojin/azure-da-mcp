@@ -2,7 +2,8 @@ import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent, Message } fr
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
 import { startAgentServer, createLogger, createArtifactStore } from "@agents/a2a-common";
 import { randomUUID } from "node:crypto";
-import { generateBrief, synthesizeSource, ideateTopic, type Brief } from "./generator.ts";
+import { synthesizeSource, type Brief } from "./generator.ts";
+import { buildBrief, pickTopic, hasAgentAuth } from "./agentic.ts";
 
 const log = createLogger("da-content-gen-agent");
 const PORT = Number(process.env.PORT ?? 4002);
@@ -91,9 +92,11 @@ const contentGenExecutor: AgentExecutor = {
 
       if (skill === "content.ideate") {
         // Agent-led topic selection — the mesh picks what to write about today.
-        bus.publish(status("working", `ideating a topic${payload.lane ? ` (lane: ${payload.lane})` : ""}`));
-        const ideated = ideateTopic({ lane: payload.lane, seed: payload.seed });
-        bus.publish(status("working", `picked: ${ideated.topic}`));
+        // Agentic editor when creds exist (a fresh, compelling angle), else the
+        // deterministic lane picker (reproducible, $0, no-flake for the cron loop).
+        bus.publish(status("working", `ideating a topic${payload.lane ? ` (lane: ${payload.lane})` : ""}${hasAgentAuth() ? " (agentic)" : ""}`));
+        const { topic: ideated, via } = await pickTopic({ lane: payload.lane, seed: payload.seed });
+        bus.publish(status("working", `picked (${via}): ${ideated.topic}`));
         bus.publish({
           kind: "artifact-update",
           taskId,
@@ -106,13 +109,15 @@ const contentGenExecutor: AgentExecutor = {
         } satisfies TaskArtifactUpdateEvent);
       } else if (skill === "content.brief") {
         if (!payload.topic) throw new Error("content.brief.v1: 'topic' is required");
-        bus.publish(status("working", `generating brief: ${payload.topic} (template tier)`));
-        const brief = generateBrief({
+        bus.publish(status("working", `generating brief: ${payload.topic} (${hasAgentAuth() ? "agentic" : "template tier"})`));
+        const { brief, via, note } = await buildBrief({
           topic: payload.topic,
           pageType: payload.pageType,
           siteBrief: payload.siteBrief,
           constraints: payload.constraints,
         });
+        if (note) log.warn(note, { a2a_task_id: taskId });
+        bus.publish(status("working", `brief ready (${via}): "${brief.title}" — ${brief.outline.length} sections`));
         bus.publish({
           kind: "artifact-update",
           taskId,
@@ -124,16 +129,20 @@ const contentGenExecutor: AgentExecutor = {
           },
         } satisfies TaskArtifactUpdateEvent);
       } else {
-        // content.synthesize-source
-        const brief =
-          payload.brief ??
-          (payload.topic
-            ? generateBrief({ topic: payload.topic, pageType: payload.pageType })
-            : undefined);
+        // content.synthesize-source — an inline brief wins; otherwise write one
+        // from the topic (agentic when creds exist, deterministic template else).
+        let brief = payload.brief;
         if (!brief) {
-          throw new Error(
-            "content.synthesize-source.v1: provide 'brief' (inline) or 'topic' ('briefTaskId' reuse lands later)"
-          );
+          if (!payload.topic) {
+            throw new Error(
+              "content.synthesize-source.v1: provide 'brief' (inline) or 'topic' ('briefTaskId' reuse lands later)"
+            );
+          }
+          bus.publish(status("working", `writing source content for "${payload.topic}" (${hasAgentAuth() ? "agentic" : "template tier"})`));
+          const built = await buildBrief({ topic: payload.topic, pageType: payload.pageType, siteBrief: payload.siteBrief, constraints: payload.constraints });
+          if (built.note) log.warn(built.note, { a2a_task_id: taskId });
+          brief = built.brief;
+          bus.publish(status("working", `content ready (${built.via}): "${brief.title}" — ${brief.outline.length} sections`));
         }
         const legacyStyle = payload.legacyStyle ?? "dated";
         bus.publish(status("working", `synthesizing ${legacyStyle} legacy source: ${brief.title}`));

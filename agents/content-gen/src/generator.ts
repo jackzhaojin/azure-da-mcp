@@ -11,9 +11,14 @@ export interface Brief {
   pageType: string;
   audience: string;
   intent: string;
+  /** One-line hook under the title — the dek/standfirst. Optional (template tier omits it). */
+  dek?: string;
   outline: Array<{ heading: string; summary: string; targetBlock: string }>;
+  /** Body copy per section, aligned 1:1 with `outline`. `text` may hold multiple paragraphs (split on blank lines). */
   copyBlocks: Array<{ block: string; text: string }>;
   imageDirections: Array<{ description: string; alt: string }>;
+  /** In-body links. Optional — when absent, synthesizeSource falls back to two generic example links. */
+  links?: Array<{ href: string; text: string }>;
   generator: "template" | "agent-sdk";
 }
 
@@ -138,16 +143,26 @@ export function generateBrief(opts: {
           ["Practical Checklist", "actionable next steps", "cards"],
         ];
 
+  // Deterministic, topic-substituted prose. NOT lorem — coherent sentences so the
+  // $0 / no-creds fallback still produces a readable page. The agentic backend
+  // (agentic.ts) replaces this with genuinely compelling, specific writing.
+  const sectionCopy = (summary: string): string => {
+    const t = opts.topic;
+    return [
+      `When it comes to ${t}, the difference between a good outcome and an expensive one usually comes down to a few decisions made early. This section covers ${summary}, and why getting it right matters more than most people expect.`,
+      `The fundamentals are straightforward once you see them laid out. Start by understanding what ${t} actually requires, then work backward from the result you want. Most missteps trace back to skipping that first step.`,
+      `Treat the points below as a working baseline. They apply whether you are just getting started with ${t} or refining a process you already run, and each one compounds: small, consistent choices add up to a meaningfully better result.`,
+    ].join("\n\n");
+  };
+
   return {
     title,
     pageType,
     audience: opts.siteBrief ? `Readers of: ${opts.siteBrief}` : `People researching ${opts.topic}`,
     intent: `Help the reader make a confident decision about ${opts.topic}.`,
+    dek: `A practical, no-fluff guide to ${opts.topic} — what matters, what to skip, and how to get it right.`,
     outline: sections.map(([heading, summary, targetBlock]) => ({ heading, summary, targetBlock })),
-    copyBlocks: sections.map(([heading, summary]) => ({
-      block: heading,
-      text: `${summary} — ${"placeholder copy for " + opts.topic + ". ".repeat(3)}`.trim(),
-    })),
+    copyBlocks: sections.map(([heading, summary]) => ({ block: heading, text: sectionCopy(summary) })),
     imageDirections: Array.from({ length: opts.constraints?.imageCount ?? 2 }, (_, i) => ({
       description: `Illustration ${i + 1} for ${opts.topic}`,
       alt: `${title} illustration ${i + 1}`,
@@ -156,47 +171,85 @@ export function generateBrief(opts: {
   };
 }
 
-/** Renders a brief into standalone legacy-style HTML with KNOWN ground truth. */
+/** Split a copy block into paragraphs (blank-line separated), trimmed + non-empty. */
+function paras(text: string): string[] {
+  const out = (text ?? "")
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  return out.length ? out : [(text ?? "").replace(/\s+/g, " ").trim()].filter(Boolean);
+}
+
+/**
+ * Renders a brief into standalone legacy-style HTML with KNOWN ground truth.
+ *
+ * The legacy *styling* is deliberately dated (table/`<font>`) or messy (floats +
+ * inline styles) so the migration agent has real cruft to clean up — but the
+ * *copy* it carries is whatever the brief holds. An agentic brief therefore
+ * produces a genuinely substantive article wearing legacy chrome; the template
+ * tier produces a thinner deterministic stand-in. Body copy is rendered
+ * paragraph-by-paragraph so multi-paragraph narrative reads as prose.
+ */
 export function synthesizeSource(brief: Brief, legacyStyle: "clean" | "dated" | "messy"): SyntheticSource {
   const headings = brief.outline.map((s) => s.heading);
-  const links = [
-    { href: "https://example.com/about", text: "About us" },
-    { href: "https://example.com/contact", text: "Contact" },
-  ];
+  const links =
+    brief.links && brief.links.length
+      ? brief.links
+      : [
+          { href: "https://example.com/about", text: "About us" },
+          { href: "https://example.com/contact", text: "Contact" },
+        ];
   const imageAlts = brief.imageDirections.map((d) => d.alt);
-  const paragraphs = brief.copyBlocks.map((c) => c.text);
+  const sectionParas = brief.copyBlocks.map((c) => paras(c.text));
 
   const img = (alt: string, i: number) =>
     `<img src="https://picsum.photos/seed/${encodeURIComponent(alt)}/640/360" alt="${alt}" ${
       legacyStyle === "messy" ? `style="float:${i % 2 ? "left" : "right"};margin:5px" width="320"` : ""
     }/>`;
 
+  const dek = brief.dek?.trim();
+
   let body: string;
   if (legacyStyle === "clean") {
     body = brief.outline
-      .map((s, i) => `<section><h2>${s.heading}</h2><p>${paragraphs[i] ?? ""}</p>${imageAlts[i] ? img(imageAlts[i], i) : ""}</section>`)
+      .map(
+        (s, i) =>
+          `<section><h2>${s.heading}</h2>${(sectionParas[i] ?? []).map((p) => `<p>${p}</p>`).join("")}${
+            imageAlts[i] ? img(imageAlts[i], i) : ""
+          }</section>`
+      )
       .join("\n");
   } else if (legacyStyle === "dated") {
     body = `<table width="100%" border="0" cellpadding="8"><tr><td>${brief.outline
-      .map((s, i) => `<font size="4"><b>${s.heading}</b></font><br>${paragraphs[i] ?? ""}<br>${imageAlts[i] ? img(imageAlts[i], i) : ""}<br><br>`)
-      .join("")}</td><td width="200" bgcolor="#eeeeee">${links.map((l) => `<a href="${l.href}">${l.text}</a><br>`).join("")}</td></tr></table>`;
+      .map(
+        (s, i) =>
+          `<font size="4"><b>${s.heading}</b></font><br>${(sectionParas[i] ?? [])
+            .map((p) => p)
+            .join("<br><br>")}<br>${imageAlts[i] ? img(imageAlts[i], i) : ""}<br><br>`
+      )
+      .join("")}</td><td width="200" bgcolor="#eeeeee">${links
+      .map((l) => `<a href="${l.href}">${l.text}</a><br>`)
+      .join("")}</td></tr></table>`;
   } else {
     body = brief.outline
       .map(
         (s, i) =>
           `<div style="font-size:19px;font-weight:bold;color:#333;margin-top:22px">${s.heading}</div>` +
-          `<div style="font-family:Verdana;font-size:13px;line-height:1.3">${paragraphs[i] ?? ""}</div>` +
+          (sectionParas[i] ?? [])
+            .map((p) => `<div style="font-family:Verdana;font-size:13px;line-height:1.3">${p}</div>`)
+            .join("") +
           (imageAlts[i] ? img(imageAlts[i], i) : "")
       )
       .join("<br clear=\"all\">");
   }
 
   const nav = legacyStyle === "dated" ? "" : `<div>${links.map((l) => `<a href="${l.href}">${l.text}</a>`).join(" | ")}</div>`;
+  const dekHtml = dek ? `\n<p${legacyStyle === "messy" ? ' style="font-size:15px;color:#666;font-style:italic"' : ""}><i>${dek}</i></p>` : "";
   const html = `<!DOCTYPE html>
 <html>
 <head><title>${brief.title}</title><meta charset="utf-8"></head>
 <body${legacyStyle === "messy" ? ' bgcolor="#fafafa"' : ""}>
-<h1>${brief.title}</h1>
+<h1>${brief.title}</h1>${dekHtml}
 ${nav}
 ${body}
 </body>
@@ -209,7 +262,7 @@ ${body}
       headings,
       links,
       imageAlts,
-      bodyText: paragraphs.join(" "),
+      bodyText: brief.copyBlocks.map((c) => c.text).join(" "),
     },
     legacyStyle,
   };

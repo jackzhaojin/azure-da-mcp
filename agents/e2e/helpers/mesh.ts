@@ -57,6 +57,11 @@ const SANITIZED_ENV_VARS = [
   "R2_PUBLIC_BASE",
   "R2_ACCOUNT_ID",
   "R2_S3_ENDPOINT",
+  // AI creds: content-gen goes agentic (and eval's agentic tier activates) when
+  // these are present. Strip them so the fast tier is deterministic + $0 no
+  // matter the invoking shell; a test wanting the agentic path passes them via opts.env.
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "ANTHROPIC_API_KEY",
 ] as const;
 
 function sanitizedEnv(): Record<string, string | undefined> {

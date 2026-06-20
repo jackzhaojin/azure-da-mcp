@@ -48,7 +48,10 @@
       "image": "./docker/content-gen.Dockerfile",
       "image_build_context": "../",
       "max_instances": 1,
-      "instance_type": "lite"
+      // bumped lite→basic: the agentic backend spawns a Claude CLI subprocess for
+      // writing (tool-free, far lighter than eval's chromium+4 passes, but lite's
+      // 256MiB starves the Node + CLI pair). basic = 1/4 vCPU, 1GiB.
+      "instance_type": "basic"
     },
     {
       "class_name": "MigrationContainer",
@@ -83,7 +86,9 @@
 
   // Non-secret config. Secrets (D1_PROXY_SECRET, A2A_MESH_TOKEN, A2A_EDGE_TOKEN,
   // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET,
-  // AUTH_SECRET, MOONSHOT_API_KEY, CLAUDE_CODE_OAUTH_TOKEN) via `wrangler secret put`.
+  // AUTH_SECRET, MOONSHOT_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, CLAUDE_ACCOUNT_UUID,
+  // CLAUDE_EMAIL, CLAUDE_ORG_UUID) via `wrangler secret put`. The CLAUDE_* set now
+  // feeds BOTH eval and content-gen (the agentic writer).
   "vars": {
     "R2_BUCKET": "a2a-agents-artifacts",
     "R2_PUBLIC_BASE": "https://pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev",
