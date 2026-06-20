@@ -13,13 +13,23 @@ export function extractJsonText(raw: string): string {
 
   // 1. fenced code block (```json … ``` or bare ``` … ```)
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fence) return fence[1].trim();
+  if (fence) return sanitizeJson(fence[1].trim());
 
   // 2. already pure JSON
-  if (text.startsWith("{") || text.startsWith("[")) return text;
+  if (text.startsWith("{") || text.startsWith("[")) return sanitizeJson(text);
 
   // 3. prose-wrapped — slice the first balanced top-level object/array
-  return sliceBalancedJson(text) ?? text;
+  return sanitizeJson(sliceBalancedJson(text) ?? text);
+}
+
+/**
+ * Fix a recurring AI JSON typo before parse: `"key":= value` → `"key": value`
+ * (the model occasionally emits `:=`). Ported from the v1.0 blog generator's
+ * contentGenerator sanitizer — cheap insurance against an otherwise-valid brief
+ * failing JSON.parse and dropping to the template fallback.
+ */
+export function sanitizeJson(s: string): string {
+  return s.replace(/":\s*=/g, '":');
 }
 
 /** First balanced top-level `{…}`/`[…]` in `text`, or null if none is balanced. */

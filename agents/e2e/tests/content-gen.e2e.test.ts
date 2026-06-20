@@ -81,8 +81,9 @@ describe("content-gen: brief + synthesize-source", () => {
     expect(artifactName).toBe("content-brief");
     const brief = (artifact as { brief: Record<string, never> }).brief as {
       title: string;
+      tags?: string[];
       outline: Array<{ heading: string; targetBlock: string }>;
-      copyBlocks: unknown[];
+      copyBlocks: Array<{ feature?: { kind: string } }>;
       imageDirections: unknown[];
       generator: string;
     };
@@ -91,6 +92,12 @@ describe("content-gen: brief + synthesize-source", () => {
     expect(brief.outline.every((s) => s.targetBlock)).toBe(true); // EDS block per section
     expect(brief.imageDirections.length).toBe(3);
     expect(brief.generator).toBe("template");
+    // Rich, varied content (ported from v1.0's block model): even the template
+    // tier emits typed feature blocks + metadata, not flat prose.
+    expect(Array.isArray(brief.tags)).toBe(true);
+    const kinds = brief.copyBlocks.map((c) => c.feature?.kind).filter(Boolean);
+    expect(kinds).toContain("stats");
+    expect(kinds).toContain("cta");
   });
 
   it("content.synthesize-source publishes fetchable legacy HTML with groundTruth", async () => {
@@ -104,7 +111,7 @@ describe("content-gen: brief + synthesize-source", () => {
     const data = artifact as unknown as {
       sourceUrl: string;
       legacyStyle: string;
-      groundTruth: { title: string; headings: string[]; imageAlts: string[]; bodyText: string };
+      groundTruth: { title: string; headings: string[]; imageAlts: string[]; bodyText: string; links: Array<{ href: string; text: string }> };
       artifacts: Array<{ type: string; path: string; storage: string }>;
     };
     expect(data.legacyStyle).toBe("messy");
@@ -119,6 +126,11 @@ describe("content-gen: brief + synthesize-source", () => {
     expect(html).toContain("<title>Vintage Road Bike Restoration</title>");
     expect(html).toContain("style="); // messy = inline styles
     for (const h of data.groundTruth.headings) expect(html).toContain(h); // groundTruth is truthful
+    // Feature blocks render into the legacy HTML (a stat strip + a CTA link),
+    // and the CTA link is reflected truthfully in groundTruth.
+    expect(html).toContain("3×"); // stats feature value
+    expect(html).toContain("Get started"); // cta feature button
+    expect(data.groundTruth.links.some((l) => l.text === "Get started")).toBe(true);
   });
 
   it("skill inference: legacyStyle implies synthesize-source", async () => {

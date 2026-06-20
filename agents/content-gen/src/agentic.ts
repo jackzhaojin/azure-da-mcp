@@ -16,7 +16,7 @@
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { extractJsonText } from "./extract-json.ts";
-import { generateBrief, ideateTopic, type Brief, type IdeatedTopic } from "./generator.ts";
+import { generateBrief, ideateTopic, type Brief, type FeatureBlock, type IdeatedTopic } from "./generator.ts";
 
 export function hasAgentAuth(): boolean {
   return Boolean(process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY);
@@ -65,6 +65,7 @@ interface LlmSection {
   summary: string;
   targetBlock: string;
   body: string;
+  feature?: FeatureBlock;
 }
 interface LlmBrief {
   title: string;
@@ -72,6 +73,9 @@ interface LlmBrief {
   dek: string;
   audience: string;
   intent: string;
+  author?: string;
+  date?: string;
+  tags?: string[];
   sections: LlmSection[];
   images: Array<{ description: string; alt: string }>;
   links: Array<{ href: string; text: string }>;
@@ -83,6 +87,10 @@ arc, concrete details and realistic numbers, and prose that respects the reader'
 "in today's fast-paced world" throat-clearing, no marketing fluff. Every section must say something a knowledgeable
 reader would find genuinely useful.
 
+Make it VISUALLY RICH, not a wall of text: most sections should carry a "feature" — a stat strip, a pull quote, a
+callout, a comparison table, or a closing call-to-action — so the page has real structure and variety. Vary the
+feature types across sections; not every section needs one, but a strong article uses 3-4 different kinds.
+
 Return ONLY a single JSON object (no prose, no markdown fence) with EXACTLY this shape:
 {
   "title": "compelling, specific headline (not just the topic restated)",
@@ -90,23 +98,78 @@ Return ONLY a single JSON object (no prose, no markdown fence) with EXACTLY this
   "dek": "one-sentence standfirst/hook under the title",
   "audience": "who this is for, one phrase",
   "intent": "what the reader should be able to do after reading, one sentence",
+  "author": "a plausible byline name",
+  "date": "ISO date YYYY-MM-DD",
+  "tags": ["3-5", "topical", "tags"],
   "sections": [
     {
       "heading": "specific, scannable section headline",
       "summary": "one line on what this section delivers",
       "targetBlock": "one of: ${ALLOWED_BLOCKS.join(", ")}",
-      "body": "2-4 real paragraphs of substantive prose. Separate paragraphs with a blank line. Use concrete examples, specifics, and realistic figures."
+      "body": "2-4 real paragraphs of substantive prose. Separate paragraphs with a blank line. Use concrete examples, specifics, and realistic figures.",
+      "feature": { "OPTIONAL — one of the shapes below" }
     }
   ],
   "images": [ { "description": "what the image shows", "alt": "descriptive alt text" } ],
   "links": [ { "href": "https://...", "text": "anchor text" } ]
 }
 
+A section's optional "feature" must be exactly ONE of:
+  { "kind": "stats", "items": [ { "value": "$2.40", "label": "avg last-mile cost per parcel" }, ... 2-4 items ] }
+  { "kind": "callout", "variant": "tip|warning|note", "title": "short title", "text": "one or two sentences" }
+  { "kind": "quote", "quote": "a sharp, quotable line", "attribution": "Name, Role" }
+  { "kind": "table", "headers": ["Option","Cost","Best for"], "rows": [["A","$","..."],["B","$$","..."]] }
+  { "kind": "cta", "title": "action title", "text": "why act now", "buttonText": "Get started", "buttonUrl": "https://example.com/x" }
+
 Rules:
-- 4 to 6 sections. Open with a hook section (targetBlock "hero") and, for how-to/decision topics, close with a clear next-step section ("cta").
+- 4 to 6 sections. Open with a hook section (targetBlock "hero") and, for how-to/decision topics, close with a clear next-step section ("cta") whose feature is a "cta".
+- Use a "table" feature wherever you compare options, and a "stats" feature where real numbers land harder than prose.
 - Total body copy roughly 600-1000 words unless a word count is specified.
-- 2 images, 2-3 links. Links may be plausible illustrative URLs (e.g. https://example.com/guide) — they are for a synthetic page.
+- 2 images, 2-3 links. Links/URLs may be plausible illustrative ones (e.g. https://example.com/guide) — this is a synthetic page.
 - Output MUST be valid JSON and nothing else.`;
+
+const FEATURE_KINDS = new Set(["stats", "callout", "quote", "table", "cta"]);
+
+/** Validate + normalize one feature; returns undefined if malformed (prose-only is fine). */
+function coerceFeature(f: unknown): FeatureBlock | undefined {
+  if (!f || typeof f !== "object") return undefined;
+  const x = f as Record<string, unknown>;
+  const kind = x.kind;
+  if (typeof kind !== "string" || !FEATURE_KINDS.has(kind)) return undefined;
+  try {
+    if (kind === "stats") {
+      const items = (x.items as Array<{ value: unknown; label: unknown }>).filter((i) => i && i.value != null && i.label != null);
+      if (!items.length) return undefined;
+      return { kind: "stats", items: items.map((i) => ({ value: String(i.value), label: String(i.label) })) };
+    }
+    if (kind === "callout") {
+      if (typeof x.text !== "string" || !x.text.trim()) return undefined;
+      const variant = x.variant === "tip" || x.variant === "warning" || x.variant === "note" ? x.variant : undefined;
+      return { kind: "callout", variant, title: typeof x.title === "string" ? x.title : undefined, text: x.text };
+    }
+    if (kind === "quote") {
+      if (typeof x.quote !== "string" || !x.quote.trim()) return undefined;
+      return { kind: "quote", quote: x.quote, attribution: typeof x.attribution === "string" ? x.attribution : undefined };
+    }
+    if (kind === "table") {
+      const headers = (x.headers as unknown[])?.map(String) ?? [];
+      const rows = ((x.rows as unknown[][]) ?? []).map((r) => r.map(String));
+      if (!headers.length || !rows.length) return undefined;
+      return { kind: "table", headers, rows };
+    }
+    // cta
+    if (typeof x.buttonUrl !== "string" || typeof x.buttonText !== "string") return undefined;
+    return {
+      kind: "cta",
+      title: String(x.title ?? ""),
+      text: String(x.text ?? ""),
+      buttonText: x.buttonText,
+      buttonUrl: x.buttonUrl,
+    };
+  } catch {
+    return undefined;
+  }
+}
 
 function validateLlmBrief(x: unknown): LlmBrief {
   const b = x as LlmBrief;
@@ -127,6 +190,7 @@ function toBrief(llm: LlmBrief, fallbackPageType: string): Brief {
     summary: (s.summary ?? "").trim(),
     targetBlock: (ALLOWED_BLOCKS as readonly string[]).includes(s.targetBlock) ? s.targetBlock : "default-content",
     body: s.body.trim(),
+    feature: coerceFeature(s.feature),
   }));
   return {
     title: llm.title.trim(),
@@ -134,8 +198,11 @@ function toBrief(llm: LlmBrief, fallbackPageType: string): Brief {
     audience: llm.audience?.trim() || "general readers",
     intent: llm.intent?.trim() || "",
     dek: llm.dek?.trim() || undefined,
+    author: typeof llm.author === "string" ? llm.author.trim() : undefined,
+    date: typeof llm.date === "string" ? llm.date.trim() : undefined,
+    tags: Array.isArray(llm.tags) ? llm.tags.map(String).slice(0, 6) : undefined,
     outline: sections.map((s) => ({ heading: s.heading, summary: s.summary, targetBlock: s.targetBlock })),
-    copyBlocks: sections.map((s) => ({ block: s.heading, text: s.body })),
+    copyBlocks: sections.map((s) => ({ block: s.heading, text: s.body, ...(s.feature ? { feature: s.feature } : {}) })),
     imageDirections: (llm.images ?? []).map((i) => ({ description: i.description, alt: i.alt })),
     links: (llm.links ?? []).filter((l) => l && typeof l.href === "string" && typeof l.text === "string"),
     generator: "agent-sdk",

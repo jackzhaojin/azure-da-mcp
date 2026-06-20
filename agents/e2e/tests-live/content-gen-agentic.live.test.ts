@@ -50,8 +50,9 @@ describe.skipIf(!AI_TOKEN)("content-gen: agentic backend (real Claude)", () => {
     const brief = (artifact as { brief: Record<string, never> }).brief as {
       title: string;
       dek?: string;
+      tags?: string[];
       outline: Array<{ heading: string; targetBlock: string }>;
-      copyBlocks: Array<{ block: string; text: string }>;
+      copyBlocks: Array<{ block: string; text: string; feature?: { kind: string } }>;
       generator: string;
     };
     expect(brief.generator).toBe("agent-sdk");
@@ -63,6 +64,9 @@ describe.skipIf(!AI_TOKEN)("content-gen: agentic backend (real Claude)", () => {
     }
     // The headline is a real angle, not just the topic title-cased.
     expect(brief.title.toLowerCase()).not.toBe("cross-border e-commerce fulfillment for small merchants");
+    // Visually rich: the writer used multiple kinds of typed feature blocks.
+    const kinds = new Set(brief.copyBlocks.map((c) => c.feature?.kind).filter(Boolean));
+    expect(kinds.size).toBeGreaterThanOrEqual(2);
   }, 200_000);
 
   it("content.synthesize-source produces a fetchable, substantive legacy page", async () => {
