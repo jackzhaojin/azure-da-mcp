@@ -1,21 +1,27 @@
 # CLAUDE.md — agents/content-gen
 
-**Purpose**: Generate content briefs + synthetic "legacy" source pages for the closed loop. · **Tech**: TypeScript, Node 20, Express A2A server on `@agents/a2a-common`, `@a2a-js/sdk@0.3.13`. · **Port**: 4002. · **Status**: v2.0 A2A platform, M3 scaffolding — template tier (Agent SDK backend lands at M3 real-backends).
+**Purpose**: Generate content briefs + synthetic "legacy" source pages for the closed loop. · **Tech**: TypeScript, Node 20, Express A2A server on `@agents/a2a-common`, `@a2a-js/sdk@0.3.13`, `@anthropic-ai/claude-agent-sdk`. · **Port**: 4002. · **Status**: v2.0 A2A platform — **agentic backend live** (real Claude writing) with the deterministic template as the $0/no-creds/test fallback.
 
 Platform docs: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-06-08-a2a-platform-v2.0/) (v2.0), [`ai-docs/2026-06-05-a2a-agent-platform/`](../../ai-docs/2026-06-05-a2a-agent-platform/) (PRD). v1.1.0 `content-authoring-eval/` is the frozen legacy backup — **D5: never touch it.**
 
 ## When to work here
-- Adding/changing the two content skills: `content.brief`, `content.synthesize-source`.
-- Swapping the template generator for the Claude Agent SDK backend (M3) — replace the bodies of `generateBrief` / `synthesizeSource`, keep the signatures (the structured shapes ARE the contract artifacts).
+- Adding/changing the content skills: `content.ideate`, `content.brief`, `content.synthesize-source`.
+- Tuning the **agentic** writing — the editorial prompts in `src/agentic.ts` (`BRIEF_SYSTEM`, `IDEATE_SYSTEM`) are where content quality lives now.
 - Tuning the synthetic "legacy" HTML the closed loop migrates + scores.
 
 ## Key files
-- `src/generator.ts` — pure template tier. `generateBrief()` (outline + copy + target EDS blocks → `Brief`); `synthesizeSource()` renders a `Brief` into standalone legacy HTML (`clean | dated | messy`) plus a `groundTruth` object eval scores fidelity against. Deterministic per topic → $0, good for pipeline tests.
-- `src/index.ts` — the A2A server: `startAgentServer({...})`, executor, skill discrimination, artifact store wiring.
-- `package.json` — `npm run dev` (tsx); only dep is `@agents/a2a-common`.
+- `src/agentic.ts` — **the real writer**. `agenticBrief()` drives Claude (`@anthropic-ai/claude-agent-sdk` `query()`, tool-free, bounded by an abort timeout) to produce a substantive, compelling `Brief` (real headlines, multi-paragraph prose, a dek, in-body links). `agenticIdeate()` picks a fresh on-lane topic. `buildBrief()` / `pickTopic()` are the **entry points the executor calls**: agentic when `CLAUDE_CODE_OAUTH_TOKEN`/`ANTHROPIC_API_KEY` is set, else the deterministic template — and agentic **never hard-fails the loop** (any error → template fallback). Model via `CONTENT_GEN_MODEL` (→ `CLAUDE_MODEL` → `claude-sonnet-4-6`).
+- `src/generator.ts` — the deterministic template tier + the shapes. `generateBrief()` (coherent topic-substituted prose, NOT lorem); `synthesizeSource()` renders a `Brief` into standalone legacy HTML (`clean | dated | messy`, multi-paragraph + byline + dek + **typed feature blocks**) plus a `groundTruth` object eval scores fidelity against. The `Brief`/`SyntheticSource` shapes ARE the contract artifacts — agentic + template both return them.
+- **`FeatureBlock` (ported from the v1.0 `blog-static-site-generator` block model)** is the lever for *compelling* pages: a section can carry one rich block beyond its prose — `stats` (metric strip), `callout` (tip/warning/note), `quote` (pull quote), `table` (comparison), or `cta`. `renderFeature()` lays them out in legacy chrome; the content (numbers, quote, table cells, CTA link) is always present so the page reads like a real article AND migration gets distinct semantic blocks to map to EDS (cards/columns/quote/table/cta). CTA links + feature text are folded into `groundTruth` so eval fidelity stays truthful.
+- `src/extract-json.ts` — tolerant JSON extraction from the LLM reply (fence / pure / prose-wrapped) + `sanitizeJson` (`":="`→`":"`, the recurring AI typo, ported from v1.0's content sanitizer).
+- `src/index.ts` — the A2A server: `startAgentServer({...})`, executor, skill discrimination, artifact store wiring. Working-notes report which tier ran (`agent-sdk` vs `template`).
+- `package.json` — `npm run dev` (tsx); deps `@agents/a2a-common` + `@anthropic-ai/claude-agent-sdk`.
 - `output/sources/*.html` — local artifact stand-in (gitignored). One file per synthesize task, keyed `sources/{taskId}.html`.
 
 ## Gotchas / non-obvious (MOST IMPORTANT)
+- **Agentic vs template is creds-gated, not a flag**: `hasAgentAuth()` (OAuth token or API key) decides per-call. The fast e2e tier strips those creds (`SANITIZED_ENV_VARS` in `e2e/helpers/mesh.ts`) so CI is deterministic + $0; the agentic path is covered by `e2e/tests-live/content-gen-agentic.live.test.ts` (creds-gated, auto-skips).
+- **Cloud needs the Claude CLI recipe**: the Agent SDK shells out to `@anthropic-ai/claude-code`, which refuses permission-skipping as root. So `deploy/docker/content-gen.Dockerfile` installs the CLI, runs as non-root `appuser`, and `content-gen-entrypoint.sh` writes `.claude.json` from `CLAUDE_ACCOUNT_UUID`/`CLAUDE_EMAIL`/`CLAUDE_ORG_UUID` (same secrets as eval; container bumped lite→basic). No creds → it just falls back to the template — safe, but not compelling.
+- **Generation must never break the loop** — agentic failures (timeout, malformed JSON, no creds) fall back to the template inside `buildBrief`/`pickTopic`. A red content stage means something else.
 - **The synthetic source URL MUST be public** — this is the whole reason it goes through the shared artifact store, not just returned inline. Make.com (migration `makecom` backend) and the eval agent both fetch it over HTTP. Returning HTML in the artifact would break that.
 - **Artifact store is R2-or-local, same URL contract either way**: `createArtifactStore({ localDir: "./output", localPublicBase })`. Real Cloudflare R2 (S3 API) when `R2_*` env is set; otherwise a local filesystem stand-in served via `staticRoutes: [{ route: "/artifacts", dir: "./output" }]` at `http://localhost:4002/artifacts`. The `synthetic-source` artifact carries `artifacts[].storage = artifactStore.kind` so consumers see which backend produced the URL.
 - **Skill discrimination is shape-inferred** (`resolveSkill`): explicit `skill` field wins; else presence of `brief` / `briefTaskId` / `legacyStyle` ⇒ `synthesize-source`, else `brief`. `content.brief` requires `topic`.

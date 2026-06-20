@@ -6,14 +6,41 @@
  * topic — useful for pipeline tests and $0.
  */
 
+/**
+ * Rich, typed feature blocks — the lever for *compelling* pages (ported from the
+ * v1.0 blog-static-site-generator's block model). A section can carry one beyond
+ * its prose: a stat strip, a pull quote, a callout, a comparison table, or a CTA.
+ * This is what gives the synthetic source real semantic variety — so it reads
+ * like a genuine article AND the migration has distinct EDS blocks to map to.
+ */
+export type FeatureBlock =
+  | { kind: "stats"; items: Array<{ value: string; label: string }> }
+  | { kind: "callout"; variant?: "tip" | "warning" | "note"; title?: string; text: string }
+  | { kind: "quote"; quote: string; attribution?: string }
+  | { kind: "table"; headers: string[]; rows: string[][] }
+  | { kind: "cta"; title: string; text: string; buttonText: string; buttonUrl: string };
+
 export interface Brief {
   title: string;
   pageType: string;
   audience: string;
   intent: string;
+  /** One-line hook under the title — the dek/standfirst. Optional (template tier omits it). */
+  dek?: string;
+  /** Byline metadata — author + ISO date + tags. Renders a realistic article header. */
+  author?: string;
+  date?: string;
+  tags?: string[];
   outline: Array<{ heading: string; summary: string; targetBlock: string }>;
-  copyBlocks: Array<{ block: string; text: string }>;
+  /**
+   * Body copy per section, aligned 1:1 with `outline`. `text` may hold multiple
+   * paragraphs (split on blank lines). `feature` is an optional rich block
+   * rendered after the prose (stats / quote / callout / table / cta).
+   */
+  copyBlocks: Array<{ block: string; text: string; feature?: FeatureBlock }>;
   imageDirections: Array<{ description: string; alt: string }>;
+  /** In-body links. Optional — when absent, synthesizeSource falls back to two generic example links. */
+  links?: Array<{ href: string; text: string }>;
   generator: "template" | "agent-sdk";
 }
 
@@ -138,15 +165,55 @@ export function generateBrief(opts: {
           ["Practical Checklist", "actionable next steps", "cards"],
         ];
 
+  // Deterministic, topic-substituted prose. NOT lorem — coherent sentences so the
+  // $0 / no-creds fallback still produces a readable page. The agentic backend
+  // (agentic.ts) replaces this with genuinely compelling, specific writing.
+  const sectionCopy = (summary: string): string => {
+    const t = opts.topic;
+    return [
+      `When it comes to ${t}, the difference between a good outcome and an expensive one usually comes down to a few decisions made early. This section covers ${summary}, and why getting it right matters more than most people expect.`,
+      `The fundamentals are straightforward once you see them laid out. Start by understanding what ${t} actually requires, then work backward from the result you want. Most missteps trace back to skipping that first step.`,
+      `Treat the points below as a working baseline. They apply whether you are just getting started with ${t} or refining a process you already run, and each one compounds: small, consistent choices add up to a meaningfully better result.`,
+    ].join("\n\n");
+  };
+
   return {
     title,
     pageType,
     audience: opts.siteBrief ? `Readers of: ${opts.siteBrief}` : `People researching ${opts.topic}`,
     intent: `Help the reader make a confident decision about ${opts.topic}.`,
+    dek: `A practical, no-fluff guide to ${opts.topic} — what matters, what to skip, and how to get it right.`,
+    author: "The Editorial Team",
+    date: new Date().toISOString().slice(0, 10),
+    tags: [pageType, opts.topic.split(/\s+/).slice(0, 2).join("-").toLowerCase()],
     outline: sections.map(([heading, summary, targetBlock]) => ({ heading, summary, targetBlock })),
-    copyBlocks: sections.map(([heading, summary]) => ({
+    // Deterministic feature variety so even the $0 fallback isn't flat prose:
+    // a stat strip mid-article and a CTA at the end.
+    copyBlocks: sections.map(([heading, summary], i) => ({
       block: heading,
-      text: `${summary} — ${"placeholder copy for " + opts.topic + ". ".repeat(3)}`.trim(),
+      text: sectionCopy(summary),
+      ...(i === 1
+        ? {
+            feature: {
+              kind: "stats" as const,
+              items: [
+                { value: "3×", label: `faster results with ${opts.topic}` },
+                { value: "80%", label: "of mistakes are avoidable" },
+                { value: "1", label: "decision that matters most" },
+              ],
+            },
+          }
+        : i === sections.length - 1
+          ? {
+              feature: {
+                kind: "cta" as const,
+                title: `Put this ${opts.topic} guide to work`,
+                text: `Start with the checklist above and revisit it as your needs grow.`,
+                buttonText: "Get started",
+                buttonUrl: "https://example.com/get-started",
+              },
+            }
+          : {}),
     })),
     imageDirections: Array.from({ length: opts.constraints?.imageCount ?? 2 }, (_, i) => ({
       description: `Illustration ${i + 1} for ${opts.topic}`,
@@ -156,60 +223,198 @@ export function generateBrief(opts: {
   };
 }
 
-/** Renders a brief into standalone legacy-style HTML with KNOWN ground truth. */
+/** Split a copy block into paragraphs (blank-line separated), trimmed + non-empty. */
+function paras(text: string): string[] {
+  const out = (text ?? "")
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  return out.length ? out : [(text ?? "").replace(/\s+/g, " ").trim()].filter(Boolean);
+}
+
+function escapeHtml(s: string): string {
+  const map: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
+  return (s ?? "").replace(/[&<>"']/g, (m) => map[m]);
+}
+
+/** Plain-text content of a feature block — folded into groundTruth.bodyText so eval fidelity stays truthful. */
+function featureText(f: FeatureBlock): string {
+  switch (f.kind) {
+    case "stats":
+      return f.items.map((s) => `${s.value} ${s.label}`).join(". ");
+    case "callout":
+      return `${f.title ?? ""} ${f.text}`.trim();
+    case "quote":
+      return `${f.quote}${f.attribution ? ` — ${f.attribution}` : ""}`;
+    case "table":
+      return [f.headers.join(" "), ...f.rows.map((r) => r.join(" "))].join(". ");
+    case "cta":
+      return `${f.title} ${f.text} ${f.buttonText}`.trim();
+  }
+}
+
+/** Links a feature contributes (only the CTA button) — kept in groundTruth.links. */
+function featureLinks(f: FeatureBlock): Array<{ href: string; text: string }> {
+  return f.kind === "cta" ? [{ href: f.buttonUrl, text: f.buttonText }] : [];
+}
+
+/**
+ * Render a feature block as legacy-flavoured HTML. The *content* (numbers, quote,
+ * table cells, CTA link) is always present so migration has real semantic blocks
+ * to map to EDS (cards/columns/quote/table/cta); the chrome adapts to the style.
+ */
+function renderFeature(f: FeatureBlock, style: "clean" | "dated" | "messy"): string {
+  const e = escapeHtml;
+  switch (f.kind) {
+    case "stats": {
+      if (style === "dated")
+        return `<table border="1" cellpadding="6"><tr>${f.items
+          .map((s) => `<td align="center"><font size="5"><b>${e(s.value)}</b></font><br><font size="2">${e(s.label)}</font></td>`)
+          .join("")}</tr></table>`;
+      if (style === "messy")
+        return `<div style="display:flex;gap:10px;margin:12px 0">${f.items
+          .map(
+            (s) =>
+              `<div style="border:1px solid #ccc;padding:8px;text-align:center"><div style="font-size:24px;font-weight:bold">${e(s.value)}</div><div style="font-size:11px;color:#777">${e(s.label)}</div></div>`
+          )
+          .join("")}</div>`;
+      return `<dl class="stats">${f.items.map((s) => `<div><dt>${e(s.value)}</dt><dd>${e(s.label)}</dd></div>`).join("")}</dl>`;
+    }
+    case "callout": {
+      const title = f.title ? e(f.title) : "Note";
+      if (style === "dated")
+        return `<table width="100%" bgcolor="#fff8dc" border="0" cellpadding="8"><tr><td><font size="3"><b>${title}</b></font><br>${e(f.text)}</td></tr></table>`;
+      if (style === "messy")
+        return `<div style="background:#fff8dc;border-left:4px solid #e0a800;padding:10px;margin:10px 0"><b>${title}</b><br>${e(f.text)}</div>`;
+      return `<aside class="callout callout--${f.variant ?? "note"}"><strong>${title}</strong><p>${e(f.text)}</p></aside>`;
+    }
+    case "quote": {
+      const cite = f.attribution ? e(f.attribution) : "";
+      if (style === "dated")
+        return `<table width="90%" align="center"><tr><td><font size="4"><i>&ldquo;${e(f.quote)}&rdquo;</i></font>${cite ? `<br>&mdash; ${cite}` : ""}</td></tr></table>`;
+      if (style === "messy")
+        return `<div style="border-left:3px solid #999;padding-left:12px;font-style:italic;color:#444;margin:12px 0">&ldquo;${e(f.quote)}&rdquo;${cite ? `<br><span style="font-size:11px">&mdash; ${cite}</span>` : ""}</div>`;
+      return `<blockquote><p>${e(f.quote)}</p>${cite ? `<cite>${cite}</cite>` : ""}</blockquote>`;
+    }
+    case "table": {
+      const border = style === "clean" ? 0 : 1;
+      const thead = `<tr>${f.headers.map((h) => `<th>${e(h)}</th>`).join("")}</tr>`;
+      const tbody = f.rows.map((r) => `<tr>${r.map((c) => `<td>${e(c)}</td>`).join("")}</tr>`).join("");
+      return `<table border="${border}" cellpadding="6"${style === "messy" ? ' style="border-collapse:collapse;margin:12px 0"' : ""}><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+    }
+    case "cta": {
+      const t = e(f.title), x = e(f.text), b = e(f.buttonText);
+      if (style === "dated")
+        return `<table width="100%" bgcolor="#eef" border="0" cellpadding="10"><tr><td align="center"><font size="4"><b>${t}</b></font><br>${x}<br><a href="${f.buttonUrl}"><b>[ ${b} ]</b></a></td></tr></table>`;
+      if (style === "messy")
+        return `<div style="background:#eef;padding:14px;text-align:center;margin:12px 0"><b>${t}</b><br>${x}<br><a href="${f.buttonUrl}" style="display:inline-block;margin-top:6px;background:#36c;color:#fff;padding:6px 14px;text-decoration:none">${b}</a></div>`;
+      return `<div class="cta"><h3>${t}</h3><p>${x}</p><a class="button" href="${f.buttonUrl}">${b}</a></div>`;
+    }
+  }
+}
+
+/**
+ * Renders a brief into standalone legacy-style HTML with KNOWN ground truth.
+ *
+ * The legacy *styling* is deliberately dated (table/`<font>`) or messy (floats +
+ * inline styles) so the migration agent has real cruft to clean up — but the
+ * *copy* it carries is whatever the brief holds. An agentic brief therefore
+ * produces a genuinely substantive article wearing legacy chrome; the template
+ * tier produces a thinner deterministic stand-in. Body copy is rendered
+ * paragraph-by-paragraph so multi-paragraph narrative reads as prose.
+ */
 export function synthesizeSource(brief: Brief, legacyStyle: "clean" | "dated" | "messy"): SyntheticSource {
   const headings = brief.outline.map((s) => s.heading);
-  const links = [
-    { href: "https://example.com/about", text: "About us" },
-    { href: "https://example.com/contact", text: "Contact" },
-  ];
+  const links =
+    brief.links && brief.links.length
+      ? brief.links
+      : [
+          { href: "https://example.com/about", text: "About us" },
+          { href: "https://example.com/contact", text: "Contact" },
+        ];
   const imageAlts = brief.imageDirections.map((d) => d.alt);
-  const paragraphs = brief.copyBlocks.map((c) => c.text);
+  const sectionParas = brief.copyBlocks.map((c) => paras(c.text));
+  const features = brief.copyBlocks.map((c) => c.feature);
+
+  // CTA buttons add real links — fold them into the truthful groundTruth.
+  const featureLinkList = features.filter((f): f is FeatureBlock => !!f).flatMap(featureLinks);
+  const allLinks = [...links, ...featureLinkList];
 
   const img = (alt: string, i: number) =>
     `<img src="https://picsum.photos/seed/${encodeURIComponent(alt)}/640/360" alt="${alt}" ${
       legacyStyle === "messy" ? `style="float:${i % 2 ? "left" : "right"};margin:5px" width="320"` : ""
     }/>`;
+  const feat = (i: number) => (features[i] ? renderFeature(features[i]!, legacyStyle) : "");
+
+  const dek = brief.dek?.trim();
 
   let body: string;
   if (legacyStyle === "clean") {
     body = brief.outline
-      .map((s, i) => `<section><h2>${s.heading}</h2><p>${paragraphs[i] ?? ""}</p>${imageAlts[i] ? img(imageAlts[i], i) : ""}</section>`)
+      .map(
+        (s, i) =>
+          `<section><h2>${s.heading}</h2>${(sectionParas[i] ?? []).map((p) => `<p>${p}</p>`).join("")}${feat(i)}${
+            imageAlts[i] ? img(imageAlts[i], i) : ""
+          }</section>`
+      )
       .join("\n");
   } else if (legacyStyle === "dated") {
     body = `<table width="100%" border="0" cellpadding="8"><tr><td>${brief.outline
-      .map((s, i) => `<font size="4"><b>${s.heading}</b></font><br>${paragraphs[i] ?? ""}<br>${imageAlts[i] ? img(imageAlts[i], i) : ""}<br><br>`)
-      .join("")}</td><td width="200" bgcolor="#eeeeee">${links.map((l) => `<a href="${l.href}">${l.text}</a><br>`).join("")}</td></tr></table>`;
+      .map(
+        (s, i) =>
+          `<font size="4"><b>${s.heading}</b></font><br>${(sectionParas[i] ?? [])
+            .map((p) => p)
+            .join("<br><br>")}<br>${feat(i)}${imageAlts[i] ? img(imageAlts[i], i) : ""}<br><br>`
+      )
+      .join("")}</td><td width="200" bgcolor="#eeeeee">${links
+      .map((l) => `<a href="${l.href}">${l.text}</a><br>`)
+      .join("")}</td></tr></table>`;
   } else {
     body = brief.outline
       .map(
         (s, i) =>
           `<div style="font-size:19px;font-weight:bold;color:#333;margin-top:22px">${s.heading}</div>` +
-          `<div style="font-family:Verdana;font-size:13px;line-height:1.3">${paragraphs[i] ?? ""}</div>` +
+          (sectionParas[i] ?? [])
+            .map((p) => `<div style="font-family:Verdana;font-size:13px;line-height:1.3">${p}</div>`)
+            .join("") +
+          feat(i) +
           (imageAlts[i] ? img(imageAlts[i], i) : "")
       )
       .join("<br clear=\"all\">");
   }
 
   const nav = legacyStyle === "dated" ? "" : `<div>${links.map((l) => `<a href="${l.href}">${l.text}</a>`).join(" | ")}</div>`;
+  const dekHtml = dek ? `\n<p${legacyStyle === "messy" ? ' style="font-size:15px;color:#666;font-style:italic"' : ""}><i>${dek}</i></p>` : "";
+  // Byline: realistic article header (author · date · tags) when the brief carries it.
+  const bylineBits = [
+    brief.author ? `By ${escapeHtml(brief.author)}` : "",
+    brief.date ? escapeHtml(brief.date) : "",
+    brief.tags && brief.tags.length ? brief.tags.map((t) => `#${escapeHtml(t)}`).join(" ") : "",
+  ].filter(Boolean);
+  const bylineHtml = bylineBits.length
+    ? `\n<p${legacyStyle === "dated" ? "" : ' style="font-size:12px;color:#888"'}>${
+        legacyStyle === "dated" ? `<font size="2" color="#888">${bylineBits.join(" &middot; ")}</font>` : bylineBits.join(" &middot; ")
+      }</p>`
+    : "";
   const html = `<!DOCTYPE html>
 <html>
 <head><title>${brief.title}</title><meta charset="utf-8"></head>
 <body${legacyStyle === "messy" ? ' bgcolor="#fafafa"' : ""}>
-<h1>${brief.title}</h1>
+<h1>${brief.title}</h1>${dekHtml}${bylineHtml}
 ${nav}
 ${body}
 </body>
 </html>`;
 
+  const featureBodyText = features.filter((f): f is FeatureBlock => !!f).map(featureText).join(" ");
   return {
     html,
     groundTruth: {
       title: brief.title,
       headings,
-      links,
+      links: allLinks,
       imageAlts,
-      bodyText: paragraphs.join(" "),
+      bodyText: [brief.copyBlocks.map((c) => c.text).join(" "), featureBodyText].filter(Boolean).join(" "),
     },
     legacyStyle,
   };
