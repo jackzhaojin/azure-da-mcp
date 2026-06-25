@@ -16,7 +16,7 @@ import { waitForCallback } from "../callbacks.ts";
  * the callbackUrl rides the cloudflared tunnel: set MIGRATION_CALLBACK_BASE to
  * the tunnel hostname.
  */
-const TIMEOUT_MS = Number(process.env.MAKECOM_TIMEOUT_MS ?? 25 * 60 * 1000); // scenarios can run long
+const TIMEOUT_MS = Number(process.env.MAKECOM_TIMEOUT_MS ?? 40 * 60 * 1000); // scenarios can run long (raised with the opencode turn cap for heavier content)
 
 export const makecomBackend: MigrationBackend = {
   name: "makecom",

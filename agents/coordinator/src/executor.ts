@@ -162,7 +162,7 @@ export function computeStats(branches: BranchResult[], route: Stage[]) {
 }
 
 const TERMINAL_STATES = new Set(["completed", "failed", "canceled", "rejected"]);
-const STREAM_RECOVERY_MAX_MS = Number(process.env.COORD_STREAM_RECOVERY_MAX_MS ?? 25 * 60_000);
+const STREAM_RECOVERY_MAX_MS = Number(process.env.COORD_STREAM_RECOVERY_MAX_MS ?? 50 * 60_000);
 const STREAM_RECOVERY_POLL_MS = 10_000;
 
 /**
