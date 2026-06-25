@@ -31,7 +31,7 @@ const log = createLogger("da-migration-agent");
  * path) + kimi-k2.6-opencode-backend-findings.md.
  */
 
-const TURN_TIMEOUT_MS = Number(process.env.OPENCODE_MIGRATION_TIMEOUT_MS ?? 20 * 60 * 1000);
+const TURN_TIMEOUT_MS = Number(process.env.OPENCODE_MIGRATION_TIMEOUT_MS ?? 40 * 60 * 1000);
 
 // ── long-lived server singleton ─────────────────────────────────────────────
 interface OpencodeServer {
