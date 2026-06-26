@@ -25,9 +25,18 @@ npm run tail          # live worker logs
 npx wrangler containers list
 ```
 
-Secrets (set once; rotate via the same command): `D1_PROXY_SECRET`, `A2A_MESH_TOKEN`, `A2A_EDGE_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET`, `MOONSHOT_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_ACCOUNT_UUID`, `CLAUDE_EMAIL`, `CLAUDE_ORG_UUID` — `printf '%s' "$VAL" | npx wrangler secret put NAME`.
+Secrets (set once; rotate via the same command): `D1_PROXY_SECRET`, `A2A_MESH_TOKEN`, `A2A_EDGE_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET`, `MOONSHOT_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_ACCOUNT_UUID`, `CLAUDE_EMAIL`, `CLAUDE_ORG_UUID` — `printf '%s' "$VAL" | npx wrangler secret put NAME`. These are **container-runtime** secrets and **persist across deploys** (`wrangler deploy` never clears them), so CI does not manage them.
 
 Validate: `cd agents && set -a && source .env && set +a && npm run test:cloud` (tier 1 always; the Kimi tier needs `DALIVE_TEST_OWNER`/`DALIVE_TEST_SITE`).
+
+## CI deploy (GitHub Actions)
+
+`.github/workflows/deploy-agents.yml` runs the exact same `npm run deploy` on a GitHub runner so releases don't depend on a laptop. It's the v2.x+ counterpart to `deploy-content-authoring-eval.yml` (frozen v1.x Oracle line, D5) — the two never overlap.
+
+- **Triggers**: tag push `v[2-9].*` / `v[1-9][0-9].*` (v2.* … v99.*; `v1.*` is excluded — that's the Oracle app), plus `workflow_dispatch` (manual, any branch; `skip_tests` input skips the e2e gate for hotfix redeploys).
+- **Flow**: `verify` job (Node 20, `agents/`: `npm ci` → `typecheck` → `test:e2e` stub gate) → `deploy` job (Node 20→**22**, Docker Buildx, free-disk, `npm install` in `deploy/`, `npm run deploy`, then a `/worker-health` smoke probe). Runner is linux/amd64 so images build amd64 with no `--platform` flag.
+- **Two repo secrets needed** (add in GitHub → Settings → Secrets → Actions): **`CLOUDFLARE_API_TOKEN`** — account-scoped, permissions **Workers Scripts Edit · Cloudflare Containers Edit · Workers R2 Storage Edit · D1 Edit · Account Settings Read** (+ **Workers Routes Edit** only if you change custom domains in wrangler.jsonc); **`CLOUDFLARE_ACCOUNT_ID`** — the account id (= `R2_ACCOUNT_ID` in wrangler.jsonc, `957b2690…`). No other secrets: the container-runtime secrets above already live on the Worker.
+- **Concurrency**: `group: deploy-agents`, `cancel-in-progress: false` — queues, never races ("deploy between runs, not during"). Rollouts still kill in-flight runs, so cut releases when the mesh is idle.
 
 ## Gotchas
 

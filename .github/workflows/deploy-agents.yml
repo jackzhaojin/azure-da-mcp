@@ -1,0 +1,130 @@
+name: Deploy Agents Platform to Cloudflare
+
+# v2.0 A2A agent platform (agents/) — build the four container images on GitHub
+# runners and deploy the `content-factory` Worker + Containers to Cloudflare via
+# wrangler. This is the v2.x+ counterpart to deploy-content-authoring-eval.yml
+# (which owns the FROZEN v1.x Oracle line, D5). The two never overlap: v1.* tags
+# deploy the Oracle app and NEVER reach Cloudflare; v2.x-and-later tags deploy
+# this mesh and NEVER touch Oracle.
+#
+# Triggers:
+#   - tag push matching v2.x and later (v2.*, … v9.*, v10.*–v99.*). v1.* is
+#     deliberately excluded — that tag line belongs to the frozen eval app.
+#   - manual run (workflow_dispatch) from any branch/ref, with an optional
+#     skip_tests escape hatch for hotfix redeploys.
+#
+# Secrets the Worker ALREADY holds — D1_PROXY_SECRET, A2A_MESH_TOKEN,
+# A2A_EDGE_TOKEN, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, AUTH_GOOGLE_ID,
+# AUTH_GOOGLE_SECRET, AUTH_SECRET, MOONSHOT_API_KEY, CLAUDE_CODE_OAUTH_TOKEN,
+# CLAUDE_ACCOUNT_UUID, CLAUDE_EMAIL, CLAUDE_ORG_UUID — PERSIST across deploys
+# (`wrangler deploy` does not clear them). This workflow does NOT manage them; it
+# only needs two repo secrets to authenticate wrangler:
+#   CLOUDFLARE_API_TOKEN  — account-scoped token. Permissions: Workers Scripts
+#                           Edit, Cloudflare Containers Edit, Workers R2 Storage
+#                           Edit, D1 Edit, Account Settings Read (add Workers
+#                           Routes Edit if you change custom domains in
+#                           wrangler.jsonc).
+#   CLOUDFLARE_ACCOUNT_ID — the Cloudflare account id (same value as
+#                           R2_ACCOUNT_ID in agents/deploy/wrangler.jsonc; kept
+#                           as a secret only so forks don't inherit it).
+
+on:
+  push:
+    tags:
+      - 'v[2-9].*'        # v2.* … v9.*
+      - 'v[1-9][0-9].*'   # v10.* … v99.*
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip the fast e2e gate and deploy immediately (hotfix)'
+        type: boolean
+        default: false
+
+# Never let two deploys race on the same Worker ("deploy between runs, not
+# during" — deploy/CLAUDE.md). Queue, don't cancel: an in-flight deploy finishes.
+concurrency:
+  group: deploy-agents
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Typecheck + fast e2e gate
+    # Skipped only for an explicit workflow_dispatch hotfix (skip_tests=true).
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.skip_tests == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: agents
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20            # the agents/ workspaces run on Node 20
+          cache: npm
+          cache-dependency-path: agents/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:e2e         # fast stub tier — no browsers, no API keys
+
+  deploy:
+    name: Build containers + deploy Worker
+    needs: verify
+    # Deploy when verify passed, OR when it was intentionally skipped
+    # (workflow_dispatch + skip_tests). A real verify failure blocks the deploy.
+    if: ${{ always() && (needs.verify.result == 'success' || needs.verify.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: agents/deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      # wrangler builds 4 images; the eval image bundles Chromium + the Claude
+      # CLI and is multi-GB. Reclaim runner disk before building.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false        # keep the docker engine ready for builds
+          swap-storage: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22            # wrangler 4.x / @cloudflare/containers need Node 22
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install deploy deps
+        run: npm install             # standalone workspace (own lockfile, wrangler pinned)
+
+      # `npm run deploy` runs predeploy (sync-skill copies the da-live skill into
+      # ./skills) then `wrangler deploy`, which builds each Dockerfile
+      # (image_build_context ../ = agents/), pushes the images to Cloudflare's
+      # managed registry, and rolls out the Worker. Runner is linux/amd64, so the
+      # images come out amd64 with no extra --platform flag.
+      - name: Deploy to Cloudflare
+        run: npm run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Worker-level health: hits the Worker's /worker-health, which answers
+      # WITHOUT waking a container (no cold-start cost, no false negative).
+      - name: Smoke test — Worker health
+        run: |
+          URL="https://content-factory.jackzhaojin.com/worker-health"
+          echo "Probing $URL"
+          for i in $(seq 1 10); do
+            if curl -fsS --max-time 15 "$URL"; then
+              echo; echo "Worker is healthy."; exit 0
+            fi
+            echo "attempt $i failed; retrying in 6s…"; sleep 6
+          done
+          echo "Worker health check never passed."; exit 1

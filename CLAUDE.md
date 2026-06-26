@@ -250,6 +250,10 @@ If you ever need to re-point a tag (e.g., because the tagged commit was wrong):
 
 `functions/` deploys separately via `.github/workflows/main_jack-mcp-azure-ai-function.yml` on pushes to `main` — not tag-driven. To deploy MCP server changes, just merge to `main`.
 
+### Agents Platform (v2.0) Subproject
+
+`agents/` deploys to **Cloudflare Workers + Containers** via `.github/workflows/deploy-agents.yml` — triggered by **v2.x-and-later** tags (`v[2-9].*` / `v[1-9][0-9].*`) and manual `workflow_dispatch`. It builds all four container images on the GitHub runner and runs `wrangler deploy` (the same `npm run deploy` you'd run locally). The v1.* and v2.x+ tag lines are mutually exclusive: `v1.*` → Oracle eval app, `v2.x+` → this mesh, neither crosses over. Requires repo secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (container-runtime secrets already persist on the Worker). Details: [`agents/deploy/CLAUDE.md`](./agents/deploy/CLAUDE.md#ci-deploy-github-actions).
+
 ## Common Issues
 
 ### Node Version Errors
