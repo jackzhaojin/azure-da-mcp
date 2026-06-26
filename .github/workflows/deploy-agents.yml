@@ -102,7 +102,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Install deploy deps
-        run: npm install             # standalone workspace (own lockfile, wrangler pinned)
+        run: npm ci                  # standalone workspace (own committed lockfile, wrangler pinned)
 
       # `npm run deploy` runs predeploy (sync-skill copies the da-live skill into
       # ./skills) then `wrangler deploy`, which builds each Dockerfile
