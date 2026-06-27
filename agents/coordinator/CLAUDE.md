@@ -11,6 +11,7 @@ Platform docs: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-06-0
 - The coordinator dashboard (trigger, live runs, run detail) — `app/` + `components/` + `lib/`.
 
 ## Key files
+- `src/site-profiles.ts` — **per-target-site profiles** keyed by `payload.site`: the editorial lane + voice threaded to content-gen, and the target folder + reference corpus (`blockLibraryUrl`/`neighborPageUrl`) + prompt `pattern` threaded to migration. `adapt-to-2026-demo` → Wilderness Journal (lane `wilderness-journal`, folder `ai-articles`, reference `/ai-content/**`, pattern `article`); unprofiled sites get an empty profile (generic behavior preserved). This is how the same generic mesh produces site-appropriate content.
 - `src/executor.ts` — the route engine. `resolveRoute()` is a deterministic state table mapping `evaluate | migrate | generate+migrate | full-loop | auto` → an ordered `Stage[]` (`generate | migrate | evaluate`, any subset, **no mandatory start or end**). `runPipelineBranch()` threads ONE `contextId` across content-gen→migration→eval, forwarding each stage's artifact (sourceUrl → previewUrl → score). `computeStats()` aggregates variance (mean / stddev / min / max / per-dimension / passRate) over the fan-out. `callAgent()` is the mesh A2A client call; it **forwards child working-notes** (e.g. the opencode backend's `K2.6 → <tool>` lines) into the coordinator's own stream — observability AND SSE keepalive.
 - `src/index.ts` — wires the server: `startAgentServer`, `createCoordinateExecutor(db)`, the **restart policy** (interrupted in-flight `coordinate.run` rows are marked `failed`, not blindly re-fanned-out), and the **Next.js mount** (catch-all appended after the factory returns, so agent-card//a2a//hooks//health always win).
 - `src/cli.ts` — `hello` (mesh smoke), `batch <url...>` (eval-only fan-out), `loop <topic...>` (the closed loop; `--backend opencode --site S --owner O` for real Kimi migrations). Agent URLs from env, defaults to localhost ports.
@@ -51,7 +52,7 @@ npm run dev:coordinator   # :4004
 npm run hello                                      # mesh smoke
 npm run batch -- https://example.com --fan-out 2   # eval-only batch + variance
 npm run loop -- "ski wax temperature guide" --fan-out 2 --legacy-style messy  # THE CLOSED LOOP
-npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner jackzhaojin  # real Kimi K2.6 migration
+npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin  # real Kimi K2.6 migration (Wilderness Journal → /ai-articles)
 # dashboard: http://localhost:4004/  (trigger runs, watch live activity, branch grid, variance)
 ```
 Fast tests (from `agents/`, `npm run test:e2e`): `coordinator-batch` (3×2 → 6 children, one contextId, variance, runs row) and `closed-loop` (4 servers, full-loop, non-eval-terminating + no-mandatory-start routes, auto routing, per-branch failure isolation). Live tier scores over the real Chromium engine. **Real tests, no mocks.**

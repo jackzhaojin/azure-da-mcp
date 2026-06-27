@@ -76,6 +76,35 @@ export interface IdeatedTopic {
 
 /** Editorial lanes: allowed subjects × angles the agent composes within (C7 seam). */
 const TOPIC_LANES: Record<string, { label: string; subjects: string[]; angles: string[] }> = {
+  // The adaptTo() demo site: a first-person backcountry "Wilderness Journal".
+  "wilderness-journal": {
+    label: "wilderness & backcountry journal",
+    subjects: [
+      "a solo High Sierra trek",
+      "an alpine lake circuit",
+      "testing ultralight shelters in the field",
+      "a Cascades ridge traverse",
+      "reading mountain weather windows",
+      "Leave-No-Trace camping",
+      "desert canyon route-finding",
+      "winter layering systems",
+      "backcountry water sourcing",
+      "a fall larch-season loop",
+      "navigating without GPS",
+      "first-light summit pushes",
+      "a long approach to a granite basin",
+      "trail food that actually keeps you moving",
+    ],
+    angles: [
+      "Field notes from",
+      "A trail guide to",
+      "Gear tested on",
+      "Lessons from",
+      "What the map doesn't tell you about",
+      "A slow morning on",
+      "Chasing light on",
+    ],
+  },
   "postal-logistics": {
     label: "postal, shipping & logistics",
     subjects: [
@@ -110,6 +139,30 @@ const TOPIC_LANES: Record<string, { label: string; subjects: string[]; angles: s
 };
 
 const DEFAULT_LANE = "postal-logistics";
+
+/**
+ * Real wilderness photo pool (stable Unsplash IDs proven on the adapt-to-2026-demo
+ * site). Replaces picsum placeholders — "the header image is the whole vibe", so a
+ * generated article needs a real, prominent scenic photo the migrator maps into the
+ * EDS hero. All landscapes (no portraits); the AEM pipeline re-serves any public
+ * <img src> optimized, so these URLs work directly. Deterministic per (seed,index)
+ * so a given article always renders the same images.
+ */
+const WILDERNESS_IMAGE_IDS = [
+  "photo-1506905925346-21bda4d32df4", // Sierra sunset / alpine lake
+  "photo-1454496522488-7a8e488e8606", // misty emerald peaks
+  "photo-1441974231531-c6227db76b6e", // forest fern trail
+  "photo-1551632811-561732d1e306", // hiker on a ridge
+  "photo-1469474968028-56623f02e42e", // red desert mesa
+  "photo-1432405972618-c60b0225b8f9", // waterfall canyon
+  "photo-1504280390367-361c6d9f38f4", // tent at dusk
+];
+
+/** A deterministic real photo URL for a given seed + index (hero uses w=1600, others w=1200). */
+function sceneryImageUrl(seed: string, index: number, width: number): string {
+  const id = WILDERNESS_IMAGE_IDS[(fnv1a(seed) + index) % WILDERNESS_IMAGE_IDS.length];
+  return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&q=80`;
+}
 
 /** Deterministic 32-bit FNV-1a — stable topic selection from a seed (no RNG). */
 function fnv1a(str: string): number {
@@ -340,8 +393,9 @@ export function synthesizeSource(brief: Brief, legacyStyle: "clean" | "dated" | 
   const featureLinkList = features.filter((f): f is FeatureBlock => !!f).flatMap(featureLinks);
   const allLinks = [...links, ...featureLinkList];
 
+  // Section 0 is the hero — give it the largest, scenic image; others a card width.
   const img = (alt: string, i: number) =>
-    `<img src="https://picsum.photos/seed/${encodeURIComponent(alt)}/640/360" alt="${alt}" ${
+    `<img src="${sceneryImageUrl(alt, i, i === 0 ? 1600 : 1200)}" alt="${alt}" ${
       legacyStyle === "messy" ? `style="float:${i % 2 ? "left" : "right"};margin:5px" width="320"` : ""
     }/>`;
   const feat = (i: number) => (features[i] ? renderFeature(features[i]!, legacyStyle) : "");

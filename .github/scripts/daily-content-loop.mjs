@@ -50,9 +50,11 @@ const EDGE_TOKEN = process.env.A2A_EDGE_TOKEN || MESH_TOKEN;
 
 const GOAL = process.env.GOAL || "full-loop";
 const BACKEND = process.env.BACKEND || "opencode";
-const SITE = process.env.SITE || "da-live-postal-2025-07";
+const SITE = process.env.SITE || "adapt-to-2026-demo";
 const OWNER = process.env.OWNER || "jackzhaojin";
-const LANE = process.env.LANE || ""; // empty → content.ideate default lane
+// Empty → the coordinator's site profile supplies the lane (wilderness-journal for
+// adapt-to-2026-demo); content.ideate's own default is the final fallback.
+const LANE = process.env.LANE || "";
 const TOPIC = process.env.TOPIC || ""; // empty → coordinator ideates one
 const FAN_OUT = Math.max(1, Number(process.env.FAN_OUT || "1") || 1);
 

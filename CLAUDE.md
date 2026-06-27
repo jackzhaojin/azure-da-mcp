@@ -27,7 +27,7 @@ This repository contains 7 independent projects:
 ### 2. `content-authoring-eval/` - CMS Migration Evaluator
 **Purpose**: AI-powered quality evaluation for webpage migrations
 **Tech**: Next.js 14, Claude Agent SDK, Playwright MCP, Docker
-**Status**: Production (Oracle Cloud VM) — **v1.x, FROZEN backup (D5): never modify this folder.** Its eval engine was *copied* (not moved) into `agents/eval-service`; the v2.0 platform supersedes it.
+**Status**: ⚠️ **DEPRECATED (2026-06-27)** — superseded by the v2.0 platform's `agents/eval-service` (its engine was *copied* out, not moved). Still running on Oracle Cloud as the **v1.x FROZEN backup (D5): never modify this folder** and never trigger its deploy. Deprecated = no new work; frozen = the safety net stays up.
 **Docs**: [content-authoring-eval/CLAUDE.md](./content-authoring-eval/CLAUDE.md)
 
 **When to work here**:
@@ -39,7 +39,7 @@ This repository contains 7 independent projects:
 ### 3. `agent-claude-sdk/` - Agent SDK Experiments
 **Purpose**: Learning and prototyping with Claude Agent SDK
 **Tech**: TypeScript, Node.js, Claude Agent SDK
-**Status**: Active experimentation
+**Status**: ⚠️ **DEPRECATED (2026-06-27)** — prototyping scaffolding whose patterns now live in the `agents/` platform; no new work here.
 **Docs**: [agent-claude-sdk/CLAUDE.md](./agent-claude-sdk/CLAUDE.md)
 
 **When to work here**:
@@ -96,6 +96,9 @@ This repository contains 7 independent projects:
 - The closed loop (generate → migrate → evaluate), coordinator routing, variance reporting
 - Cloudflare D1/R2 persistence, `cloudflared` tunnel, Make.com interop
 - The decoupled eval engine (copied from the frozen v1.x app)
+- **The demo content target** — generated articles + the daily loop now point at the **`adapt-to-2026-demo`** "Wilderness Journal" site (the old `da-live-postal-2025-07` site is retired). Per-site behavior (editorial lane, voice, folder, reference corpus) lives in `agents/coordinator/src/site-profiles.ts`.
+
+> **Content IA on the demo site (`adapt-to-2026-demo`)**: `https://main--adapt-to-2026-demo--jackzhaojin.aem.page/ai-content/**` is the **hand-built, best-practice REFERENCE corpus** (block showcases + canonical stories like `/ai-content/stories/chasing-sunsets`) the migrator *learns from* — never written to by agents. **AI-generated drafts land in `/ai-articles/**`** (a separate tree) so they never pollute the reference material. A human curates/promotes the good ones later.
 
 ## Working in This Monorepo
 
@@ -351,7 +354,7 @@ cp .env.example .env
 
 ---
 
-**Last Updated**: 2026-06-10
+**Last Updated**: 2026-06-27
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
-**Version lines**: **v2.0** = the `agents/` A2A platform (flagship, **deployed on Cloudflare 2026-06-10**, not yet tagged) · **v1.1.0** = legacy `content-authoring-eval` (frozen backup). Trunk-based, tag from `main`.
+**Version lines**: **v2.x** = the `agents/` A2A platform (flagship, **deployed on Cloudflare**; `v2.x+` tags trigger `deploy-agents.yml`) · **v1.1.0** = legacy `content-authoring-eval` (**deprecated**, frozen backup). `agent-claude-sdk/` is also **deprecated**. Trunk-based, tag from `main`.

@@ -194,10 +194,21 @@ If a future minor version needs an LTS line (e.g., supporting both `v1.x` and `v
 
 ### v2.0: A2A Agent Platform Line (2026-06)
 
-The `agents/` A2A platform is the **v2.0** line — a ground-up re-architecture (a mesh of A2A servers), hence a **major** bump rather than a feature increment on v1.x. It **deployed to Cloudflare Workers + Containers on 2026-06-10** (M5): deploys happen via `wrangler` from `agents/deploy/`, not via any GitHub Actions workflow. `v2.x` tags from `main` mark releases of the platform but trigger no automation.
+The `agents/` A2A platform is the **v2.0** line — a ground-up re-architecture (a mesh of A2A servers), hence a **major** bump rather than a feature increment on v1.x. It **deployed to Cloudflare Workers + Containers on 2026-06-10** (M5).
 
-- **v1.x** (`v1.1.0`) — legacy `content-authoring-eval` on Oracle; **frozen backup** (D5). Its deploy workflow is scoped to `v1.*` tags only.
-- **v2.x** — the agents platform; version tracked in `agents/package.json` (`2.0.0`). Deployed manually with `wrangler deploy` (see `agents/deploy/CLAUDE.md`) — never trigger `deploy-content-authoring-eval.yml` for platform work.
+- **v1.x** (`v1.1.0`) — legacy `content-authoring-eval` on Oracle; **DEPRECATED (2026-06-27)** + **frozen backup** (D5). Its deploy workflow is scoped to `v1.*` tags only. `agent-claude-sdk/` is likewise **deprecated** (no release line of its own).
+- **v2.x** — the agents platform (the only actively developed line); version tracked in `agents/package.json`. **CI-deployed**: `.github/workflows/deploy-agents.yml` runs `npm run deploy` (build 4 container images + `wrangler deploy`) on **`v2.x+` tag push** (`v[2-9].*` / `v[1-9][0-9].*`) or manual `workflow_dispatch`. Needs repo secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`. The `v1.*` and `v2.x+` tag lines are mutually exclusive — never trigger `deploy-content-authoring-eval.yml` for platform work.
+
+### v2.4: Demo-site retarget — Wilderness Journal (2026-06-27)
+
+The platform's content target moved off the retired `da-live-postal-2025-07` site to the **`adapt-to-2026-demo`** "Wilderness Journal" EDS site for the adaptTo() Sept-2026 demo. Highlights:
+
+- **Per-site profiles** (`agents/coordinator/src/site-profiles.ts`): editorial lane + voice (content-gen), target folder + reference corpus + prompt pattern (migration), keyed by site. Unprofiled sites keep generic behavior.
+- **Content IA split**: `/ai-content/**` is the hand-built best-practice **reference corpus** the migrator learns from; AI-generated drafts land in **`/ai-articles/**`** (clean URLs, kept out of the reference tree).
+- **Wilderness-journal lane + real imagery**: a new editorial lane and a real Unsplash photo pool (replacing picsum) so generated articles carry a real hero image.
+- **Article-pattern migration prompt**: Theme `paper` + Template `article`, hero/stats/quote/author-bio, mimicking `/ai-content/stories/chasing-sunsets`.
+- **Daily loop** (`.github/workflows/daily-content-loop.yml`) now defaults to `adapt-to-2026-demo`.
+- **Deprecations**: `content-authoring-eval/` and `agent-claude-sdk/` officially deprecated.
 
 ## Related Documentation
 
@@ -208,6 +219,6 @@ The `agents/` A2A platform is the **v2.0** line — a ground-up re-architecture 
 
 ---
 
-**Last Updated**: 2026-06-08
-**Current Version**: v1.1.0 (legacy line, deployed) · v2.0 = `agents/` platform (in build, not yet tagged/deployed)
+**Last Updated**: 2026-06-27
+**Current Version**: v1.1.0 (legacy line, **deprecated**, deployed on Oracle) · v2.x = `agents/` platform (active line, deployed on Cloudflare via `deploy-agents.yml`)
 **Branch Model**: Trunk-based (tag from `main`)

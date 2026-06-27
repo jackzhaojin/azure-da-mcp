@@ -3,6 +3,7 @@ import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/s
 import { meshClientFactory, createLogger, type StoreDb } from "@agents/a2a-common";
 import PQueue from "p-queue";
 import { randomUUID } from "node:crypto";
+import { getSiteProfile } from "./site-profiles.ts";
 
 const log = createLogger("da-coordinator");
 const EVAL_AGENT_URL = process.env.EVAL_AGENT_URL ?? "http://localhost:4001";
@@ -282,6 +283,9 @@ async function runPipelineBranch(opts: {
   onUpdate?: (snapshot: BranchResult) => void;
 }): Promise<BranchResult> {
   const { branch, route, payload, contextId, runId, target, onStage, onUpdate } = opts;
+  // The target site's profile: editorial voice for content-gen + folder/reference
+  // corpus/prompt-pattern for migration. Empty (generic) for unprofiled sites.
+  const site = getSiteProfile(payload.site);
   const result: BranchResult = { branch, state: "running", stages: [], target };
   let sourceUrl = payload.sourceLocation;
   let targetUrl = target ?? payload.alreadyMigratedUrl;
@@ -306,7 +310,11 @@ async function runPipelineBranch(opts: {
         {
           skill: "content.synthesize-source",
           topic: payload.topic,
-          legacyStyle: payload.legacyStyle ?? "dated",
+          legacyStyle: payload.legacyStyle ?? site.legacyStyle ?? "dated",
+          // Site voice + page type make the generated copy on-brand for the target
+          // (e.g. the Wilderness Journal); undefined for unprofiled sites (no change).
+          ...(site.siteBrief ? { siteBrief: site.siteBrief } : {}),
+          ...(site.pageType ? { pageType: site.pageType } : {}),
           runId,
         },
         contextId,
@@ -315,6 +323,9 @@ async function runPipelineBranch(opts: {
       if (call.state === "completed") sourceUrl = (call.artifact as { sourceUrl?: string } | undefined)?.sourceUrl;
     } else if (stage === "migrate") {
       agent = "migration";
+      // Clean URL for a single page (the daily draft); branch suffix only when fanning out.
+      const slugBase = payload.pageSlug ?? slugify(payload.topic ?? sourceUrl ?? "page");
+      const pageSlug = (payload.fanOut ?? 1) > 1 ? `${slugBase}-b${branch}` : slugBase;
       call = await callAgent(
         MIGRATION_AGENT_URL,
         {
@@ -322,8 +333,13 @@ async function runPipelineBranch(opts: {
           sourceLocation: sourceUrl,
           site: payload.site ?? "demo-site",
           owner: payload.owner ?? "jackzhaojin",
-          pageSlug: `${payload.pageSlug ?? slugify(payload.topic ?? sourceUrl ?? "page")}-b${branch}`,
-          folderPostfix: runId.slice(0, 8),
+          pageSlug,
+          // Generated drafts → the site's dedicated content folder (clean, kept out
+          // of the reference corpus); unprofiled sites keep the run-isolated batch folder.
+          ...(site.contentFolder ? { folder: site.contentFolder } : { folderPostfix: runId.slice(0, 8) }),
+          ...(site.blockLibraryUrl ? { blockLibraryUrl: site.blockLibraryUrl } : {}),
+          ...(site.neighborPageUrl ? { neighborPageUrl: site.neighborPageUrl } : {}),
+          ...(site.pattern ? { pattern: site.pattern } : {}),
           ...(payload.backend ? { backend: payload.backend } : {}),
           runId,
         },
@@ -500,9 +516,11 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
         if (willIdeate) {
           persistNote("no topic supplied — asking content-gen to ideate one (agent-led)");
           bus.publish(status("working", "no topic supplied — asking content-gen to ideate one (agent-led)"));
+          // Lane: explicit > the target site's editorial lane > content-gen's own default.
+          const ideateLane = payload.lane ?? getSiteProfile(payload.site).lane;
           const ide = await callAgent(
             CONTENT_GEN_URL,
-            { skill: "content.ideate", ...(payload.lane ? { lane: payload.lane } : {}), runId },
+            { skill: "content.ideate", ...(ideateLane ? { lane: ideateLane } : {}), runId },
             contextId,
             (note) => {
               bus.publish(status("working", `ideate: ${note}`));

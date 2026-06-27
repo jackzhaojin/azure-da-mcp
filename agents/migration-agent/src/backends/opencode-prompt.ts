@@ -21,6 +21,9 @@ export interface PromptContext {
 
 export function buildMigrationPrompt(ctx: PromptContext): string {
   const { payload, folder, previewUrl, pageUrl } = ctx;
+  const neighbor = payload.neighborPageUrl;
+  const reference = neighbor ?? payload.blockLibraryUrl;
+  const articlePattern = payload.pattern === "article";
   return `You are a da.live (Adobe Edge Delivery Services / EDS) content migration agent running HEADLESS — there is no human to answer questions, so do not ask any. Use the **da-live-author-playwright** skill (invoke the \`skill\` tool with name "da-live-author-playwright"). It orchestrates the da.live MCP (CRUD + preview-publish) and Playwright MCP (view the source + validate the published preview).
 
 The working context is ALREADY CONFIRMED — skip the skill's confirmation gate and proceed straight to the create-page-from-source operation:
@@ -34,16 +37,28 @@ The working context is ALREADY CONFIRMED — skip the skill's confirmation gate 
 - page slug:    ${payload.pageSlug}
 - target path:  /source/${payload.owner}/${payload.site}/${folder}/${payload.pageSlug}.html
 - preview URL:  ${previewUrl}
-${payload.blockLibraryUrl ? `- block library:${payload.blockLibraryUrl}\n` : ""}- max refinement iterations: ${payload.maxRefinementIterations ?? 2}
+${payload.blockLibraryUrl ? `- block library:${payload.blockLibraryUrl}\n` : ""}${neighbor ? `- reference page (mimic its blocks/look): ${neighbor}\n` : ""}- max refinement iterations: ${payload.maxRefinementIterations ?? 2}
 
 Authentication: the da.live MCP server self-authenticates to da.live (server-side S2S technical account). Call its tools normally — do NOT ask for a bearer token. If a tool returns 401 / "Authentication failed", STOP, do not retry forever, and record it as a gap in the final report.
 
 Do the migration end to end. Be DECISIVE and move fast — read each thing ONCE, don't re-fetch or explore beyond what the steps below ask. The goal is a published, validated page within budget, not an exhaustive survey:
 1. Read the SOURCE once (Playwright for a webpage; the da.live MCP/read for a PDF or da.live path). One pass — don't fetch it twice with different tools.
-2. GET exactly ONE existing neighbor page (or the block library if given) to learn this site's block conventions. Do NOT enumerate the whole folder — a single read is enough.
+2. GET exactly ONE reference page${reference ? ` (${reference})` : " (a neighbor page or the block library)"} to learn this site's block conventions and editorial look. Do NOT enumerate the whole folder — a single read is enough.
 3. CREATE/SAVE the page at the target path, then preview-publish it (full /source/... path). This is the priority — reach it quickly.
 4. VALIDATE the published ${previewUrl} with Playwright (navigate + snapshot/screenshot) ONCE. Refine only if it is clearly broken, up to the max iterations. Preserve all factual source content exactly — structural transformation only.
 5. Be honest about confidence and gaps.
+${
+  articlePattern
+    ? `
+This page is a JOURNAL ARTICLE — author it to match the reference page's editorial look, not a generic dump:
+- Page metadata (the LAST section, nested in its OWN <div> section): Title, Description, Theme: paper, Template: article. The Theme/Template values are lowercase and EXACT — "paper"/"article" — or the serif article styling silently no-ops.
+- Lead with a full-bleed \`hero\`: the source's header image + an eyebrow ("<Category> · <N> min read") + the <h1> title + an italic dek + a byline ("By <author> · <role> · <date>"). No CTA buttons.
+- Where the source has figures, use a \`stats forest\` "Trail Highlights" band (Elevation Gain / Distance / Est. Duration / Difficulty).
+- Include a \`quote\` pull-quote, and CLOSE with an \`author-bio center\` block (avatar + name + role + 2-sentence bio + a couple of links).
+- Use a real, prominent header image (the source provides one) — the hero image is the whole vibe.
+`
+    : ""
+}
 
 When finished, output your normal report, then end your message with EXACTLY this machine-readable block and nothing after it:
 
@@ -64,7 +79,11 @@ FINAL_REPORT:
 
 /** Compute the deterministic da.live folder/URLs for a run (shared by prompt + result fallback). */
 export function migrationTargets(payload: MigrationRunPayload): { folder: string; previewUrl: string; pageUrl: string } {
-  const folder = `migration-batch-opencode${payload.folderPostfix ? `-${payload.folderPostfix}` : ""}`;
+  // An explicit `folder` (e.g. "ai-articles" for generated drafts) is used verbatim
+  // and keeps the URL clean; otherwise fall back to the run-isolated batch folder.
+  const folder = payload.folder
+    ? payload.folder.replace(/^\/+|\/+$/g, "")
+    : `migration-batch-opencode${payload.folderPostfix ? `-${payload.folderPostfix}` : ""}`;
   const base = `${payload.owner}/${payload.site}/${folder}/${payload.pageSlug}`;
   return {
     folder,

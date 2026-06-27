@@ -29,7 +29,7 @@ on:
       site:
         description: "da.live site (target)"
         type: string
-        default: da-live-postal-2025-07
+        default: adapt-to-2026-demo
       owner:
         description: "da.live owner/org"
         type: string
@@ -71,7 +71,9 @@ jobs:
           A2A_MESH_TOKEN: ${{ secrets.A2A_MESH_TOKEN }}
           A2A_EDGE_TOKEN: ${{ secrets.A2A_EDGE_TOKEN }}
           # Run params — empty on a scheduled run, so the script's defaults apply
-          # (full-loop / opencode / da-live-postal-2025-07 / jackzhaojin / ideate).
+          # (full-loop / opencode / adapt-to-2026-demo / jackzhaojin / ideate). The
+          # site profile (coordinator) supplies the wilderness-journal lane + voice,
+          # the ai-articles target folder, and the /ai-content reference corpus.
           GOAL: ${{ github.event.inputs.goal }}
           BACKEND: ${{ github.event.inputs.backend }}
           SITE: ${{ github.event.inputs.site }}

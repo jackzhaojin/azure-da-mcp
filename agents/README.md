@@ -72,8 +72,8 @@ npm run hello                    # mesh smoke: cards + one task through each age
 npm run batch -- https://example.com https://example.org --fan-out 2
 npm run loop -- "ski wax temperature guide" --fan-out 2 --legacy-style messy
                                  # THE CLOSED LOOP: generate → migrate (dryrun) → eval (real engine)
-npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner jackzhaojin
-                                 # the REAL loop: Kimi K2.6 authors an actual da.live page (~10 min)
+npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin
+                                 # the REAL loop: Kimi K2.6 authors an actual Wilderness Journal article into /ai-articles (~10 min)
 ```
 
 External callers skip A2A entirely via the edge shim (one flat POST, webhook back):

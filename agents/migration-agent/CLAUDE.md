@@ -61,14 +61,15 @@ opencode / Kimi K2.6 (writes a REAL da.live page — needs `MOONSHOT_API_KEY` in
 ```bash
 # live e2e: the "can it actually migrate a page" acceptance (opt-in; writes to da.live)
 cd agents && set -a && source .env && set +a
-DALIVE_TEST_OWNER=jackzhaojin DALIVE_TEST_SITE=da-live-postal-2025-07 \
+DALIVE_TEST_OWNER=jackzhaojin DALIVE_TEST_SITE=adapt-to-2026-demo \
   npm run test:live -- tests-live/opencode-migration.live.test.ts
 # or per-call: send migration.run with {"backend":"opencode", ...} to :4003
 ```
-Verified 2026-06-08 against `da-live-postal-2025-07`: skill + `dalive_*` + `playwright_*` all fired, page authored → preview-published → validated, result PASS.
+Verified 2026-06-08 against `da-live-postal-2025-07` (now retired): skill + `dalive_*` + `playwright_*` all fired, page authored → preview-published → validated, result PASS. Current target is **`adapt-to-2026-demo`** — the deployed da.live MCP's S2S technical account must be a **writer** on that site (a 401 in the report = it isn't; grant it).
 
 ## Conventions
-- **Contract `migration.run.v1`** requires: `sourceType` ∈ {`webpage`,`pdf`}, `sourceLocation` (http/https URL), `site`, `owner`, `pageSlug`. Optional: `folderPostfix`, `blockLibraryUrl`, `backend`, `maxRefinementIterations`, `runId`, `labels`.
+- **Contract `migration.run.v1`** requires: `sourceType` ∈ {`webpage`,`pdf`}, `sourceLocation` (http/https URL), `site`, `owner`, `pageSlug`. Optional: `folderPostfix`, **`folder`** (explicit target folder, verbatim — e.g. `ai-articles`; overrides the `migration-batch-*` default and keeps the URL clean), `blockLibraryUrl`, **`neighborPageUrl`** (a best-practice exemplar page the migrator GETs + mimics), **`pattern`** (`article` | `generic`; `article` authors a journal article — Theme `paper` + Template `article`, hero/stats/quote/author-bio), `backend`, `maxRefinementIterations`, `runId`, `labels`.
+- **IA convention (`adapt-to-2026-demo`)**: generated drafts go to **`folder: "ai-articles"`** (clean `/ai-articles/<slug>`); the migrator's reference (`blockLibraryUrl`/`neighborPageUrl`) points at the curated `/ai-content/**` corpus, which agents never write to. The coordinator derives all of this from `coordinator/src/site-profiles.ts`.
 - **Real tests, no mocks** (D-philosophy) — the makecom test stands up a fake Make.com speaking the exact wire protocol over real HTTP.
 - Local SQLite = the same SQL as Cloudflare D1 (`a2a-common/migrations/`); store at `data/store.db`. Node 20.
 - New backends register in `src/executor.ts`'s `BACKENDS` map — same seam, different runtime (`opencode`/Kimi is the proof: a non-Anthropic model vendor behind the identical contract).

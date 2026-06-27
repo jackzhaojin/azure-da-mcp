@@ -1,5 +1,8 @@
 # Content Authoring Eval
 
+> ## ⚠️ DEPRECATED (2026-06-27)
+> This app (v1.x, `v1.1.0`) is **officially deprecated** — superseded by the **`agents/` v2.0 A2A platform** (`agents/eval-service`, whose engine was *copied* out of here). It remains **running on Oracle Cloud as the frozen backup** and **must not be modified** (decision D5); never trigger its deploy workflow for platform work. All new development happens in [`../agents/`](../agents/). See the root [README](../README.md) / [RELEASES.md](../RELEASES.md).
+
 AI-powered CMS migration quality evaluator built with Next.js. Compares expected content (PDFs, specs, original pages) against actual migrated webpages to assess migration quality across multiple dimensions.
 
 ## Overview

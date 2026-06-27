@@ -4,13 +4,15 @@ A personal monorepo of AI-powered content authoring, migration, and evaluation t
 
 The repository's center of gravity is **v2.0 — the `agents/` A2A Agent Platform**: a decoupled mesh of independently-addressable AI agents that *generate*, *migrate*, and *evaluate* content. The other projects are the supporting cast — the MCP server it authors through, the prompt library, the API/admin tooling, and the original evaluation app (now a **frozen v1.x backup**).
 
-> **Two version lines.** **v2.0** = the new `agents/` platform (flagship, in active build). **v1.1.0** = the legacy `content-authoring-eval` Next.js app on Oracle — frozen and untouched as the safety net (decision D5). Its eval engine was *copied* into `agents/eval-service`, not moved.
+> **Two version lines.** **v2.0** = the new `agents/` platform (flagship, **deployed on Cloudflare**, the only actively developed workstream). **v1.1.0** = the legacy `content-authoring-eval` Next.js app on Oracle — frozen and untouched as the safety net (decision D5). Its eval engine was *copied* into `agents/eval-service`, not moved.
+
+> **⚠️ Deprecated subprojects (2026-06-27).** `content-authoring-eval/` and `agent-claude-sdk/` are **officially deprecated** — superseded by the `agents/` v2.0 platform. `content-authoring-eval/` stays running on Oracle as a frozen backup (do not modify — D5); `agent-claude-sdk/` was prototyping scaffolding whose patterns now live in the platform. Neither receives new work. All new development happens in `agents/`.
 
 ---
 
 ## ⭐ The flagship: `agents/` — A2A Agent Platform (v2.0)
 
-**Status**: M1–M4 built, tested, and on `main`; the closed loop runs end-to-end with **Kimi K2.6 really authoring da.live pages** (opencode backend, verified through the coordinator); the coordinator ships its **own Next.js dashboard** on :4004; Cloudflare D1/R2 + a live `cloudflared` tunnel; container deploy is the last milestone.
+**Status**: **Deployed on Cloudflare Workers + Containers** (M1–M5); the closed loop runs end-to-end with **Kimi K2.6 really authoring da.live pages** (opencode backend), scored by the real agentic eval; the coordinator ships its **own Next.js dashboard** (Google SSO) on :4004 / `content-factor-dash.jackzhaojin.com`. An agent-led **daily content loop** (GitHub Actions cron) generates a fresh **Wilderness Journal** article each day onto the `adapt-to-2026-demo` site for the adaptTo() Sept-2026 demo.
 **Purpose**: A multi-agent mesh speaking the [A2A protocol](https://a2a-protocol.org/) (official `@a2a-js/sdk`), where each agent is its own Express server with an Agent Card, Task lifecycle, and streaming.
 
 The headline capability is a **closed loop**: the **coordinator** asks **content-gen** to fabricate a synthetic "legacy" page, hands it to the **migration agent** to author into da.live, then to the **eval agent** to score the result across four dimensions — fanned out and aggregated into variance stats. But the coordinator routes intelligently: it can also *just evaluate*, *just migrate*, *generate+migrate*, or *auto*-decide; it need not start at generation or end at evaluation.
@@ -30,7 +32,7 @@ nvm use 20 && npm install
 cp .env.example .env && set -a; source .env; set +a   # secrets gitignored
 npm run dev:eval & npm run dev:content-gen & npm run dev:migration & npm run dev:coordinator &
 npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loop
-npm run loop -- "topic" --backend opencode --site da-live-postal-2025-07 --owner jackzhaojin  # Kimi K2.6 authors a REAL page
+npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin  # Kimi K2.6 authors a REAL Wilderness Journal article
 # coordinator dashboard: http://localhost:4004/
 ```
 
@@ -60,14 +62,12 @@ cd functions && npm install && npm start
 ```
 [functions/README.md](./functions/README.md) · [functions/CLAUDE.md](./functions/CLAUDE.md)
 
-### `content-authoring-eval/` — CMS Migration Evaluator (v1.x, **FROZEN**)
-**Status**: Production on Oracle Cloud — **frozen backup; do not modify (D5)**
-The original Next.js app with 4 evaluation agents. Superseded by `agents/eval-service` (its engine was copied out). Still running as the safety net; its deploy workflow must never be triggered by platform work.
+### `content-authoring-eval/` — CMS Migration Evaluator (v1.x, **DEPRECATED · FROZEN**)
+**Status**: ⚠️ **Deprecated** (2026-06-27) — superseded by `agents/eval-service` (its engine was copied out). Still running on Oracle Cloud as the frozen safety net; **do not modify (D5)**, and its deploy workflow must never be triggered by platform work.
 [content-authoring-eval/README.md](./content-authoring-eval/README.md)
 
-### `agent-claude-sdk/` — Agent SDK Experiments
-**Status**: Active prototyping
-TypeScript agents for exploring the Claude Agent SDK (CLI chat, PDF generator, an earlier eval prototype, third-party demos). The blueprint for several platform pieces.
+### `agent-claude-sdk/` — Agent SDK Experiments (**DEPRECATED**)
+**Status**: ⚠️ **Deprecated** (2026-06-27) — prototyping scaffolding (CLI chat, PDF generator, an earlier eval prototype, third-party demos) that was the blueprint for several platform pieces. Those patterns now live in `agents/`; this folder receives no new work.
 [agent-claude-sdk/README.md](./agent-claude-sdk/README.md)
 
 ### `make-dot-com/` — Make.com Agent Prompts
@@ -119,8 +119,8 @@ azure-da-mcp/
 
 Lockstep SemVer, **trunk-based** releases (tag directly from `main`) — see **[RELEASES.md](./RELEASES.md)**.
 
-- **v1.1.0** — current released line: the legacy `content-authoring-eval` app (frozen backup). Tag push triggers the Oracle deploy.
-- **v2.0** — the `agents/` platform. A **major** bump because it's a ground-up re-architecture, not a feature increment. Deliberately **not yet tagged/deployed** — deployment is the last milestone (D6); today it runs locally + via the `cloudflared` tunnel.
+- **v1.1.0** — the legacy `content-authoring-eval` app (**deprecated**, frozen backup). `v1.*` tag push triggers the Oracle deploy.
+- **v2.x** — the `agents/` platform (the active line). A **major** bump because it's a ground-up re-architecture. **Deployed to Cloudflare Workers + Containers** via `.github/workflows/deploy-agents.yml` on `v2.x+` tags (version tracked in `agents/package.json`).
 
 ## Common Dependencies
 
@@ -162,5 +162,6 @@ Apache License 2.0
 
 ---
 
-**Last Updated**: 2026-06-10
+**Last Updated**: 2026-06-27
 **Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP, opencode (Kimi K2.6)
+**Active workstream**: `agents/` v2.0 platform → the **Wilderness Journal** demo site (`adapt-to-2026-demo`) for adaptTo() Sept 2026. `content-authoring-eval/` + `agent-claude-sdk/` are **deprecated**.

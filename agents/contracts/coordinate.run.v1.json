@@ -61,8 +61,7 @@
     },
     "lane": {
       "type": "string",
-      "description": "Editorial lane for agent-led topic ideation when 'topic' is omitted. Passed to content.ideate. Default: postal-logistics.",
-      "default": "postal-logistics"
+      "description": "Editorial lane for agent-led topic ideation when 'topic' is omitted. Resolution: explicit lane > the target site's profile lane (e.g. wilderness-journal for adapt-to-2026-demo) > content-gen's own default."
     },
     "legacyStyle": {
       "enum": [

@@ -16,7 +16,21 @@
     "owner": { "type": "string" },
     "pageSlug": { "type": "string" },
     "folderPostfix": { "type": "string", "description": "Run isolation — maps to {{5.folderPostfix}}" },
+    "folder": {
+      "type": "string",
+      "description": "Explicit target folder (verbatim, no batch prefix/postfix) — generated drafts land here, e.g. 'ai-articles'. When set it overrides the migration-batch-* default. Keep generated content OUT of curated reference paths like /ai-content."
+    },
     "blockLibraryUrl": { "type": "string", "format": "uri" },
+    "neighborPageUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "A reference page (best-practice exemplar) the migrator GETs to learn this site's block conventions and editorial look — e.g. the canonical article it should mimic."
+    },
+    "pattern": {
+      "enum": ["article", "generic"],
+      "default": "generic",
+      "description": "Prompt variant. 'article' authors a journal article (Theme: paper + Template: article; hero + stats + quote + author-bio) mimicking neighborPageUrl; 'generic' is the structural-fidelity default."
+    },
     "backend": {
       "enum": ["makecom", "sdk", "opencode", "dryrun"],
       "default": "makecom",

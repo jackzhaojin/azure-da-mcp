@@ -16,7 +16,7 @@ import { startAgent, stopAgent, type AgentHandle } from "../helpers/mesh.ts";
  * Opt-in (writes a REAL page to da.live): set in agents/.env —
  *   MOONSHOT_API_KEY   (the Kimi-For-Coding key; usually from ~/.zshrc)
  *   DALIVE_TEST_OWNER  (default jackzhaojin)
- *   DALIVE_TEST_SITE   (e.g. da-live-postal-2025-07 — S2S account must be a writer)
+ *   DALIVE_TEST_SITE   (e.g. adapt-to-2026-demo — S2S account must be a writer)
  *   DALIVE_TEST_SOURCE_URL (default https://example.com)
  * Unset DALIVE_TEST_SITE → skips (so CI never writes to da.live).
  */

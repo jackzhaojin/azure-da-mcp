@@ -1,5 +1,8 @@
 # Claude Agent SDK Examples
 
+> ## ⚠️ DEPRECATED (2026-06-27)
+> This folder is **officially deprecated** — it was prototyping/learning scaffolding (CLI chat, PDF generator, an earlier eval prototype, third-party demos) that informed the **`agents/` v2.0 A2A platform**. Those patterns now live in [`../agents/`](../agents/); this folder receives no new work. Kept for reference only. See the root [README](../README.md) / [RELEASES.md](../RELEASES.md).
+
 A collection of TypeScript-based agents built with the [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents), demonstrating various use cases and integration patterns.
 
 ## Overview

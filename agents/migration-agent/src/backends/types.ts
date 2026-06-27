@@ -6,7 +6,13 @@ export interface MigrationRunPayload {
   owner: string;
   pageSlug: string;
   folderPostfix?: string;
+  /** Explicit target folder (verbatim) for generated drafts, e.g. "ai-articles". Overrides the migration-batch-* default. */
+  folder?: string;
   blockLibraryUrl?: string;
+  /** A best-practice reference page the migrator mimics (learns block shapes + editorial look). */
+  neighborPageUrl?: string;
+  /** Prompt variant: "article" authors a journal article mimicking neighborPageUrl; "generic" is the fidelity default. */
+  pattern?: "article" | "generic";
   backend?: "makecom" | "sdk" | "opencode" | "dryrun";
   maxRefinementIterations?: number;
   runId?: string;
