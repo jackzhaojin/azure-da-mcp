@@ -34,15 +34,15 @@ The working context is ALREADY CONFIRMED — skip the skill's confirmation gate 
 - page slug:    ${payload.pageSlug}
 - target path:  /source/${payload.owner}/${payload.site}/${folder}/${payload.pageSlug}.html
 - preview URL:  ${previewUrl}
-${payload.blockLibraryUrl ? `- block library:${payload.blockLibraryUrl}\n` : ""}- max refinement iterations: ${payload.maxRefinementIterations ?? 3}
+${payload.blockLibraryUrl ? `- block library:${payload.blockLibraryUrl}\n` : ""}- max refinement iterations: ${payload.maxRefinementIterations ?? 2}
 
 Authentication: the da.live MCP server self-authenticates to da.live (server-side S2S technical account). Call its tools normally — do NOT ask for a bearer token. If a tool returns 401 / "Authentication failed", STOP, do not retry forever, and record it as a gap in the final report.
 
-Do the migration end to end:
-1. View/read the SOURCE (Playwright for a webpage, the da.live MCP/read for a PDF or da.live path).
-2. GET a neighbor page or the block library first so your EDS HTML matches this site's conventions.
-3. CREATE/SAVE the page at the target path, then preview-publish it (full /source/... path).
-4. VALIDATE the published ${previewUrl} with Playwright (navigate + snapshot/screenshot). Refine up to the max iterations. Preserve all factual source content exactly — structural transformation only.
+Do the migration end to end. Be DECISIVE and move fast — read each thing ONCE, don't re-fetch or explore beyond what the steps below ask. The goal is a published, validated page within budget, not an exhaustive survey:
+1. Read the SOURCE once (Playwright for a webpage; the da.live MCP/read for a PDF or da.live path). One pass — don't fetch it twice with different tools.
+2. GET exactly ONE existing neighbor page (or the block library if given) to learn this site's block conventions. Do NOT enumerate the whole folder — a single read is enough.
+3. CREATE/SAVE the page at the target path, then preview-publish it (full /source/... path). This is the priority — reach it quickly.
+4. VALIDATE the published ${previewUrl} with Playwright (navigate + snapshot/screenshot) ONCE. Refine only if it is clearly broken, up to the max iterations. Preserve all factual source content exactly — structural transformation only.
 5. Be honest about confidence and gaps.
 
 When finished, output your normal report, then end your message with EXACTLY this machine-readable block and nothing after it:

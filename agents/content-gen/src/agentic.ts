@@ -87,9 +87,9 @@ arc, concrete details and realistic numbers, and prose that respects the reader'
 "in today's fast-paced world" throat-clearing, no marketing fluff. Every section must say something a knowledgeable
 reader would find genuinely useful.
 
-Make it VISUALLY RICH, not a wall of text: most sections should carry a "feature" — a stat strip, a pull quote, a
+Make it VISUALLY RICH, not a wall of text: several sections should carry a "feature" — a stat strip, a pull quote, a
 callout, a comparison table, or a closing call-to-action — so the page has real structure and variety. Vary the
-feature types across sections; not every section needs one, but a strong article uses 3-4 different kinds.
+feature types across sections; not every section needs one, but a strong article uses 2-3 different kinds.
 
 Return ONLY a single JSON object (no prose, no markdown fence) with EXACTLY this shape:
 {
@@ -122,9 +122,9 @@ A section's optional "feature" must be exactly ONE of:
   { "kind": "cta", "title": "action title", "text": "why act now", "buttonText": "Get started", "buttonUrl": "https://example.com/x" }
 
 Rules:
-- 4 to 6 sections. Open with a hook section (targetBlock "hero") and, for how-to/decision topics, close with a clear next-step section ("cta") whose feature is a "cta".
+- 3 to 5 sections. Open with a hook section (targetBlock "hero") and, for how-to/decision topics, close with a clear next-step section ("cta") whose feature is a "cta".
 - Use a "table" feature wherever you compare options, and a "stats" feature where real numbers land harder than prose.
-- Total body copy roughly 600-1000 words unless a word count is specified.
+- Total body copy roughly 500-800 words unless a word count is specified.
 - 2 images, 2-3 links. Links/URLs may be plausible illustrative ones (e.g. https://example.com/guide) — this is a synthetic page.
 - Output MUST be valid JSON and nothing else.`;
 
