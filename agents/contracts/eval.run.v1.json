@@ -25,6 +25,11 @@
       "items": { "enum": ["structure", "accessibility", "content", "visual"] },
       "description": "Subset of dimensions to run. Default: all. (v1 engine runs all regardless; honored from v2.)"
     },
+    "mode": {
+      "enum": ["fidelity", "quality"],
+      "default": "fidelity",
+      "description": "Scoring mode. 'fidelity' (default) scores the target against the source — content = source-vs-target diff, visual = screenshot comparison (use for real migrations). 'quality' scores the page ON ITS OWN MERITS — content = intrinsic editorial quality, visual = intrinsic design quality, source ignored (use for AI-generated content where the synthetic source is a throwaway and fidelity to it is not the goal)."
+    },
     "runId": {
       "type": "string",
       "description": "Optional — links the task to a coordinator run"

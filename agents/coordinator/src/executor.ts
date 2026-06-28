@@ -353,12 +353,17 @@ async function runPipelineBranch(opts: {
       }
     } else {
       agent = "eval";
+      // A route that GENERATED its source authored a throwaway synthetic page, so
+      // score the migrated page on its own merits ('quality'), not fidelity to that
+      // source. A migrate/evaluate route over a REAL source stays 'fidelity'.
+      const evalMode = route.includes("generate") ? "quality" : "fidelity";
       call = await callAgent(
         EVAL_AGENT_URL,
         {
           targetUrl,
           sourceType: sourceUrl ? "webpage" : (payload.sourceType ?? "none"),
           ...(sourceUrl ? { sourceLocation: sourceUrl } : {}),
+          mode: evalMode,
           runId,
         },
         contextId,

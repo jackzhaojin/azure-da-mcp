@@ -418,6 +418,53 @@ function calculateContentScoreHTML(diff: TextDiff, sourceContent: WebpageContent
 }
 
 /**
+ * Intrinsic content-quality metrics — for 'quality' mode (AI-generated content),
+ * where there's no source to compare against. We fetch the TARGET page only and
+ * compute a coarse substance/structure proxy that floors the agentic editor's
+ * judgment (and stands in entirely when no Claude auth is configured).
+ */
+export interface ContentQualityMetrics {
+  migratedUrl: string;
+  webpageContent: WebpageContent;
+  /** Coarse deterministic proxy (0-100) from word/heading/paragraph signals. */
+  score: number;
+  metadata: { executedAt: string; durationMs: number; toolsUsed: string[] };
+}
+
+/** Coarse intrinsic quality proxy: substance (words) + structure (headings/paragraphs). */
+function coarseQualityScore(c: WebpageContent): number {
+  let s = 45;
+  if (c.wordCount >= 200) s += 8;
+  if (c.wordCount >= 400) s += 12;
+  if (c.wordCount >= 800) s += 10;
+  if (c.headings.length >= 1) s += 6;
+  if (c.headings.length >= 3) s += 9;
+  if (c.paragraphCount >= 4) s += 10;
+  return Math.max(0, Math.min(100, s));
+}
+
+/** Fetch the target page and compute the deterministic intrinsic-quality proxy. */
+export async function analyzeContentQuality(migratedUrl: string): Promise<ContentQualityMetrics> {
+  const timer = new Timer();
+  logger.info('Starting intrinsic content-quality analysis (no source)', { migratedUrl });
+  const html = await fetchHTML(migratedUrl);
+  const webpageContent = extractWebpageContent(html);
+  const score = coarseQualityScore(webpageContent);
+  logger.operationComplete('Intrinsic content-quality analysis', timer.elapsed(), {
+    migratedUrl,
+    words: webpageContent.wordCount,
+    headings: webpageContent.headings.length,
+    coarseScore: score,
+  });
+  return {
+    migratedUrl,
+    webpageContent,
+    score,
+    metadata: { executedAt: new Date().toISOString(), durationMs: timer.elapsed(), toolsUsed: ['cheerio'] },
+  };
+}
+
+/**
  * Analyze content fidelity between source (PDF or HTML) and migrated webpage
  *
  * @param sourceUrlOrPdf - Either a PDF URL (.pdf) or HTML URL (source page)

@@ -8,7 +8,7 @@
 import { EvaluationRequest, EvaluationReport, Finding, AgentResult } from '@/types/evaluation';
 import { analyzeStructureWithClaude, analyzeStructure } from '@/lib/agents/structure';
 import { analyzeAccessibilityWithClaude, analyzeAccessibility } from '@/lib/agents/accessibility';
-import { analyzeContentWithClaude, analyzeContent } from '@/lib/agents/content';
+import { analyzeContentWithClaude, analyzeContent, analyzeContentQuality, analyzeContentQualityWithClaude } from '@/lib/agents/content';
 import { analyzeVisualWithClaude, analyzeVisual } from '@/lib/agents/visual';
 import { SYSTEM_VERSION, DIMENSION_WEIGHTS } from '@/lib/constants';
 import { createLogger, Timer } from '@/lib/logger';
@@ -227,6 +227,55 @@ async function runAgent(
       }
 
       case 'content': {
+        // QUALITY MODE (AI-generated content): score the article on its own merits,
+        // not fidelity to a throwaway synthetic source. Always produces a score
+        // (no skip) — content quality IS the headline signal for generated pages.
+        if (request.mode === 'quality') {
+          const quality = await analyzeContentQuality(request.migratedUrl);
+          try {
+            const full = await analyzeContentQualityWithClaude(request.migratedUrl, quality);
+            const combinedFindings = [
+              ...full.agentic.findings.map((f) => ({
+                dimension: 'content' as const,
+                severity: f.severity,
+                issue: f.issue,
+                recommendation: f.recommendation,
+                details: { type: f.type, snippet: f.snippet },
+              })),
+              ...(full.agentic.strengths || []).map((strength) => ({
+                dimension: 'content' as const,
+                severity: 'info' as const,
+                issue: `✨ ${strength}`,
+                recommendation: 'This is a positive aspect - maintain this quality',
+              })),
+            ];
+            result = {
+              dimension: 'content',
+              score: full.finalScore,
+              findings: combinedFindings,
+              metadata: {
+                mode: 'agentic',
+                deterministic: { executedAt: quality.metadata.executedAt, durationMs: timer.elapsed(), toolsUsed: ['cheerio'] },
+                agentic: { executedAt: full.timestamp, durationMs: 0, model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-6' },
+              },
+            };
+          } catch (agenticError) {
+            const { mode, modeReason, notice } = describeAgenticFailure('content', agenticError);
+            result = {
+              dimension: 'content',
+              score: quality.score, // coarse intrinsic proxy when no Claude auth
+              findings: [notice],
+              metadata: {
+                mode,
+                modeReason,
+                deterministic: { executedAt: quality.metadata.executedAt, durationMs: timer.elapsed(), toolsUsed: ['cheerio'] },
+              },
+            };
+          }
+          break;
+        }
+
+        // FIDELITY MODE (default): compare the migrated page against the source.
         // Determine source URL (PDF or HTML)
         const sourceUrl = request.pdfPath || request.expectedUrl;
 
@@ -337,11 +386,17 @@ async function runAgent(
       }
 
       case 'visual': {
-        // Always run deterministic analysis first with source info
-        const deterministic = await analyzeVisual(request.migratedUrl, {
-          sourceUrl: request.expectedUrl, // HTML source for comparison
-          pdfPath: request.pdfPath, // PDF source for comparison
-        });
+        // QUALITY MODE: ignore the synthetic source — score intrinsic design quality
+        // (the visual agent's no-source path), not similarity to a plain source page.
+        // FIDELITY MODE (default): compare against the source screenshot.
+        const visualSource =
+          request.mode === 'quality'
+            ? {}
+            : {
+                sourceUrl: request.expectedUrl, // HTML source for comparison
+                pdfPath: request.pdfPath, // PDF source for comparison
+              };
+        const deterministic = await analyzeVisual(request.migratedUrl, visualSource);
 
         // Try agentic if OAuth token available
         try {

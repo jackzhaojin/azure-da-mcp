@@ -18,6 +18,8 @@ export interface EvalRunPayload {
   sourceType?: "pdf" | "webpage" | "none";
   sourceLocation?: string;
   dimensions?: string[];
+  /** 'fidelity' (default) scores vs the source; 'quality' scores the page on its own merits (AI-generated content). */
+  mode?: "fidelity" | "quality";
   runId?: string;
   labels?: Record<string, string>;
 }
@@ -57,6 +59,7 @@ export function toEvaluationRequest(p: EvalRunPayload): EvaluationRequest {
     expectedUrl: sourceType === "webpage" ? p.sourceLocation : undefined,
     pdfPath: sourceType === "pdf" ? p.sourceLocation : undefined,
     ...(dimensions?.length ? { dimensions } : {}),
+    ...(p.mode ? { mode: p.mode } : {}),
   };
 }
 

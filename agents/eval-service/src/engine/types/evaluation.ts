@@ -70,6 +70,16 @@ export interface EvaluationRequest {
   migratedUrl: string; // Required: URL of migrated page
   expectedUrl?: string; // Optional: Original page URL for comparison
   /**
+   * Scoring mode.
+   * - 'fidelity' (default): score the target against the source (real migrations) —
+   *   content = source-vs-target diff, visual = source-vs-target screenshot compare.
+   * - 'quality': score the target ON ITS OWN MERITS (AI-generated content, where the
+   *   "source" is a throwaway synthetic page and fidelity to it is NOT the goal) —
+   *   content = intrinsic editorial quality, visual = intrinsic design quality. The
+   *   source is ignored for content/visual; structure/accessibility are intrinsic anyway.
+   */
+  mode?: 'fidelity' | 'quality';
+  /**
    * Subset of dimensions to run (eval.run.v1). Default/empty = all four. Omitted
    * dimensions are excluded from the score (weights renormalize, totalDimensions
    * drops) and surfaced as report-level info findings — never scored 0.

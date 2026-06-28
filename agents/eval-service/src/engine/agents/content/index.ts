@@ -4,8 +4,10 @@
  * Exports content analysis functions and types.
  */
 
-export { analyzeContent } from './deterministic';
-export { analyzeContentWithClaude } from './agentic';
+export { analyzeContent, analyzeContentQuality } from './deterministic';
+export type { ContentQualityMetrics } from './deterministic';
+export { analyzeContentWithClaude, analyzeContentQualityWithClaude } from './agentic';
+export type { ContentQualityResult } from './agentic';
 export type {
   PDFContent,
   WebpageContent,

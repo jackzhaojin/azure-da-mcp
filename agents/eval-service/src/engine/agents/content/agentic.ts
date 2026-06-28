@@ -12,7 +12,9 @@ import { extractJsonText } from '@/lib/extract-json';
 import type { ContentMetrics, AgenticAnalysisResult, ContentAnalysisResult, ContentFinding } from './types';
 import contentPdfSourcePrompt from '@/lib/prompts/content-pdf-source.json';
 import contentHtmlSourcePrompt from '@/lib/prompts/content-html-source.json';
+import contentNoSourcePrompt from '@/lib/prompts/content-no-source.json';
 import { getMCPServersConfig } from '@/lib/mcp-config';
+import type { ContentQualityMetrics } from './deterministic';
 
 const logger = createLogger('agentic');
 
@@ -346,4 +348,80 @@ export async function analyzeContentWithClaude(
     logger.error('Agentic content analysis failed', error as Error, { sourceUrl, migratedUrl, duration: timer.elapsed() });
     throw error;
   }
+}
+
+/** Result of an intrinsic content-quality pass (quality mode — no source fidelity). */
+export interface ContentQualityResult {
+  finalScore: number;
+  agentic: AgenticAnalysisResult;
+  timestamp: string;
+}
+
+/**
+ * Score the intrinsic editorial quality of a page ON ITS OWN MERITS (quality mode).
+ * No source comparison — judges substance, coherence, completeness, expertise, and
+ * structure of the provided article text. Tool-free (judges the supplied content),
+ * so it holds no browser permit. Blends the editor's score with the deterministic
+ * substance proxy as a floor. Falls back (throws → caller uses the coarse score)
+ * when no Claude auth is configured.
+ */
+export async function analyzeContentQualityWithClaude(
+  migratedUrl: string,
+  quality: ContentQualityMetrics
+): Promise<ContentQualityResult> {
+  const timer = new Timer();
+  logger.info('Starting agentic content-quality analysis (intrinsic, no source)', { migratedUrl });
+
+  requireAgentAuth();
+
+  const c = quality.webpageContent;
+  const headings = c.headings.length > 0
+    ? c.headings.slice(0, 25).map((h, i) => `${i + 1}. ${h}`).join('\n')
+    : 'No headings found';
+
+  const userPrompt = contentNoSourcePrompt.user_template
+    .replace('{{url}}', migratedUrl)
+    .replace('{{headings}}', headings)
+    .replace('{{text_sample}}', c.text.substring(0, 6000))
+    .replace('{{words}}', c.wordCount.toString())
+    .replace('{{headings_count}}', c.headings.length.toString())
+    .replace('{{paragraphs}}', c.paragraphCount.toString());
+
+  const messages: string[] = [];
+  const deadline = agenticAbort('content');
+  try {
+    for await (const message of query({
+      prompt: userPrompt,
+      options: {
+        model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-6',
+        maxTurns: 1, // tool-free: judge the provided article text directly
+        systemPrompt: contentNoSourcePrompt.system,
+        permissionMode: 'bypassPermissions' as const,
+        allowDangerouslySkipPermissions: true,
+        cwd: process.cwd(),
+        abortController: deadline.controller,
+      },
+    })) {
+      if (message.type === 'assistant' && 'message' in message && message.message?.content) {
+        for (const block of message.message.content) {
+          if (block.type === 'text' && block.text) messages.push(block.text);
+        }
+      }
+    }
+  } finally {
+    deadline.done();
+  }
+
+  const agenticResult = parseClaudeResponse(messages.join('\n'));
+  // Editor's judgment dominates; the deterministic substance proxy is a small floor.
+  const finalScore = Math.max(0, Math.min(100, Math.round(agenticResult.score * 0.8 + quality.score * 0.2)));
+
+  logger.operationComplete('Agentic content-quality analysis', timer.elapsed(), {
+    migratedUrl,
+    agenticScore: agenticResult.score,
+    coarseScore: quality.score,
+    finalScore,
+  });
+
+  return { finalScore, agentic: agenticResult, timestamp: new Date().toISOString() };
 }
