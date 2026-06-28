@@ -210,6 +210,10 @@ The platform's content target moved off the retired `da-live-postal-2025-07` sit
 - **Daily loop** (`.github/workflows/daily-content-loop.yml`) now defaults to `adapt-to-2026-demo`.
 - **Deprecations**: `content-authoring-eval/` and `agent-claude-sdk/` officially deprecated.
 
+### v2.5: Generated-content eval mode (2026-06-27)
+
+`eval.run.v1` gains a **`mode`** (`fidelity` | `quality`, default `fidelity`). The full-loop eval was comparing the migrated page against the *throwaway synthetic source*, so AI-generated content scored low by design (visual ~29 = the redesign succeeding; content ~66 = penalizing enrichment). **`quality` mode scores the page on its own merits** — content = intrinsic editorial quality (substance/coherence/completeness/expertise/structure via a new `content-no-source` scorer), visual = intrinsic design quality, structure/accessibility unchanged. The coordinator uses `quality` for any route that *generated* its source; real migrations stay `fidelity`. Validated against the live demo article: **67 → 89** (content 66→82, visual 29→100). Existing migration/eval lanes are byte-identical (default `fidelity`).
+
 ## Related Documentation
 
 - [README.md](./README.md) - Monorepo overview
