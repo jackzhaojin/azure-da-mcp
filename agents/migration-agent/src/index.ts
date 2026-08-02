@@ -4,6 +4,7 @@ import { startAgentServer, createLogger, SqliteTaskStore } from "@agents/a2a-com
 import { randomUUID } from "node:crypto";
 import { migrationExecutor } from "./executor.ts";
 import { resolveCallback } from "./callbacks.ts";
+import { cachedKimiModelLabel, KIMI_MODEL_ID } from "./backends/opencode-config.ts";
 import type { MigrationResult } from "./backends/types.ts";
 
 const log = createLogger("da-migration-agent");
@@ -27,6 +28,16 @@ await startAgentServer({
     },
   ],
   executor: migrationExecutor,
+  // Make the two things that used to be invisible from outside observable:
+  // the agentic-turn cap (a 20-min value silently overridden per environment
+  // is what made a timeout hard to diagnose) and the model the `kimi-for-coding`
+  // alias actually resolves to (null until the first opencode migration
+  // resolves it — the lookup is lazy so boot never depends on the provider).
+  healthExtras: () => ({
+    opencodeMigrationTimeoutMs: Number(process.env.OPENCODE_MIGRATION_TIMEOUT_MS ?? 40 * 60 * 1000),
+    kimiModelAlias: KIMI_MODEL_ID,
+    kimiModelResolved: cachedKimiModelLabel(),
+  }),
   extraRoutes: ({ app, db, edgeToken }) => {
     const taskStore = new SqliteTaskStore(db, "da-migration-agent");
 

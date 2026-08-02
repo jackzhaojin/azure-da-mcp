@@ -17,7 +17,7 @@ const BACKENDS: Record<string, MigrationBackend> = {
   dryrun: dryrunBackend,
   makecom: makecomBackend,
   sdk: sdkBackend,
-  opencode: opencodeBackend, // Kimi K2.6 via opencode serve — same seam, different model vendor
+  opencode: opencodeBackend, // Kimi via opencode serve — same seam, different model vendor
 };
 
 function extractPayload(message: Message): MigrationRunPayload {

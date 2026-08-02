@@ -1,7 +1,7 @@
 import type { MigrationRunPayload, MigrationResult } from "./types.ts";
 
 /**
- * The headless migration prompt for Kimi K2.6 (driven through opencode).
+ * The headless migration prompt for Kimi (driven through opencode).
  *
  * Two things make this work autonomously:
  *  1. The SKILL.md has a human "confirmation gate" ("ask first, act second").

@@ -13,15 +13,16 @@ import {
   KIMI_PROVIDER_ID,
   KIMI_MODEL_ID,
   DEFAULT_DALIVE_MCP_URL,
+  resolveKimiModelLabel,
 } from "./opencode-config.ts";
 import { buildMigrationPrompt, migrationTargets, parseMigrationReport } from "./opencode-prompt.ts";
 
 const log = createLogger("da-migration-agent");
 
 /**
- * opencode / Kimi K2.6 migration backend (PRD part-5, Backend C).
+ * opencode / Kimi migration backend (PRD part-5, Backend C).
  *
- * Drives Kimi K2.6 headlessly via a long-lived `opencode serve` (one per agent
+ * Drives Kimi headlessly via a long-lived `opencode serve` (one per agent
  * process, lazily started + reused), giving the model the da.live MCP, the
  * Playwright MCP, and the reused `da-live-author-playwright` skill. One A2A
  * `migration.run` task = one opencode session. Tool/skill firing is surfaced
@@ -135,7 +136,7 @@ async function postJson(base: string, p: string, body: unknown, timeoutMs = 30_0
  * firing through onProgress (the observability requirement). Returns a stopper
  * and a live summary (tools fired, whether the skill fired, validation count).
  */
-function tapSession(base: string, sessionId: string, onProgress: (note: string) => void) {
+function tapSession(base: string, sessionId: string, onProgress: (note: string) => void, model: string) {
   const ctrl = new AbortController();
   const summary = { toolsFired: new Set<string>(), skillFired: false, validations: 0, errors: [] as string[] };
   const seen = new Set<string>(); // partID:state → emit once
@@ -173,16 +174,16 @@ function tapSession(base: string, sessionId: string, onProgress: (note: string) 
           if (tool === "skill") {
             const skillName = part.state?.input?.skill ?? part.state?.input?.name ?? "skill";
             summary.skillFired ||= /da-live-author-playwright/.test(JSON.stringify(part.state?.input ?? {}));
-            onProgress(`K2.6 → skill ${skillName}`);
+            onProgress(`${model} → skill ${skillName}`);
           } else {
             summary.toolsFired.add(tool);
             if (/playwright_browser_(navigate|snapshot|take_screenshot)/.test(tool)) summary.validations++;
-            onProgress(`K2.6 → ${tool}`);
+            onProgress(`${model} → ${tool}`);
           }
         } else if (status === "error") {
           const errText = String(part.state?.error ?? part.state?.title ?? "tool error").slice(0, 200);
           summary.errors.push(`${tool}: ${errText}`);
-          onProgress(`K2.6 ✗ ${tool}: ${errText}`);
+          onProgress(`${model} ✗ ${tool}: ${errText}`);
         }
       }
     }
@@ -205,15 +206,19 @@ export const opencodeBackend: MigrationBackend = {
   async run(payload: MigrationRunPayload, ctx: BackendContext): Promise<MigrationResult> {
     const targets = migrationTargets(payload);
 
-    ctx.onProgress("opencode/K2.6: starting headless server");
+    // The real model behind the `kimi-for-coding` alias (e.g. "K2.7 Coding").
+    // Cached after the first call; falls back to "Kimi" and never throws.
+    const model = await resolveKimiModelLabel();
+
+    ctx.onProgress(`opencode/${model}: starting headless server`);
     const { base } = await getServer();
 
     const session = await postJson(base, "/session", { title: `migration ${payload.pageSlug}` });
     const sessionId: string = session.id;
     log.info("opencode session created", { a2a_task_id: ctx.taskId, session_id: sessionId, slug: payload.pageSlug });
 
-    const tap = tapSession(base, sessionId, ctx.onProgress);
-    ctx.onProgress(`opencode/K2.6: migrating ${payload.sourceType} ${payload.sourceLocation} → ${targets.folder}/${payload.pageSlug}`);
+    const tap = tapSession(base, sessionId, ctx.onProgress, model);
+    ctx.onProgress(`opencode/${model}: migrating ${payload.sourceType} ${payload.sourceLocation} → ${targets.folder}/${payload.pageSlug}`);
 
     let message: any;
     try {
@@ -233,7 +238,7 @@ export const opencodeBackend: MigrationBackend = {
       tap.stop();
     }
 
-    if (message?.info?.error) throw new Error(`opencode/K2.6 turn errored: ${JSON.stringify(message.info.error).slice(0, 300)}`);
+    if (message?.info?.error) throw new Error(`opencode/${model} turn errored: ${JSON.stringify(message.info.error).slice(0, 300)}`);
 
     const text = (message?.parts ?? [])
       .filter((p: { type: string; text?: string }) => p.type === "text" && typeof p.text === "string")
@@ -246,8 +251,9 @@ export const opencodeBackend: MigrationBackend = {
     // fold observed gaps in (e.g. a 401 the model hit) so the artifact is honest
     if (tap.summary.errors.length) result.gaps = [...result.gaps, ...tap.summary.errors];
 
-    log.info("opencode/K2.6 migration done", {
+    log.info("opencode migration done", {
       a2a_task_id: ctx.taskId,
+      model,
       status: result.status,
       confidence: result.confidence,
       skill_fired: tap.summary.skillFired,
@@ -257,7 +263,7 @@ export const opencodeBackend: MigrationBackend = {
       cost: message?.info?.cost,
     });
     ctx.onProgress(
-      `opencode/K2.6: done — ${result.status} (${result.confidence}%), skill ${tap.summary.skillFired ? "fired" : "not detected"}, ${tap.summary.toolsFired.size} tool(s)`
+      `opencode/${model}: done — ${result.status} (${result.confidence}%), skill ${tap.summary.skillFired ? "fired" : "not detected"}, ${tap.summary.toolsFired.size} tool(s)`
     );
 
     return result;

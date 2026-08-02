@@ -155,7 +155,7 @@ export class MigrationContainer extends Container<Env> {
       DALIVE_SKILLS_PATH: "/app/skills",
       DALIVE_MCP_URL: env.DALIVE_MCP_URL,
       // 30 min per agentic turn. Was 20 min, which real Wilderness-Journal
-      // article migrations were hitting mid-authoring (K2.6 still firing
+      // article migrations were hitting mid-authoring (Kimi was still firing
       // dalive_save/preview-publish when the abort landed).
       OPENCODE_MIGRATION_TIMEOUT_MS: "1800000",
     };

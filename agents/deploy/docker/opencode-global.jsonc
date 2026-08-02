@@ -23,7 +23,7 @@
       },
       "models": {
         "kimi-for-coding": {
-          "name": "Kimi for Coding (K2.6)",
+          "name": "Kimi for Coding",
           "reasoning": true,
           "tool_call": true,
           "temperature": true,

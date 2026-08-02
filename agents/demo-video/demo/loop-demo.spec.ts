@@ -1,6 +1,6 @@
 /**
  * Demo: the A2A content factory closed loop, recorded against the REAL local
- * mesh (no mocks). Scenes: dashboard → trigger a real Kimi K2.6 run → live
+ * mesh (no mocks). Scenes: dashboard → trigger a real Kimi run → live
  * activity → completed run results → the migrated da.live page itself.
  *
  * Record with:
@@ -16,7 +16,7 @@ async function scrollTo(page: Page, target: Locator): Promise<void> {
   await page.waitForTimeout(1200);
 }
 
-// 'opencode' = real Kimi K2.6 migration (the final take). While developing
+// 'opencode' = real Kimi migration (the final take). While developing
 // scenes, 'dryrun' avoids firing a 15-minute real migration per iteration.
 const BACKEND = process.env.DEMO_BACKEND ?? 'dryrun';
 const TOPIC = process.env.DEMO_TOPIC ?? 'urban balcony herb gardens for beginners';
@@ -70,7 +70,7 @@ test('content factory closed loop @loop-demo', async ({ page }) => {
     await expect(page.getByText('Real pages will be authored')).toBeVisible();
     await caption(
       page,
-      'The migration backend is Kimi K2.6 — it will author a REAL page on da.live, Adobe Edge Delivery Services. No mocks anywhere.',
+      'The migration backend is Kimi — it will author a REAL page on da.live, Adobe Edge Delivery Services. No mocks anywhere.',
       9760,
     );
   }
@@ -96,11 +96,13 @@ test('content factory closed loop @loop-demo', async ({ page }) => {
   );
 
   if (BACKEND === 'opencode') {
-    // Kimi's first tool calls surface ~15-30s into the migration.
-    await expect(page.getByText('K2.6 →').first()).toBeVisible({ timeout: 120000 });
+    // Kimi's first tool calls surface ~15-30s into the migration. Match the
+    // tool-call arrow, NOT the model name — the label is resolved live from the
+    // provider catalog, so it changes whenever Moonshot moves the alias.
+    await expect(page.getByText(/→ (dalive_|playwright_|webfetch|skill )/).first()).toBeVisible({ timeout: 120000 });
     await caption(
       page,
-      'Kimi K2.6 is migrating the page right now — each line is a real tool call: reading the source, authoring blocks, publishing previews.',
+      'Kimi is migrating the page right now — each line is a real tool call: reading the source, authoring blocks, publishing previews.',
       10720,
     );
   }
@@ -153,7 +155,7 @@ test('content factory closed loop @loop-demo', async ({ page }) => {
   await expect(page.locator('h1, main h2').first()).toBeVisible({ timeout: 30000 });
   await caption(
     page,
-    'And this is the migrated page itself — live on Adobe Edge Delivery, authored block by block by Kimi K2.6.',
+    'And this is the migrated page itself — live on Adobe Edge Delivery, authored block by block by Kimi.',
     8640,
   );
   await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));

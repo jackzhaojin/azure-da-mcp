@@ -34,7 +34,7 @@ export interface MigrationResult {
 /**
  * The backend seam (PRD part-5): one Agent Card, one task contract — the
  * runtime behind it is an implementation detail. This is what makes
- * "Claude vs Kimi K2.6 on the same 10 migrations" a no-contract-change experiment.
+ * "Claude vs Kimi on the same 10 migrations" a no-contract-change experiment.
  */
 export interface BackendContext {
   taskId: string;

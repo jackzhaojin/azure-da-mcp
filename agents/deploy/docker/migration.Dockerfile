@@ -1,4 +1,4 @@
-# migration agent — opencode (Kimi K2.6) + Playwright MCP validation
+# migration agent — opencode (Kimi) + Playwright MCP validation
 # (standard-1 instance: 4 GiB)
 FROM node:20-bookworm-slim
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -16,7 +16,7 @@ COPY store-mcp/package.json store-mcp/
 COPY e2e/package.json e2e/
 RUN npm ci -w @agents/migration-agent --include-workspace-root=false --ignore-scripts
 
-# opencode binary (drives Kimi K2.6 headlessly via `opencode serve` + REST)
+# opencode binary (drives Kimi headlessly via `opencode serve` + REST)
 RUN curl -fsSL https://opencode.ai/install | bash
 ENV OPENCODE_BIN=/root/.opencode/bin/opencode
 
