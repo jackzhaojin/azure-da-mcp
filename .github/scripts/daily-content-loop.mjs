@@ -60,12 +60,13 @@ const FAN_OUT = Math.max(1, Number(process.env.FAN_OUT || "1") || 1);
 
 const PREWARM_BUDGET_S = Number(process.env.PREWARM_BUDGET_S || "150");
 const POLL_INTERVAL_S = Number(process.env.POLL_INTERVAL_S || "30");
-const MAX_WAIT_S = Number(process.env.MAX_WAIT_S || "2700"); // 45 min — covers a 20-min Kimi turn + eval
+const MAX_WAIT_S = Number(process.env.MAX_WAIT_S || "2700"); // 45 min — covers a 30-min Kimi turn + eval
 const RESOLVE_BUDGET_S = Number(process.env.RESOLVE_BUDGET_S || "120");
 // Self-heal: the migration container is COLD on a daily run (everything sleeps
 // between runs), and the first opencode turn after a cold start — or an occasional
-// Kimi stall — can hit the 20-min migration timeout. A second attempt runs against
+// Kimi stall — can hit the 30-min migration timeout. A second attempt runs against
 // a now-warm container with a fresh Kimi turn, which is what recovers it in practice.
+// NOTE: two worst-case attempts need ~85 min — keep the workflow's timeout-minutes above that.
 const MAX_ATTEMPTS = Math.max(1, Number(process.env.MAX_ATTEMPTS || "2") || 2);
 
 if (!MESH_TOKEN) {

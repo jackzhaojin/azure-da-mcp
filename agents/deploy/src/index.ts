@@ -154,7 +154,10 @@ export class MigrationContainer extends Container<Env> {
       PLAYWRIGHT_MCP_BIN: "/usr/local/bin/playwright-mcp",
       DALIVE_SKILLS_PATH: "/app/skills",
       DALIVE_MCP_URL: env.DALIVE_MCP_URL,
-      OPENCODE_MIGRATION_TIMEOUT_MS: "1200000",
+      // 30 min per agentic turn. Was 20 min, which real Wilderness-Journal
+      // article migrations were hitting mid-authoring (K2.6 still firing
+      // dalive_save/preview-publish when the abort landed).
+      OPENCODE_MIGRATION_TIMEOUT_MS: "1800000",
     };
   }
 }
