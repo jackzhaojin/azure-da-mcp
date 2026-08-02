@@ -32,6 +32,8 @@ export interface CoordinateRunPayload {
   owner?: string;
   pageSlug?: string;
   backend?: string;
+  /** opencode only: model for this run's migrations (e.g. "k3"); passed through to migration.run. */
+  model?: string;
   fanOut?: number;
   labels?: Record<string, string>;
   /** Groups the N runs fired by one bulk submission → runs.batch_id. */
@@ -341,6 +343,7 @@ async function runPipelineBranch(opts: {
           ...(site.neighborPageUrl ? { neighborPageUrl: site.neighborPageUrl } : {}),
           ...(site.pattern ? { pattern: site.pattern } : {}),
           ...(payload.backend ? { backend: payload.backend } : {}),
+          ...(payload.model ? { model: payload.model } : {}),
           runId,
         },
         contextId,

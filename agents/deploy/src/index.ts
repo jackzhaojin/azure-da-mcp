@@ -49,6 +49,7 @@ interface Env {
   AUTH_ALLOWED_EMAILS: string;
   MIGRATION_DEFAULT_BACKEND: string;
   DALIVE_MCP_URL: string;
+  KIMI_MODEL_ID: string;
 }
 
 const HOSTS = {
@@ -154,6 +155,10 @@ export class MigrationContainer extends Container<Env> {
       PLAYWRIGHT_MCP_BIN: "/usr/local/bin/playwright-mcp",
       DALIVE_SKILLS_PATH: "/app/skills",
       DALIVE_MCP_URL: env.DALIVE_MCP_URL,
+      // Model swap = edit this var in wrangler.jsonc + redeploy. The target
+      // must ALSO be declared in docker/opencode-global.jsonc's models map —
+      // opencode never reads the provider's /models catalog.
+      KIMI_MODEL_ID: env.KIMI_MODEL_ID,
       // 30 min per agentic turn. Was 20 min, which real Wilderness-Journal
       // article migrations were hitting mid-authoring (Kimi was still firing
       // dalive_save/preview-publish when the abort landed).

@@ -21,9 +21,29 @@
           }
         }
       },
+      // BOTH models stay declared so the per-run `model` override (the daily-loop
+      // workflow's dropdown) can pick either WITHOUT a redeploy. opencode never
+      // reads the provider's /models catalog for custom providers, so anything
+      // selectable must be listed here — an undeclared id fails at message time.
       "models": {
         "kimi-for-coding": {
           "name": "Kimi for Coding",
+          "reasoning": true,
+          "tool_call": true,
+          "temperature": true,
+          "attachment": true,
+          "interleaved": { "field": "reasoning_content" },
+          "modalities": { "input": ["text", "image"], "output": ["text"] },
+          "limit": { "context": 262144, "output": 65536 },
+          "options": {
+            "chat_template_kwargs": { "thinking": true }
+          }
+        },
+        // K3. Catalog reports the same 262144 context; think_efforts (low/high/max,
+        // default high) is left at the provider default — we have not verified the
+        // parameter name opencode would send, and a bad param costs a whole run.
+        "k3": {
+          "name": "Kimi K3",
           "reasoning": true,
           "tool_call": true,
           "temperature": true,

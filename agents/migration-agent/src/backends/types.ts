@@ -14,6 +14,13 @@ export interface MigrationRunPayload {
   /** Prompt variant: "article" authors a journal article mimicking neighborPageUrl; "generic" is the fidelity default. */
   pattern?: "article" | "generic";
   backend?: "makecom" | "sdk" | "opencode" | "dryrun";
+  /**
+   * opencode backend only: the model to drive for THIS run, overriding the
+   * agent's `KIMI_MODEL_ID` default. Lets one deployed container serve both
+   * `kimi-for-coding` (K2.7) and `k3` — the daily-loop workflow picks per run.
+   * Must be declared in opencode's `provider.kimi-code.models` map.
+   */
+  model?: string;
   maxRefinementIterations?: number;
   runId?: string;
   labels?: Record<string, string>;

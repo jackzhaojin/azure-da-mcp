@@ -206,9 +206,12 @@ export const opencodeBackend: MigrationBackend = {
   async run(payload: MigrationRunPayload, ctx: BackendContext): Promise<MigrationResult> {
     const targets = migrationTargets(payload);
 
-    // The real model behind the `kimi-for-coding` alias (e.g. "K2.7 Coding").
-    // Cached after the first call; falls back to "Kimi" and never throws.
-    const model = await resolveKimiModelLabel();
+    // Per-run model override (the daily-loop workflow's dropdown) falling back
+    // to the container's KIMI_MODEL_ID default.
+    const modelId = payload.model || KIMI_MODEL_ID;
+    // The real display name behind that id (e.g. "K2.7 Coding", "K3"). Cached
+    // per id; falls back to "Kimi" and never throws.
+    const model = await resolveKimiModelLabel(modelId);
 
     ctx.onProgress(`opencode/${model}: starting headless server`);
     const { base } = await getServer();
@@ -227,7 +230,7 @@ export const opencodeBackend: MigrationBackend = {
         `/session/${sessionId}/message`,
         {
           providerID: KIMI_PROVIDER_ID,
-          modelID: KIMI_MODEL_ID,
+          modelID: modelId,
           parts: [{ type: "text", text: buildMigrationPrompt({ payload, ...targets }) }],
         },
         TURN_TIMEOUT_MS
@@ -254,6 +257,7 @@ export const opencodeBackend: MigrationBackend = {
     log.info("opencode migration done", {
       a2a_task_id: ctx.taskId,
       model,
+      model_id: modelId,
       status: result.status,
       confidence: result.confidence,
       skill_fired: tap.summary.skillFired,

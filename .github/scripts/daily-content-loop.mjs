@@ -50,6 +50,10 @@ const EDGE_TOKEN = process.env.A2A_EDGE_TOKEN || MESH_TOKEN;
 
 const GOAL = process.env.GOAL || "full-loop";
 const BACKEND = process.env.BACKEND || "opencode";
+// Kimi model for the opencode backend. Both this and "kimi-for-coding" (a moving
+// alias, currently K2.7 Coding) are declared in the migration image's opencode
+// config, so switching is a workflow input — no redeploy. Ignored by dryrun.
+const MODEL = process.env.MODEL || "k3";
 const SITE = process.env.SITE || "adapt-to-2026-demo";
 const OWNER = process.env.OWNER || "jackzhaojin";
 // Empty → the coordinator's site profile supplies the lane (wilderness-journal for
@@ -122,6 +126,7 @@ async function prewarm() {
 async function submit() {
   /** @type {Record<string, unknown>} */
   const data = { goal: GOAL, fanOut: FAN_OUT, backend: BACKEND, site: SITE, owner: OWNER };
+  if (BACKEND === "opencode") data.model = MODEL;
   if (TOPIC.trim()) data.topic = TOPIC.trim();
   if (LANE.trim()) data.lane = LANE.trim();
   // Mark it as the daily system loop (badge + "today's drafts" filter); NO
@@ -226,6 +231,7 @@ function summarize(run) {
     `| **Topic** | ${cfg.topic ?? "(none)"} |`,
     `| **Route** | ${stats.route ?? cfg.goal ?? GOAL} |`,
     `| **Backend / site** | ${cfg.backend ?? BACKEND} → ${cfg.owner ?? OWNER}/${cfg.site ?? SITE} |`,
+    `| **Model** | ${(cfg.backend ?? BACKEND) === "opencode" ? `\`${cfg.model ?? MODEL}\`` : "n/a"} |`,
     `| **Branches** | ${stats.completed ?? 0}/${stats.branches ?? branches.length} completed |`,
     `| **Overall score** | ${typeof score === "number" ? score : "—"} |`,
     `| **Run** | \`${run.id}\` |`,

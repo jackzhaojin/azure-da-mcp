@@ -313,6 +313,9 @@ export function RunDetail({ id }: { id: string }) {
           fanOut: c.fanOut,
           legacyStyle: c.legacyStyle,
           backend: c.backend,
+          // Without this, "Run again" on a k3 run would silently fall back to
+          // the container default — the comparison you thought you repeated.
+          model: c.model,
           site: c.site,
           owner: c.owner,
         }),
@@ -410,6 +413,11 @@ export function RunDetail({ id }: { id: string }) {
             <span>
               backend <span className="font-medium">{run.config.backend ?? "—"}</span>
             </span>
+            {run.config.model ? (
+              <span>
+                model <span className="font-medium">{run.config.model}</span>
+              </span>
+            ) : null}
             <span>
               fan-out <span className="font-medium">{run.config.fanOut ?? 1}</span>
             </span>

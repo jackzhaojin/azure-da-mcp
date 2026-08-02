@@ -36,6 +36,10 @@
       "default": "makecom",
       "description": "Which runtime executes the migration. The Agent Card hides this — same skill, same artifact. 'dryrun' simulates (scaffold/testing)."
     },
+    "model": {
+      "type": "string",
+      "description": "opencode backend only: model to drive for this run, overriding the agent's KIMI_MODEL_ID default (e.g. 'kimi-for-coding' = K2.7 Coding, 'k3'). Must be declared in opencode's provider.kimi-code.models map. Other backends ignore it."
+    },
     "maxRefinementIterations": { "type": "integer", "minimum": 0, "default": 3 },
     "runId": { "type": "string" },
     "labels": { "type": "object", "additionalProperties": { "type": "string" } }

@@ -68,6 +68,8 @@ export interface RunView {
     dimensions?: string[];
     title?: string;
     backend?: string;
+    /** opencode only: which Kimi model produced this run (e.g. "k3"). */
+    model?: string;
     legacyStyle?: string;
     fanOut?: number;
     site?: string;

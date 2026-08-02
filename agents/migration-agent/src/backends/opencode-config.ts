@@ -2,6 +2,9 @@ import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createLogger } from "@agents/a2a-common";
+
+const log = createLogger("da-migration-agent");
 
 /**
  * Config + path resolution for the opencode/Kimi backend.
@@ -21,12 +24,24 @@ import * as path from "node:path";
 
 export const KIMI_PROVIDER_ID = "kimi-code";
 /**
- * A MOVING ALIAS, not a version pin. Moonshot resolves `kimi-for-coding`
- * server-side to whatever the current Kimi-For-Coding model is — it silently
- * went K2.6 → K2.7 under us with no deploy on our side. Never hardcode the
- * version in user-facing strings; ask the API (`resolveKimiModelLabel`).
+ * The model opencode asks for. Overridable via `KIMI_MODEL_ID` so swapping
+ * models (e.g. `k3`) is one env var — no code change locally, no code change
+ * in cloud — which keeps "K2.7 vs K3 on the same migration" a cheap, reversible
+ * experiment rather than a release.
+ *
+ * The default is a MOVING ALIAS, not a version pin: Moonshot resolves
+ * `kimi-for-coding` server-side to whatever the current Kimi-For-Coding model
+ * is, and it silently went K2.6 → K2.7 under us with no deploy on our side.
+ * Never hardcode the version in user-facing strings; ask the API
+ * (`resolveKimiModelLabel`).
+ *
+ * ⚠️ opencode only knows models DECLARED in its config (`kimi-code` is a custom
+ * provider, so it never reads the /models catalog). Pointing this at a model
+ * that isn't in `provider.kimi-code.models` — the baked
+ * `deploy/docker/opencode-global.jsonc` in cloud, `~/.config/opencode/
+ * opencode.jsonc` locally — fails at message time, not at boot.
  */
-export const KIMI_MODEL_ID = "kimi-for-coding";
+export const KIMI_MODEL_ID = process.env.KIMI_MODEL_ID || "kimi-for-coding";
 
 /** The Kimi-For-Coding endpoint (same base the global opencode config points at). */
 export const KIMI_API_BASE = "https://api.kimi.com/coding/v1";
@@ -35,22 +50,27 @@ const KIMI_USER_AGENT = "opencode/1.16.2";
 /** Shown when the catalog lookup fails — vague but never wrong. */
 const KIMI_FALLBACK_LABEL = "Kimi";
 
-let modelLabel: string | null = null;
-let modelLabelInFlight: Promise<string> | null = null;
+// Per-model-id caches: one process can now serve several models (the run
+// payload picks one), so a single global label would be wrong the moment a
+// k3 run followed a kimi-for-coding one.
+const modelLabels = new Map<string, string>();
+const modelLabelsInFlight = new Map<string, Promise<string>>();
 
 /**
- * The display name of whatever `KIMI_MODEL_ID` currently resolves to (e.g.
- * "K2.7 Coding"), read from the provider's own catalog and cached for the
- * process's life.
+ * The display name a model id currently resolves to (e.g. `kimi-for-coding` →
+ * "K2.7 Coding", `k3` → "K3"), read from the provider's own catalog and cached
+ * per id for the process's life.
  *
  * Purely cosmetic — a migration must never fail over a label, so every error
  * path falls back to "Kimi" rather than throwing.
  */
-export async function resolveKimiModelLabel(): Promise<string> {
-  if (modelLabel) return modelLabel;
-  if (modelLabelInFlight) return modelLabelInFlight;
+export async function resolveKimiModelLabel(modelId: string = KIMI_MODEL_ID): Promise<string> {
+  const cached = modelLabels.get(modelId);
+  if (cached) return cached;
+  const pending = modelLabelsInFlight.get(modelId);
+  if (pending) return pending;
 
-  modelLabelInFlight = (async () => {
+  const job = (async () => {
     try {
       const key = process.env.MOONSHOT_API_KEY;
       if (!key) return KIMI_FALLBACK_LABEL;
@@ -60,21 +80,33 @@ export async function resolveKimiModelLabel(): Promise<string> {
       });
       if (!res.ok) return KIMI_FALLBACK_LABEL;
       const body = (await res.json()) as { data?: Array<{ id?: string; display_name?: string }> };
-      const hit = body.data?.find((m) => m.id === KIMI_MODEL_ID);
-      return hit?.display_name || KIMI_FALLBACK_LABEL;
+      const hit = body.data?.find((m) => m.id === modelId);
+      if (!hit) {
+        // Reachable catalog, unknown id — almost always a typo'd model id.
+        // Say so loudly here, because opencode's own failure comes much later
+        // (at message time) and reads as a generic turn error.
+        log.warn("model id is not in the provider catalog", {
+          configured: modelId,
+          available: (body.data ?? []).map((m) => m.id).filter(Boolean),
+        });
+        return KIMI_FALLBACK_LABEL;
+      }
+      return hit.display_name || KIMI_FALLBACK_LABEL;
     } catch {
       return KIMI_FALLBACK_LABEL;
     }
   })();
 
-  modelLabel = await modelLabelInFlight;
-  modelLabelInFlight = null;
-  return modelLabel;
+  modelLabelsInFlight.set(modelId, job);
+  const label = await job;
+  modelLabels.set(modelId, label);
+  modelLabelsInFlight.delete(modelId);
+  return label;
 }
 
-/** Sync peek at the cache (for /health) — null until the first migration resolves it. */
-export function cachedKimiModelLabel(): string | null {
-  return modelLabel;
+/** Sync peek at the cache (for /health) — null until a migration resolves it. */
+export function cachedKimiModelLabel(modelId: string = KIMI_MODEL_ID): string | null {
+  return modelLabels.get(modelId) ?? null;
 }
 
 /** Deployed da.live MCP (anonymous inbound; self-authenticates to da.live via S2S). */

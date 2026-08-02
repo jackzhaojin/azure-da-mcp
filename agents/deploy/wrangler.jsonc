@@ -95,6 +95,12 @@
     "R2_ACCOUNT_ID": "957b2690e54ade4c335d8e395c5b69d5",
     "AUTH_ALLOWED_EMAILS": "",
     "MIGRATION_DEFAULT_BACKEND": "dryrun",
-    "DALIVE_MCP_URL": "https://jack-mcp-azure-ai-function.azurewebsites.net/api/mcp-streamable"
+    "DALIVE_MCP_URL": "https://jack-mcp-azure-ai-function.azurewebsites.net/api/mcp-streamable",
+    // DEFAULT model for runs that don't name one (dashboard triggers, ad-hoc
+    // A2A calls). The daily-loop workflow passes `model` explicitly per run, so
+    // this is the fallback, not the only lever. "kimi-for-coding" is a moving
+    // alias (currently K2.7 Coding) — switch back to it here to revert.
+    // Whatever you set must ALSO exist in docker/opencode-global.jsonc's models map.
+    "KIMI_MODEL_ID": "k3"
   }
 }

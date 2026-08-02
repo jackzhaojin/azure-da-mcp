@@ -21,6 +21,17 @@ on:
         type: choice
         default: opencode
         options: [opencode, dryrun]
+      model:
+        # Both ids are declared in agents/deploy/docker/opencode-global.jsonc, so
+        # switching here needs NO redeploy. "kimi-for-coding" is a moving alias
+        # that currently resolves to K2.7 Coding; k3 is the newer line.
+        # Only ids DECLARED in that file may be listed here — an undeclared id
+        # fails mid-run, not at submit. k3-256k / kimi-for-coding-highspeed also
+        # exist on the key but are deliberately not offered until declared.
+        description: "Kimi model (opencode backend only)"
+        type: choice
+        default: k3
+        options: [k3, kimi-for-coding]
       goal:
         description: "Coordinator route"
         type: choice
@@ -79,6 +90,8 @@ jobs:
           # the ai-articles target folder, and the /ai-content reference corpus.
           GOAL: ${{ github.event.inputs.goal }}
           BACKEND: ${{ github.event.inputs.backend }}
+          # Empty on the scheduled run → the script's own default (k3) applies.
+          MODEL: ${{ github.event.inputs.model }}
           SITE: ${{ github.event.inputs.site }}
           OWNER: ${{ github.event.inputs.owner }}
           TOPIC: ${{ github.event.inputs.topic }}
