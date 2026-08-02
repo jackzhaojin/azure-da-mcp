@@ -12,15 +12,24 @@ import type { HistoryEntry, MeshStatus, RunView } from "@/lib/types";
 const GOALS = [
   { value: "full-loop", label: "Full loop — generate → migrate → evaluate" },
   { value: "generate+migrate", label: "Generate + migrate (no eval)" },
+  { value: "migrate", label: "Migrate a real page — source URL → da.live" },
   { value: "evaluate", label: "Evaluate URLs only" },
   { value: "auto", label: "Auto — infer the route" },
 ] as const;
 
 const BACKENDS = [
   { value: "dryrun", label: "dryrun — instant, no real writes" },
-  { value: "opencode", label: "opencode — Kimi K2.6 authors real da.live pages" },
+  { value: "opencode", label: "opencode — Kimi (K3 / K2.7) authors real da.live pages" },
   { value: "makecom", label: "makecom — Make.com scenario" },
   { value: "sdk", label: "sdk — Claude Agent SDK (stub)" },
+] as const;
+
+/** Kimi model per run (opencode only) — ids must be declared in opencode's
+ *  provider models map (same rule as the daily-loop workflow's dropdown). */
+const KIMI_MODELS = [
+  { value: "", label: "agent default (KIMI_MODEL_ID)" },
+  { value: "k3", label: "k3 — Kimi K3" },
+  { value: "kimi-for-coding", label: "kimi-for-coding — moving alias (K2.7 Coding)" },
 ] as const;
 
 const selectClass =
@@ -42,28 +51,50 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
   const [goal, setGoal] = useState<string>("full-loop");
   const [topic, setTopic] = useState("");
   const [targets, setTargets] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceType, setSourceType] = useState("webpage");
+  const [pageSlug, setPageSlug] = useState("");
+  const [folder, setFolder] = useState("");
+  const [evalAfter, setEvalAfter] = useState(true);
   const [backend, setBackend] = useState("dryrun");
+  const [model, setModel] = useState("");
   const [legacyStyle, setLegacyStyle] = useState("dated");
   const [fanOut, setFanOut] = useState(1);
-  const [site, setSite] = useState("da-live-postal-2025-07");
+  const [site, setSite] = useState("adapt-to-2026-demo");
   const [owner, setOwner] = useState("jackzhaojin");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: mesh } = usePoll<MeshStatus>("/api/mesh", 10000);
-  const downAgents = requiredAgents(goal).filter((id) => mesh?.agents.some((a) => a.id === id && !a.up));
-
   const evaluateOnly = goal === "evaluate";
+  const migrateLane = goal === "migrate";
   const realBackend = backend !== "dryrun" && !evaluateOnly;
+
+  const { data: mesh } = usePoll<MeshStatus>("/api/mesh", 10000);
+  const required = migrateLane ? ["migration", ...(evalAfter ? ["eval"] : [])] : requiredAgents(goal);
+  const downAgents = required.filter((id) => mesh?.agents.some((a) => a.id === id && !a.up));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      const body: Record<string, unknown> = { goal, fanOut, backend: evaluateOnly ? undefined : backend };
+      // migrate lane: 'auto' + sourceLocation resolves to migrate→evaluate; bare 'migrate' skips eval
+      const submittedGoal = migrateLane && evalAfter ? "auto" : goal;
+      const body: Record<string, unknown> = { goal: submittedGoal, fanOut, backend: evaluateOnly ? undefined : backend };
       if (evaluateOnly) {
         body.targets = targets.split(/\n+/).map((t) => t.trim()).filter(Boolean);
+      } else if (migrateLane) {
+        const urls = sourceUrl.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+        if (urls.length > 1) body.sources = urls;
+        else body.sourceLocation = urls[0] ?? "";
+        body.sourceType = sourceType;
+        // explicit slug is single-source only — multi-source slugs derive per URL
+        if (urls.length === 1 && pageSlug.trim()) body.pageSlug = pageSlug.trim();
+        if (folder.trim()) body.folder = folder.trim();
+        if (realBackend) {
+          body.site = site;
+          body.owner = owner;
+        }
       } else {
         body.topic = topic;
         body.legacyStyle = legacyStyle;
@@ -72,6 +103,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
           body.owner = owner;
         }
       }
+      if (realBackend && backend === "opencode" && model) body.model = model;
       const res = await fetch("/api/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,8 +128,15 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
 
       onTriggered({
         runId,
-        goal,
-        label: evaluateOnly ? targets.split(/\n+/)[0]?.trim() ?? "evaluation" : topic || "untitled run",
+        goal: submittedGoal,
+        label: evaluateOnly
+          ? targets.split(/\n+/)[0]?.trim() ?? "evaluation"
+          : migrateLane
+            ? (() => {
+                const urls = sourceUrl.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+                return urls.length > 1 ? `${urls[0]} +${urls.length - 1} more` : urls[0] || "migration";
+              })()
+            : topic || "untitled run",
         backend: evaluateOnly ? undefined : backend,
         fanOut,
         triggeredAt: new Date().toISOString(),
@@ -105,12 +144,55 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
       });
       setTopic("");
       setTargets("");
+      setSourceUrl("");
+      setPageSlug("");
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err));
     } finally {
       setSubmitting(false);
     }
   };
+
+  const backendSelect = (
+    <div className="space-y-2">
+      <Label htmlFor="backend">Migration backend</Label>
+      <select id="backend" className={selectClass} value={backend} onChange={(e) => setBackend(e.target.value)}>
+        {BACKENDS.map((b) => (
+          <option key={b.value} value={b.value}>
+            {b.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const siteOwnerBlock = realBackend && (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+      <div className="space-y-2">
+        <Label htmlFor="owner">da.live owner</Label>
+        <Input id="owner" value={owner} onChange={(e) => setOwner(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="site">da.live site</Label>
+        <Input id="site" value={site} onChange={(e) => setSite(e.target.value)} required />
+      </div>
+      {backend === "opencode" && (
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="model">Kimi model</Label>
+          <select id="model" className={selectClass} value={model} onChange={(e) => setModel(e.target.value)}>
+            {KIMI_MODELS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <p className="text-sm text-muted-foreground md:col-span-2">
+        Real pages will be authored and preview-published under this site.
+      </p>
+    </div>
+  );
 
   return (
     <Card>
@@ -160,6 +242,64 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
               />
               <p className="text-sm text-muted-foreground">Each URL is scored across structure, accessibility, content, and visual.</p>
             </div>
+          ) : migrateLane ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="source">Source URLs (one per line)</Label>
+                <textarea
+                  id="source"
+                  className={`${selectClass} min-h-20 py-2`}
+                  placeholder={
+                    "https://legacy-site.example.com/articles/page-one.html\nhttps://legacy-site.example.com/articles/page-two.html"
+                  }
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  required
+                />
+                <p className="text-sm text-muted-foreground">
+                  Real legacy pages (or PDFs) to migrate into da.live — one branch per URL, no synthetic source. Paste a whole
+                  site&apos;s article URLs to migrate the site.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sourcetype">Source type</Label>
+                  <select id="sourcetype" className={selectClass} value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
+                    <option value="webpage">webpage</option>
+                    <option value="pdf">pdf</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="slug">Page slug (optional, single URL only)</Label>
+                  <Input id="slug" placeholder="derived from each source URL" value={pageSlug} onChange={(e) => setPageSlug(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {backendSelect}
+                <div className="space-y-2">
+                  <Label htmlFor="folder">Target folder (optional)</Label>
+                  <Input
+                    id="folder"
+                    placeholder="site profile default — e.g. travel-journal-2026-08-02"
+                    value={folder}
+                    onChange={(e) => setFolder(e.target.value)}
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={evalAfter}
+                  onChange={(e) => setEvalAfter(e.target.checked)}
+                />
+                <span>
+                  Evaluate fidelity vs the source after migrating — route:{" "}
+                  <span className="font-mono">{evalAfter ? "migrate → evaluate" : "migrate only"}</span>
+                </span>
+              </label>
+              {siteOwnerBlock}
+            </>
           ) : (
             <>
               <div className="space-y-2">
@@ -174,16 +314,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
                 <p className="text-sm text-muted-foreground">content-gen synthesizes a legacy source page about this topic.</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="backend">Migration backend</Label>
-                  <select id="backend" className={selectClass} value={backend} onChange={(e) => setBackend(e.target.value)}>
-                    {BACKENDS.map((b) => (
-                      <option key={b.value} value={b.value}>
-                        {b.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {backendSelect}
                 <div className="space-y-2">
                   <Label htmlFor="style">Legacy source style</Label>
                   <select id="style" className={selectClass} value={legacyStyle} onChange={(e) => setLegacyStyle(e.target.value)}>
@@ -193,21 +324,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
                   </select>
                 </div>
               </div>
-              {realBackend && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <div className="space-y-2">
-                    <Label htmlFor="owner">da.live owner</Label>
-                    <Input id="owner" value={owner} onChange={(e) => setOwner(e.target.value)} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="site">da.live site</Label>
-                    <Input id="site" value={site} onChange={(e) => setSite(e.target.value)} required />
-                  </div>
-                  <p className="text-sm text-muted-foreground md:col-span-2">
-                    Real pages will be authored and preview-published under this site.
-                  </p>
-                </div>
-              )}
+              {siteOwnerBlock}
             </>
           )}
 

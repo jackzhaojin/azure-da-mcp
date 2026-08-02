@@ -310,6 +310,10 @@ export function RunDetail({ id }: { id: string }) {
           topic: c.topic,
           targets: c.targets,
           sourceLocation: c.sourceLocation,
+          sources: c.sources,
+          sourceType: c.sourceType,
+          pageSlug: c.pageSlug,
+          folder: c.folder,
           fanOut: c.fanOut,
           legacyStyle: c.legacyStyle,
           backend: c.backend,
@@ -362,7 +366,9 @@ export function RunDetail({ id }: { id: string }) {
         </Link>
         <div className="flex justify-between items-center mt-2">
           <div>
-            <h1 className="text-3xl font-bold">{run.config.topic ?? run.config.targets?.[0] ?? run.kind}</h1>
+            <h1 className="text-3xl font-bold">
+              {run.config.topic ?? run.config.targets?.[0] ?? run.config.sources?.[0] ?? run.config.sourceLocation ?? run.kind}
+            </h1>
             <p className="text-muted-foreground mt-2 font-mono text-sm">
               {stats?.route ?? run.config.goal ?? run.kind} · run {run.id.slice(0, 8)} · started {fmtLocal(run.createdAt)}
               {running ? ` · ${elapsed}` : ` · finished ${fmtLocal(run.completedAt)}`}

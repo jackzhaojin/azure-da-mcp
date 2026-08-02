@@ -27,10 +27,14 @@ export interface CoordinateRunPayload {
   legacyStyle?: "clean" | "dated" | "messy";
   // migrate route
   sourceLocation?: string;
+  /** Migrate route: MULTIPLE real pages — one branch per URL (× fanOut). Beats sourceLocation. */
+  sources?: string[];
   sourceType?: "pdf" | "webpage" | "none";
   site?: string;
   owner?: string;
   pageSlug?: string;
+  /** Target folder override (verbatim, clean URL) — beats the site profile's contentFolder. */
+  folder?: string;
   backend?: string;
   /** opencode only: model for this run's migrations (e.g. "k3"); passed through to migration.run. */
   model?: string;
@@ -81,7 +85,7 @@ export function resolveRoute(p: CoordinateRunPayload): Stage[] {
       return ["generate", "migrate", "evaluate"];
     case "auto":
       if (p.alreadyMigratedUrl) return ["evaluate"]; // already migrated → just score it
-      if (p.sourceLocation) return ["migrate", "evaluate"]; // source exists → skip generate
+      if (p.sourceLocation || p.sources?.length) return ["migrate", "evaluate"]; // source exists → skip generate
       if (p.topic) return ["generate", "migrate", "evaluate"]; // net-new → the full loop
       throw new Error("coordinate.run.v1: goal 'auto' needs alreadyMigratedUrl, sourceLocation, or topic to infer a route");
     default:
@@ -101,8 +105,13 @@ export function validateForRoute(p: CoordinateRunPayload, route: Stage[], opts: 
   if (route.includes("generate") && !p.topic && !opts.skipTopic) {
     throw new Error("coordinate.run.v1: generative routes need 'topic'");
   }
-  if (route.includes("migrate") && !route.includes("generate") && !p.sourceLocation) {
-    throw new Error("coordinate.run.v1: migrate route needs 'sourceLocation' (or a generate stage before it)");
+  if (route.includes("migrate") && !route.includes("generate")) {
+    if (!p.sourceLocation && !p.sources?.length) {
+      throw new Error("coordinate.run.v1: migrate route needs 'sourceLocation' or 'sources' (or a generate stage before it)");
+    }
+    for (const s of p.sources ?? []) {
+      if (!/^https?:\/\//.test(s)) throw new Error(`coordinate.run.v1: invalid source '${s}'`);
+    }
   }
   if (p.fanOut !== undefined && (!Number.isInteger(p.fanOut) || p.fanOut < 1)) {
     throw new Error("coordinate.run.v1: 'fanOut' must be a positive integer");
@@ -111,6 +120,18 @@ export function validateForRoute(p: CoordinateRunPayload, route: Stage[], opts: 
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "page";
+}
+
+/** Slug from a source URL's last path segment (extension dropped) — a real-source
+ *  migrate route has no topic, and slugifying the whole URL makes ugly slugs. */
+function slugFromUrl(u: string): string | undefined {
+  try {
+    const last = new URL(u).pathname.replace(/\/+$/, "").split("/").pop() ?? "";
+    const base = last.replace(/\.[a-z0-9]+$/i, "");
+    return base ? slugify(base) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function mean(xs: number[]): number {
@@ -280,16 +301,17 @@ async function runPipelineBranch(opts: {
   contextId: string;
   runId: string;
   target?: string; // evaluate-only routes: the page to score
+  source?: string; // multi-source migrate routes: this branch's own source URL
   onStage: (note: string) => void;
   /** Live snapshot of this branch after every stage transition (for runs.live). */
   onUpdate?: (snapshot: BranchResult) => void;
 }): Promise<BranchResult> {
-  const { branch, route, payload, contextId, runId, target, onStage, onUpdate } = opts;
+  const { branch, route, payload, contextId, runId, target, source, onStage, onUpdate } = opts;
   // The target site's profile: editorial voice for content-gen + folder/reference
   // corpus/prompt-pattern for migration. Empty (generic) for unprofiled sites.
   const site = getSiteProfile(payload.site);
   const result: BranchResult = { branch, state: "running", stages: [], target };
-  let sourceUrl = payload.sourceLocation;
+  let sourceUrl = source ?? payload.sourceLocation;
   let targetUrl = target ?? payload.alreadyMigratedUrl;
   onUpdate?.({ ...result, stages: [...result.stages] });
 
@@ -326,8 +348,19 @@ async function runPipelineBranch(opts: {
     } else if (stage === "migrate") {
       agent = "migration";
       // Clean URL for a single page (the daily draft); branch suffix only when fanning out.
-      const slugBase = payload.pageSlug ?? slugify(payload.topic ?? sourceUrl ?? "page");
+      // A multi-source branch derives its slug from ITS OWN url — an explicit
+      // pageSlug would collide across sources, so it only applies single-source.
+      const slugBase = source
+        ? (slugFromUrl(source) ?? `page-${branch}`)
+        : (payload.pageSlug ??
+          (payload.topic ? slugify(payload.topic) : undefined) ??
+          (sourceUrl ? slugFromUrl(sourceUrl) : undefined) ??
+          "page");
       const pageSlug = (payload.fanOut ?? 1) > 1 ? `${slugBase}-b${branch}` : slugBase;
+      // Explicit per-run folder beats the site profile's contentFolder (both clean,
+      // kept out of the reference corpus); unprofiled sites with no override keep
+      // the run-isolated batch folder.
+      const folder = payload.folder?.trim() || site.contentFolder;
       call = await callAgent(
         MIGRATION_AGENT_URL,
         {
@@ -336,9 +369,7 @@ async function runPipelineBranch(opts: {
           site: payload.site ?? "demo-site",
           owner: payload.owner ?? "jackzhaojin",
           pageSlug,
-          // Generated drafts → the site's dedicated content folder (clean, kept out
-          // of the reference corpus); unprofiled sites keep the run-isolated batch folder.
-          ...(site.contentFolder ? { folder: site.contentFolder } : { folderPostfix: runId.slice(0, 8) }),
+          ...(folder ? { folder } : { folderPostfix: runId.slice(0, 8) }),
           ...(site.blockLibraryUrl ? { blockLibraryUrl: site.blockLibraryUrl } : {}),
           ...(site.neighborPageUrl ? { neighborPageUrl: site.neighborPageUrl } : {}),
           ...(site.pattern ? { pattern: site.pattern } : {}),
@@ -364,7 +395,7 @@ async function runPipelineBranch(opts: {
         EVAL_AGENT_URL,
         {
           targetUrl,
-          sourceType: sourceUrl ? "webpage" : (payload.sourceType ?? "none"),
+          sourceType: sourceUrl ? (payload.sourceType === "pdf" ? "pdf" : "webpage") : (payload.sourceType ?? "none"),
           ...(sourceUrl ? { sourceLocation: sourceUrl } : {}),
           mode: evalMode,
           runId,
@@ -507,12 +538,23 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
           .catch(() => {});
       };
 
-      // evaluate-only fans out per target; pipeline routes fan out per fanOut
+      // evaluate-only fans out per target; multi-source migrate routes fan out per
+      // source URL ("migrate the website"); other pipeline routes fan out per fanOut
       const evaluateOnly = route.length === 1 && route[0] === "evaluate";
-      const targets = evaluateOnly ? (payload.targets ?? [payload.alreadyMigratedUrl!]) : [undefined];
-      const branches: Array<{ branch: number; target?: string }> = [];
+      const multiSource = route.includes("migrate") && !route.includes("generate") && (payload.sources?.length ?? 0) > 0;
+      const branches: Array<{ branch: number; target?: string; source?: string }> = [];
       let n = 0;
-      for (const target of targets) for (let i = 0; i < fanOut; i++) branches.push({ branch: ++n, target });
+      if (evaluateOnly) {
+        for (const target of payload.targets ?? [payload.alreadyMigratedUrl!]) {
+          for (let i = 0; i < fanOut; i++) branches.push({ branch: ++n, target });
+        }
+      } else if (multiSource) {
+        for (const source of payload.sources!) {
+          for (let i = 0; i < fanOut; i++) branches.push({ branch: ++n, source });
+        }
+      } else {
+        for (let i = 0; i < fanOut; i++) branches.push({ branch: ++n });
+      }
 
       log.info("coordinate.run started", { a2a_task_id: taskId, context_id: contextId, run_id: runId, route: route.join("→"), branches: branches.length });
       bus.publish(status("working", `run ${runId}: route ${route.join("→")} × ${branches.length} branches`));
@@ -558,6 +600,7 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
                   contextId,
                   runId,
                   target: b.target,
+                  source: b.source,
                   onStage: (note) => {
                     bus.publish(status("working", note));
                     persistNote(note);

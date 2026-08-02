@@ -44,6 +44,15 @@
     "sourceLocation": {
       "type": "string"
     },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "description": "Migrate route: MULTIPLE real pages to migrate — one branch per URL (× fanOut), each slug derived from its own URL. Beats sourceLocation. 'Migrate the website' = the site's page URLs here."
+    },
     "labels": {
       "type": "object",
       "additionalProperties": {
@@ -81,7 +90,11 @@
     },
     "pageSlug": {
       "type": "string",
-      "description": "Migration slug base; '-b{branch}' appended per branch"
+      "description": "Migration slug base; '-b{branch}' appended per branch. Defaults: slugified topic, else the source URL's last path segment."
+    },
+    "folder": {
+      "type": "string",
+      "description": "Migration target folder override (verbatim, clean URL) — beats the site profile's contentFolder (e.g. ai-articles). Passed through to migration.run as 'folder'."
     },
     "backend": {
       "type": "string",

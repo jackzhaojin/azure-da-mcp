@@ -78,7 +78,7 @@ function RunningCard({ run }: { run: RunView }) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">
             <Link href={`/runs/${run.id}`} className="hover:underline">
-              {run.config.topic ?? run.config.targets?.[0] ?? run.kind}
+              {run.config.topic ?? run.config.targets?.[0] ?? run.config.sources?.[0] ?? run.config.sourceLocation ?? run.kind}
             </Link>
           </CardTitle>
           <StatusBadge status="running" />
@@ -204,7 +204,7 @@ export function Dashboard() {
                       <TableCell className="font-mono text-xs whitespace-nowrap">{fmtLocal(r.createdAt)}</TableCell>
                       <TableCell className="max-w-64 truncate">
                         <Link href={`/runs/${r.id}`} className="hover:underline font-medium">
-                          {r.config.topic ?? r.config.targets?.[0] ?? r.kind}
+                          {r.config.topic ?? r.config.targets?.[0] ?? r.config.sources?.[0] ?? r.config.sourceLocation ?? r.kind}
                         </Link>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{r.stats?.route ?? r.config.goal ?? r.kind}</TableCell>

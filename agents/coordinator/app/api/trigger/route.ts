@@ -16,6 +16,10 @@ interface TriggerBody {
   topic?: string;
   targets?: string[];
   sourceLocation?: string;
+  sources?: string[];
+  sourceType?: string;
+  pageSlug?: string;
+  folder?: string;
   fanOut?: number;
   legacyStyle?: string;
   backend?: string;
@@ -33,6 +37,11 @@ export async function POST(req: Request) {
   const data: Record<string, unknown> = { goal, fanOut: Math.max(1, Number(body.fanOut ?? 1) || 1) };
   if (body.topic?.trim()) data.topic = body.topic.trim();
   if (body.sourceLocation?.trim()) data.sourceLocation = body.sourceLocation.trim();
+  const sources = (body.sources ?? []).map((s) => s.trim()).filter(Boolean);
+  if (sources.length) data.sources = sources;
+  if (body.sourceType?.trim()) data.sourceType = body.sourceType.trim();
+  if (body.pageSlug?.trim()) data.pageSlug = body.pageSlug.trim();
+  if (body.folder?.trim()) data.folder = body.folder.trim();
   const targets = (body.targets ?? []).map((t) => t.trim()).filter(Boolean);
   if (targets.length) data.targets = targets;
   if (body.legacyStyle) data.legacyStyle = body.legacyStyle;

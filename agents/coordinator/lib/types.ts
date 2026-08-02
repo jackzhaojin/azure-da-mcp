@@ -65,6 +65,11 @@ export interface RunView {
     targetUrl?: string;
     sourceType?: "none" | "webpage" | "pdf";
     sourceLocation?: string;
+    /** Multi-source migrate runs: one branch per URL. */
+    sources?: string[];
+    /** Migration target folder override (beats the site profile's contentFolder). */
+    folder?: string;
+    pageSlug?: string;
     dimensions?: string[];
     title?: string;
     backend?: string;

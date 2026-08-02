@@ -15,7 +15,7 @@ The **v2.0** workstream: a decoupled mesh of independently-addressable AI agents
 | `eval-service/` | 4001 | Eval agent — engine **copied** from the frozen app; `eval.run` (4 dims) | [✓](./eval-service/CLAUDE.md) |
 | `content-gen/` | 4002 | Briefs + synthetic legacy source pages | [✓](./content-gen/CLAUDE.md) |
 | `migration-agent/` | 4003 | One Agent Card, backends `dryrun`/`makecom`/`sdk`; owns the Make.com callback | [✓](./migration-agent/CLAUDE.md) |
-| `coordinator/` | 4004 | A2A client+server: routing, fan-out, variance; CLI; **+ its own Next.js dashboard on :4004/** — the sole UI: single/bulk/direct-eval lanes, sample downloads, JSON export, live activity, branch grid | [✓](./coordinator/CLAUDE.md) |
+| `coordinator/` | 4004 | A2A client+server: routing, fan-out, variance; CLI; **+ its own Next.js dashboard on :4004/** — the sole UI: single/bulk/direct-eval + migrate-a-real-page lanes (multi-URL → one branch per URL, folder override, per-run Kimi model), sample downloads, JSON export, live activity, branch grid | [✓](./coordinator/CLAUDE.md) |
 | `store-mcp/` | stdio | MCP server — conversational read access to the store | [✓](./store-mcp/CLAUDE.md) |
 | `e2e/` | — | Real-server tests (fast/live/soak) | [✓](./e2e/CLAUDE.md) |
 | `docs/` | — | `r2-setup.md` · `tunnel-setup.md` · `makecom-scenario-checklist.md` | — |
