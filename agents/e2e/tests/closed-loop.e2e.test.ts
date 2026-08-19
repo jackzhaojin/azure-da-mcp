@@ -182,6 +182,30 @@ describe("closed loop: routed pipelines via coordinate.run", () => {
     expect(stats!.branchResults[0].stages.map((s) => s.stage)).toEqual(["migrate"]);
   }, 60_000);
 
+  it("guidance threads through: site-profile default + per-run principles reach migration.run", async () => {
+    const { contextId, finalState } = await coordinate(coordinator.url, {
+      goal: "migrate",
+      sourceLocation: "https://example.com/low-res-legacy-page",
+      site: "adapt-to-2026-demo", // profiled site → standing migrationGuidance applies
+      backend: "dryrun",
+      guidance: "Always render headings in Title Case (e2e custom principle).",
+    });
+    expect(finalState).toBe("completed");
+
+    // the merged guidance lands in the migration.run payload (persisted task
+    // history): the profile's standing image-quality principle FIRST, then the
+    // operator's per-run text — both apply, in that order.
+    const db = new Database(migration.dbPath, { readonly: true });
+    const rows = db.prepare("select payload from tasks where context_id = ?").all(contextId) as Array<{ payload: string }>;
+    db.close();
+    expect(rows.length).toBe(1);
+    const raw = rows[0].payload;
+    const profileIdx = raw.indexOf("Image quality:");
+    const customIdx = raw.indexOf("Title Case (e2e custom principle)");
+    expect(profileIdx).toBeGreaterThan(-1);
+    expect(customIdx).toBeGreaterThan(profileIdx);
+  }, 60_000);
+
   it("auto routing follows the state table deterministically", async () => {
     // already migrated → evaluate only
     const evalOnly = await coordinate(coordinator.url, {

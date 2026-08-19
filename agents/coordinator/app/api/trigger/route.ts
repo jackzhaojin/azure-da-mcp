@@ -24,6 +24,7 @@ interface TriggerBody {
   legacyStyle?: string;
   backend?: string;
   model?: string;
+  guidance?: string;
   site?: string;
   owner?: string;
   batchId?: string;
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
   if (body.legacyStyle) data.legacyStyle = body.legacyStyle;
   if (body.backend) data.backend = body.backend;
   if (body.model?.trim()) data.model = body.model.trim();
+  if (body.guidance?.trim()) data.guidance = body.guidance.trim();
   if (body.site?.trim()) data.site = body.site.trim();
   if (body.owner?.trim()) data.owner = body.owner.trim();
   if (body.batchId?.trim()) data.batchId = body.batchId.trim();

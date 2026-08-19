@@ -58,6 +58,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
   const [evalAfter, setEvalAfter] = useState(true);
   const [backend, setBackend] = useState("dryrun");
   const [model, setModel] = useState("");
+  const [guidance, setGuidance] = useState("");
   const [legacyStyle, setLegacyStyle] = useState("dated");
   const [fanOut, setFanOut] = useState(1);
   const [site, setSite] = useState("adapt-to-2026-demo");
@@ -104,6 +105,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
         }
       }
       if (realBackend && backend === "opencode" && model) body.model = model;
+      if (!evaluateOnly && guidance.trim()) body.guidance = guidance.trim();
       const res = await fetch("/api/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,6 +165,26 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
           </option>
         ))}
       </select>
+    </div>
+  );
+
+  // Free-text steering for the migration prompt — merged after the site
+  // profile's standing principles (e.g. the image-quality default). Deliberately
+  // NOT cleared on submit: principles are standing, like folder/backend.
+  const guidanceBlock = (
+    <div className="space-y-2">
+      <Label htmlFor="guidance">Guiding principles (optional)</Label>
+      <textarea
+        id="guidance"
+        className={`${selectClass} min-h-16 py-2`}
+        placeholder={"e.g. If an image is low-res, look for a higher-res variant of the same image; record a gap if none exists."}
+        value={guidance}
+        onChange={(e) => setGuidance(e.target.value)}
+      />
+      <p className="text-sm text-muted-foreground">
+        Extra standing instructions for the migration agent, merged after the site profile&apos;s defaults. Principles it
+        can&apos;t satisfy are recorded as gaps, not failures.
+      </p>
     </div>
   );
 
@@ -298,6 +320,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
                   <span className="font-mono">{evalAfter ? "migrate → evaluate" : "migrate only"}</span>
                 </span>
               </label>
+              {guidanceBlock}
               {siteOwnerBlock}
             </>
           ) : (
@@ -324,6 +347,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
                   </select>
                 </div>
               </div>
+              {guidanceBlock}
               {siteOwnerBlock}
             </>
           )}

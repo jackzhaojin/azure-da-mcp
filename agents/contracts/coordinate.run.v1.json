@@ -104,6 +104,10 @@
       "type": "string",
       "description": "opencode backend only: model for this run's migrations, passed through to migration.run (e.g. 'kimi-for-coding' = K2.7 Coding, 'k3'). Omit to use the migration agent's KIMI_MODEL_ID default."
     },
+    "guidance": {
+      "type": "string",
+      "description": "Operator guiding principles for this run's migrations (free text), passed through to migration.run as 'guidance'. Merged AFTER the target site profile's standing migrationGuidance — both apply. Example: 'If an image is low-res, hunt for a higher-res variant; record a gap if none exists.'"
+    },
     "requestedBy": {
       "type": "string",
       "description": "SSO identity (email) of the human who triggered the run — set server-side by the dashboard from the Google session, stored as runs.user_email. Absent for CLI / edge-shim / mesh triggers (system runs)."

@@ -28,6 +28,12 @@ export interface SiteProfile {
   neighborPageUrl?: string;
   /** Migration prompt variant. */
   pattern?: "article" | "generic";
+  /**
+   * Standing guiding principles for every migration to this site — appended to
+   * the migration prompt. A per-run `payload.guidance` is merged AFTER this
+   * (both apply); principles the agent can't satisfy land in the report's gaps.
+   */
+  migrationGuidance?: string;
 }
 
 const AEM_BASE = "https://main--adapt-to-2026-demo--jackzhaojin.aem.page";
@@ -46,6 +52,12 @@ const PROFILES: Record<string, SiteProfile> = {
     blockLibraryUrl: `${AEM_BASE}/ai-content/blocks/`,
     neighborPageUrl: `${AEM_BASE}/ai-content/stories/chasing-sunsets`,
     pattern: "article",
+    // Issue #13: low-res source images were carried over as-is (e.g. a 600×400
+    // hero). EDS optimizes DOWN, never up — the uploaded original is the ceiling.
+    migrationGuidance:
+      "Image quality: before using an image (especially the hero), check its actual resolution ONCE (Playwright naturalWidth, or the image URL). " +
+      "If the best copy is narrower than ~1200px, make ONE quick attempt to find a higher-res variant of the SAME image (srcset, og:image meta, a thumbnail's full-size link target). " +
+      'Use the best you find — never drop the image. If only a low-res copy exists, keep it and record the resolution in the final report\'s gaps (e.g. "hero image only 600×400 — needs a higher-res replacement").',
   },
 };
 

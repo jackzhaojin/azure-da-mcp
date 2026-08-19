@@ -320,6 +320,7 @@ export function RunDetail({ id }: { id: string }) {
           // Without this, "Run again" on a k3 run would silently fall back to
           // the container default — the comparison you thought you repeated.
           model: c.model,
+          guidance: c.guidance,
           site: c.site,
           owner: c.owner,
         }),

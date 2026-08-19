@@ -38,6 +38,8 @@ export interface CoordinateRunPayload {
   backend?: string;
   /** opencode only: model for this run's migrations (e.g. "k3"); passed through to migration.run. */
   model?: string;
+  /** Operator guiding principles for the migration prompt (free text); merged AFTER the site profile's standing migrationGuidance. */
+  guidance?: string;
   fanOut?: number;
   labels?: Record<string, string>;
   /** Groups the N runs fired by one bulk submission → runs.batch_id. */
@@ -361,6 +363,10 @@ async function runPipelineBranch(opts: {
       // kept out of the reference corpus); unprofiled sites with no override keep
       // the run-isolated batch folder.
       const folder = payload.folder?.trim() || site.contentFolder;
+      // Guiding principles: the site profile's standing principles first (the
+      // default, e.g. the image-quality rule), then the operator's per-run
+      // guidance — both apply, neither replaces the other.
+      const guidance = [site.migrationGuidance, payload.guidance?.trim()].filter(Boolean).join("\n");
       call = await callAgent(
         MIGRATION_AGENT_URL,
         {
@@ -375,6 +381,7 @@ async function runPipelineBranch(opts: {
           ...(site.pattern ? { pattern: site.pattern } : {}),
           ...(payload.backend ? { backend: payload.backend } : {}),
           ...(payload.model ? { model: payload.model } : {}),
+          ...(guidance ? { guidance } : {}),
           runId,
         },
         contextId,

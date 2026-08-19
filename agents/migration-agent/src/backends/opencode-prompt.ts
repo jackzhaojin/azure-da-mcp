@@ -58,8 +58,14 @@ This page is a JOURNAL ARTICLE — author it to match the reference page's edito
 - Use a real, prominent header image (the source provides one) — the hero image is the whole vibe.
 `
     : ""
-}
-
+}${
+    payload.guidance
+      ? `
+GUIDING PRINCIPLES (operator-supplied — apply them within the steps above without extra exploration; a principle you cannot satisfy is NOT a failure: proceed anyway and record it in the final report's "gaps"):
+${payload.guidance}
+`
+      : ""
+  }
 When finished, output your normal report, then end your message with EXACTLY this machine-readable block and nothing after it:
 
 FINAL_REPORT:

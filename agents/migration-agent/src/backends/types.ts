@@ -21,6 +21,13 @@ export interface MigrationRunPayload {
    * Must be declared in opencode's `provider.kimi-code.models` map.
    */
   model?: string;
+  /**
+   * Operator guiding principles (free text) appended to the migration prompt —
+   * e.g. "if an image is low-res, hunt for a higher-res variant; record a gap
+   * if none exists". Followed within the run's step budget; unsatisfiable
+   * principles land in the report's gaps. opencode backend today; others ignore it.
+   */
+  guidance?: string;
   maxRefinementIterations?: number;
   runId?: string;
   labels?: Record<string, string>;
