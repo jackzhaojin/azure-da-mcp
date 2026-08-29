@@ -19,7 +19,7 @@ export interface EvalRunPayload {
   sourceLocation?: string;
   dimensions?: string[];
   /** 'fidelity' (default) scores vs the source; 'quality' scores the page on its own merits (AI-generated content). */
-  mode?: "fidelity" | "quality";
+  mode?: "fidelity" | "quality" | "redesign";
   runId?: string;
   labels?: Record<string, string>;
 }

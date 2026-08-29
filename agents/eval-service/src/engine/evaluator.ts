@@ -388,6 +388,8 @@ async function runAgent(
       case 'visual': {
         // QUALITY MODE: ignore the synthetic source — score intrinsic design quality
         // (the visual agent's no-source path), not similarity to a plain source page.
+        // REDESIGN MODE: keep the source (both screenshots reach the agentic judge)
+        // but score content carryover + new-template execution, never similarity.
         // FIDELITY MODE (default): compare against the source screenshot.
         const visualSource =
           request.mode === 'quality'
@@ -397,15 +399,19 @@ async function runAgent(
                 pdfPath: request.pdfPath, // PDF source for comparison
               };
         const deterministic = await analyzeVisual(request.migratedUrl, visualSource);
+        if (request.mode === 'redesign') deterministic.redesign = true;
 
         // Try agentic if OAuth token available
         try {
           // Visual agent's agentic function only returns AgenticAnalysisResult, not full VisualAnalysisResult
           const agenticResult = await withBrowserPermit(() => analyzeVisualWithClaude(deterministic));
 
-          // Calculate final score using the helper function
+          // Calculate final score using the helper function. In redesign mode the
+          // deterministic score IS the pixel similarity — expected to be low for an
+          // intentional redesign — so it must not be blended in: agentic score only.
           const { calculateFinalScore } = await import('@/lib/agents/visual/agentic');
-          const finalScore = calculateFinalScore(agenticResult.score, deterministic.score);
+          const finalScore =
+            request.mode === 'redesign' ? agenticResult.score : calculateFinalScore(agenticResult.score, deterministic.score);
 
           // Combine findings and strengths
           const combinedFindings = [
@@ -448,6 +454,14 @@ async function runAgent(
             },
           };
         } catch (agenticError) {
+          // Redesign mode has no honest deterministic fallback — the pixel score
+          // answers the wrong question (similarity) and would wrongly tank an
+          // intentional redesign. Propagate so the dimension is excluded and
+          // recorded as failed (same honesty rule as the content dimension).
+          if (request.mode === 'redesign') {
+            logger.error('Visual redesign-mode agentic pass failed — no deterministic fallback exists', agenticError as Error, { dimension });
+            throw agenticError;
+          }
           const { mode, modeReason, notice } = describeAgenticFailure('visual', agenticError);
           result = {
             dimension: 'visual',

@@ -396,8 +396,11 @@ async function runPipelineBranch(opts: {
       agent = "eval";
       // A route that GENERATED its source authored a throwaway synthetic page, so
       // score the migrated page on its own merits ('quality'), not fidelity to that
-      // source. A migrate/evaluate route over a REAL source stays 'fidelity'.
-      const evalMode = route.includes("generate") ? "quality" : "fidelity";
+      // source. A route that MIGRATED a real source is a replatform onto the new
+      // design system — 'redesign' keeps content source-aware but stops punishing
+      // the intentional new template (decided 2026-08-29). Evaluate-only routes
+      // (score an existing URL pair) stay strict 'fidelity'.
+      const evalMode = route.includes("generate") ? "quality" : route.includes("migrate") ? "redesign" : "fidelity";
       call = await callAgent(
         EVAL_AGENT_URL,
         {

@@ -202,6 +202,14 @@ async function main(): Promise<void> {
     return m;
   });
 
+  // 'redesign' (default): replatform-aware scoring — content stays source-aware,
+  // visual judges carryover + new-template execution instead of like-for-like.
+  // Pass --eval-mode fidelity to reproduce the strict comparison behavior.
+  const evalMode = arg("eval-mode") ?? "redesign";
+  // --eval-only: reuse each model's previously-migrated page (from this folder's
+  // results.json) and just re-score it — free for quota-limited models.
+  const evalOnly = process.argv.includes("--eval-only");
+
   const scriptsDir = dirname(fileURLToPath(import.meta.url));
   const outDir = arg("out") ?? join(scriptsDir, "..", "..", "output", "model-matrix", folder);
   mkdirSync(outDir, { recursive: true });
@@ -223,7 +231,10 @@ async function main(): Promise<void> {
   const oauth = process.env.CLAUDE_CODE_OAUTH_TOKEN ?? "";
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!oauth && !apiKey) throw new Error("CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY) required — source agents/.env");
-  const needsKimi = lineup.some((m) => m.backend === "opencode");
+  // Eval-only reruns make no Kimi calls (the judge is Claude), so the key is
+  // only needed when a Kimi model will actually migrate. A missing prior row
+  // under --eval-only falls back to migration and fails with a clear task error.
+  const needsKimi = lineup.some((m) => m.backend === "opencode") && !evalOnly;
   if (needsKimi && !process.env.MOONSHOT_API_KEY) throw new Error("MOONSHOT_API_KEY required for Kimi models");
 
   const aiEnv: Record<string, string> = {};
@@ -241,12 +252,16 @@ async function main(): Promise<void> {
   // Resume-friendly: rerunning a subset into the same folder keeps prior rows
   // (e.g. quota-limited Kimi runs) and replaces only the models selected now.
   const records: RunRecord[] = [];
+  const priorByKey = new Map<string, RunRecord>();
   const resultsPath = join(outDir, "results.json");
   if (existsSync(resultsPath)) {
     try {
       const prior = JSON.parse(readFileSync(resultsPath, "utf8")) as { records?: RunRecord[] };
       const rerun = new Set(lineup.map((m) => m.key));
-      for (const r of prior.records ?? []) if (!rerun.has(r.key)) records.push(r);
+      for (const r of prior.records ?? []) {
+        priorByKey.set(r.key, r);
+        if (!rerun.has(r.key)) records.push(r);
+      }
       if (records.length) console.log(`kept ${records.length} prior row(s): ${records.map((r) => r.key).join(", ")}\n`);
     } catch {
       /* unreadable prior results — start fresh */
@@ -258,8 +273,11 @@ async function main(): Promise<void> {
   };
   const persist = () => {
     records.sort((a, b) => order(a) - order(b));
-    writeFileSync(resultsPath, JSON.stringify({ source, site, owner, folder, generatedAt: new Date().toISOString(), records }, null, 2));
-    writeFileSync(join(outDir, "results.md"), renderMarkdown(source, folder, records));
+    writeFileSync(
+      resultsPath,
+      JSON.stringify({ source, site, owner, folder, evalMode, generatedAt: new Date().toISOString(), records }, null, 2)
+    );
+    writeFileSync(join(outDir, "results.md"), renderMarkdown(source, folder, records, evalMode));
   };
 
   try {
@@ -267,7 +285,26 @@ async function main(): Promise<void> {
       const pageSlug = `${arg("slug") ?? DEFAULTS.slugBase}-${m.key}`;
       console.log(`\n━━ ${m.label} (${m.backend}/${m.model}) → /${folder}/${pageSlug} ━━`);
 
-      const mig = await callAgent(
+      // Eval-only rerun: the page already exists from a prior migration — reuse
+      // that row's migration outcome and just re-score under the current eval mode.
+      const prior = evalOnly ? priorByKey.get(m.key) : undefined;
+      if (prior?.previewUrl && prior.migration.state === "completed") {
+        console.log(`  [${m.key}·migrate] eval-only: reusing ${prior.previewUrl}`);
+      }
+      const mig: CallResult = prior?.previewUrl && prior.migration.state === "completed"
+        ? {
+            state: prior.migration.state,
+            artifact: {
+              previewUrl: prior.previewUrl,
+              status: prior.migration.status,
+              confidence: prior.migration.confidence,
+              blocksUsed: prior.migration.blocksUsed,
+              gaps: prior.migration.gaps,
+            },
+            notes: [`eval-only: reusing page migrated earlier (${prior.previewUrl})`],
+            durationMs: prior.migration.durationMs,
+          }
+        : await callAgent(
         migration.url,
         {
           sourceType: "webpage",
@@ -336,7 +373,7 @@ async function main(): Promise<void> {
             targetUrl: rec.previewUrl,
             sourceType: "webpage",
             sourceLocation: source,
-            mode: "fidelity",
+            mode: evalMode,
             labels: { matrix: folder, model: m.key, backend: m.backend },
           },
           `${judgeLabel} scoring ${m.key}-page`
@@ -368,16 +405,16 @@ async function main(): Promise<void> {
     await cleanup();
   }
 
-  console.log(`\n${renderMarkdown(source, folder, records)}`);
+  console.log(`\n${renderMarkdown(source, folder, records, evalMode)}`);
   console.log(`results: ${join(outDir, "results.json")}`);
 }
 
-function renderMarkdown(source: string, folder: string, records: RunRecord[]): string {
+function renderMarkdown(source: string, folder: string, records: RunRecord[], evalMode: string): string {
   const fmtMin = (ms: number) => `${(ms / 60_000).toFixed(1)}m`;
   const judges = [...new Set(records.map((r) => r.eval?.judgeModel).filter(Boolean))] as string[];
   const judgeLine = judges.length
-    ? `Judge: **${judges.join(" / ")}** (agentic eval engine, fidelity mode) — constant across rows${judges.length > 1 ? " ⚠️ JUDGE VARIED — rows not comparable" : ""}.`
-    : "Judge: eval engine, fidelity mode.";
+    ? `Judge: **${judges.join(" / ")}** (agentic eval engine, ${evalMode} mode) — constant across rows${judges.length > 1 ? " ⚠️ JUDGE VARIED — rows not comparable" : ""}.`
+    : `Judge: eval engine, ${evalMode} mode.`;
   const lines = [
     `# Model matrix — ${folder}`,
     "",

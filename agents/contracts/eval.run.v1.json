@@ -26,9 +26,9 @@
       "description": "Subset of dimensions to run. Default: all. (v1 engine runs all regardless; honored from v2.)"
     },
     "mode": {
-      "enum": ["fidelity", "quality"],
+      "enum": ["fidelity", "quality", "redesign"],
       "default": "fidelity",
-      "description": "Scoring mode. 'fidelity' (default) scores the target against the source — content = source-vs-target diff, visual = screenshot comparison (use for real migrations). 'quality' scores the page ON ITS OWN MERITS — content = intrinsic editorial quality, visual = intrinsic design quality, source ignored (use for AI-generated content where the synthetic source is a throwaway and fidelity to it is not the goal)."
+      "description": "Scoring mode. 'fidelity' (default) scores the target against the source — content = source-vs-target diff, visual = screenshot comparison (use for like-for-like migrations). 'quality' scores the page ON ITS OWN MERITS — content = intrinsic editorial quality, visual = intrinsic design quality, source ignored (use for AI-generated content where the synthetic source is a throwaway). 'redesign' is for REPLATFORM migrations — content stays source-aware (factual carryover) but visual judges content carryover into the new template + new-design execution from BOTH screenshots, never penalizing intentional layout/branding/color/chrome changes (use when migrating to a new platform with a new design)."
     },
     "runId": {
       "type": "string",

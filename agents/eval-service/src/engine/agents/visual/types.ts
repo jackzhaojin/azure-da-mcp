@@ -88,6 +88,12 @@ export interface VisualMetrics {
   };
   /** Analysis mode */
   mode: 'deterministic';
+  /**
+   * Redesign-aware scoring (eval mode 'redesign'): the agentic pass still sees
+   * BOTH screenshots but judges content carryover + new-template execution
+   * instead of like-for-like fidelity; the pixel diff is context, not penalty.
+   */
+  redesign?: boolean;
   /** Execution metadata */
   metadata: {
     executedAt: string;

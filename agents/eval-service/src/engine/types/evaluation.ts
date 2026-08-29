@@ -77,8 +77,14 @@ export interface EvaluationRequest {
    *   "source" is a throwaway synthetic page and fidelity to it is NOT the goal) —
    *   content = intrinsic editorial quality, visual = intrinsic design quality. The
    *   source is ignored for content/visual; structure/accessibility are intrinsic anyway.
+   * - 'redesign': a REPLATFORM migration — the target intentionally adopts a new
+   *   design system, so like-for-like visual fidelity is the wrong signal. Content
+   *   stays source-aware (factual carryover, as in fidelity); visual judges content
+   *   carryover into the new template + new-design execution using BOTH screenshots,
+   *   never penalizing intentional layout/branding/chrome/color/typography changes.
+   *   The pixel diff is context only (catastrophic-failure detector), not a score input.
    */
-  mode?: 'fidelity' | 'quality';
+  mode?: 'fidelity' | 'quality' | 'redesign';
   /**
    * Subset of dimensions to run (eval.run.v1). Default/empty = all four. Omitted
    * dimensions are excluded from the score (weights renormalize, totalDimensions

@@ -19,9 +19,15 @@ one legacy source page
 
 What's held constant: the source page, the migration prompt (`buildMigrationPrompt`),
 the `da-live-author-playwright` skill, the two MCP servers (da.live CRUD/publish +
-Playwright validation), the eval engine and its judge model (`CLAUDE_MODEL`,
-fidelity mode). What varies: the model and its native agentic harness (Kimi runs in
+Playwright validation), the eval engine and its judge model (`CLAUDE_MODEL`) and
+mode. What varies: the model and its native agentic harness (Kimi runs in
 `opencode serve`, Claude runs in Claude Code via the Agent SDK).
+
+**Eval mode** (`--eval-mode`, default **`redesign`**): these migrations replatform
+the page onto a new design system, so the visual dimension judges *content
+carryover + new-template execution* from both screenshots instead of like-for-like
+similarity (which scored ~25 on every model purely for the intentional redesign);
+content stays source-aware. Pass `--eval-mode fidelity` for the strict comparison.
 
 ## Run it
 
@@ -34,7 +40,13 @@ npm run model-matrix                                   # all five models, sequen
 npm run model-matrix -- --models k3,sonnet             # a subset
 npm run model-matrix -- --models dryrun                # $0 pipeline smoke (simulated migration, real eval)
 npm run model-matrix -- --source https://… --folder my-benchmark --slug my-page
+npm run model-matrix -- --models k3,k27 --eval-only    # re-SCORE already-migrated pages (no migration
+                                                       #   calls — free for quota-limited models); falls
+                                                       #   back to a full run for rows with no prior page
 ```
+
+Reruns into the same `--folder` merge: rows for models not selected are kept, rows
+for selected models are replaced.
 
 The harness (`e2e/scripts/model-matrix.ts`) spawns its own migration + eval agents on
 isolated 14xxx ports (no dev servers needed), runs the models **sequentially**, and

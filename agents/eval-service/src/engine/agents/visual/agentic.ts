@@ -15,6 +15,7 @@ import type { VisualMetrics, AgenticAnalysisResult, VisualFinding } from './type
 import visualNoSourcePrompt from '@/lib/prompts/visual-no-source.json';
 import visualHtmlSourcePrompt from '@/lib/prompts/visual-html-source.json';
 import visualPdfSourcePrompt from '@/lib/prompts/visual-pdf-source.json';
+import visualRedesignSourcePrompt from '@/lib/prompts/visual-redesign-source.json';
 import { getMCPServersConfig } from '@/lib/mcp-config';
 
 const logger = createLogger('agentic');
@@ -34,9 +35,11 @@ const VISION_API_RECOMMENDED_MAX_DIMENSION = 1568; // pixels
 export function formatVisualForPrompt(metrics: VisualMetrics): { system: string; user: string } {
   const { url, screenshot, comparison, score, viewport, source } = metrics;
 
-  // Determine which prompt to use based on source type
+  // Determine which prompt to use based on source type. Redesign mode swaps
+  // the like-for-like comparison prompt for the redesign-aware one (content
+  // carryover + new-template execution) — same placeholders, same html path.
   const sourceType = source?.type || 'none';
-  const promptTemplate = sourceType === 'html' ? visualHtmlSourcePrompt :
+  const promptTemplate = sourceType === 'html' ? (metrics.redesign ? visualRedesignSourcePrompt : visualHtmlSourcePrompt) :
                         sourceType === 'pdf' ? visualPdfSourcePrompt :
                         visualNoSourcePrompt;
 
