@@ -4,6 +4,7 @@ The **v2.0** workstream: a decoupled mesh of independently-addressable AI agents
 
 - **Plan**: [`ai-docs/2026-06-05-a2a-agent-platform/`](../ai-docs/2026-06-05-a2a-agent-platform/) (decisions D1–D6)
 - **As-built report**: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../ai-docs/2026-06-08-a2a-platform-v2.0/) — read this first to understand what exists
+- **What shipped since** (v2.1 → current v2.8): per-minor-version history in the root [`CHANGELOG.md`](../CHANGELOG.md); the ai-docs index is [`ai-docs/README.md`](../ai-docs/README.md)
 - **Per-workspace context**: each subdir has its own `CLAUDE.md` (read the one for the dir you're in)
 
 ## Structure (npm workspaces)
@@ -34,7 +35,8 @@ npm run dev:migration             # :4003
 npm run dev:coordinator           # :4004 (A2A + the coordinator dashboard at http://localhost:4004/ — the sole UI)
 
 npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loop
-npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin  # Kimi K2.6 real migration (Wilderness Journal)
+npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin  # Kimi (K3 default) real migration (Wilderness Journal)
+npm run model-matrix              # benchmark N models (Kimi + Claude) over the same migration+eval — docs/model-matrix.md
 ```
 
 > **Content target + IA**: generated articles + the daily loop point at the **`adapt-to-2026-demo`** "Wilderness Journal" site (the old `da-live-postal-2025-07` site is retired). Per-site behavior — editorial lane, voice, target folder, reference corpus — lives in `coordinator/src/site-profiles.ts`. **IA split**: `…/ai-content/**` is the hand-built best-practice REFERENCE corpus the migrator learns from (block showcases + `/ai-content/stories/chasing-sunsets`); **AI-generated drafts land in `…/ai-articles/**`** so they never pollute the reference tree.

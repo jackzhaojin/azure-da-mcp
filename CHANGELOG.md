@@ -1,0 +1,115 @@
+# Changelog
+
+Meaningful history of this monorepo, grouped by **minor version** (patch releases are folded into their minor line). Versioning is lockstep SemVer, tagged from `main` (see [RELEASES.md](./RELEASES.md)).
+
+Two release lines:
+
+- **v2.x** = the `agents/` A2A platform (the active line, deployed to Cloudflare Workers + Containers on `v2.x+` tags)
+- **v1.x** = the legacy `content-authoring-eval` app (deprecated, frozen backup on Oracle; `v1.*` tags only)
+
+---
+
+## 2.8 (2026-08-29)
+
+Tags: `v2.8.0` - the model-assessment release, built for the adaptTo() talk's "Model and Prompt Comparison" slide.
+
+- **`sdk` migration backend is now real** (it had been an M3 stub): the Claude Agent SDK drives the same migration prompt, `da-live-author-playwright` skill, and da.live/Playwright MCP servers as the opencode/Kimi backend. Auth via subscription OAuth (`CLAUDE_CODE_OAUTH_TOKEN`), per-run Claude model via the payload (`claude-sonnet-5`, `claude-opus-5`, `claude-haiku-4-5`, or aliases).
+- **Model-matrix benchmark harness** (`npm run model-matrix` in `agents/`): runs the same migration + eval across N models sequentially, with resume/merge, `--eval-only` re-scoring, and per-row eval-report evidence. Docs in `agents/docs/model-matrix.md`.
+- **New eval mode `redesign`** for replatform migrations: content stays source-aware, but visual judges content carryover (45) + new-template execution (35) + editorial polish (20) from both screenshots, agentic-only, with no deterministic fallback. Fixes fidelity mode punishing the intentional redesign (visual ~25 on every model; K3's page went 26 to 88 with zero page changes). Coordinator route map: generate routes use `quality`, migrate routes use `redesign`, evaluate-only stays `fidelity`.
+- **Claude Agent SDK upgraded 0.1.77 to ^0.3.251** (all three workspaces; `@anthropic-ai/sdk` to ^0.93 for the peer dep). 0.1.77 emitted duplicate `tool_use` ids on parallel MCP calls, which silently degraded 3 of 4 agentic eval dimensions to deterministic fallback. All 4 dimensions are agentic again.
+- **Assessment shipped**: [ai-docs/2026-08-29-model-assessment/](./ai-docs/2026-08-29-model-assessment/) - one run per model, same judge (`claude-sonnet-4-6`), redesign mode. Result: **Kimi K3 88** > Claude Opus 5 86 > Kimi K2.7 85 > Claude Sonnet 5 84 = Claude Haiku 4.5 84. K3 confirmed as the migration default (it already was, since 2.5.2).
+
+## 2.7 (2026-08-18)
+
+Tags: `v2.7.0` - the guidance channel (issue #13).
+
+- **Migration guiding-principles channel**: per-run guidance (dashboard field) + per-site-profile principles merge into the migration prompt, so editorial rules travel with the run instead of living only in prompt code.
+- **Image-quality rule** ships as the default guiding principle for the `adapt-to-2026-demo` site profile.
+- `v2.6.1` is the pre-feature anchor tag for before/after comparison.
+
+## 2.6 (2026-08-02 to 2026-08-18)
+
+Tags: `v2.6.0`, `v2.6.1` - the migrate-a-real-page lane.
+
+- **"Migrate a real page" dashboard lane**: paste one or many source URLs (fan-out = one branch per URL), override the target folder, and pick the Kimi model per run.
+- Established the stage-demo setup: Katie's Travel Journal as the legacy source site, dated `travel-journal-*` target folder convention.
+- 2.6.1: legacy-site-to-new-platform migration demo assets.
+
+## 2.5 (2026-06-27 to 2026-08-02)
+
+Tags: `v2.5.0`, `v2.5.1`, `v2.5.2` - eval honesty for generated content + Kimi model agility.
+
+- **New eval mode `quality`** (`eval.run.v1` gains `mode`, default `fidelity`): scores a page on its own merits (intrinsic editorial quality + intrinsic design) instead of against the throwaway synthetic source. The coordinator sends it for any route that generated its own source. Validated live: the same article went 67 (fidelity) to 89 (quality).
+- 2.5.1: migration timeouts extended for longer agentic turns; the opencode backend **resolves the real Kimi model name at runtime** instead of hardcoding "K2.6" (`kimi-for-coding` is a moving alias - it had silently become K2.7).
+- 2.5.2: **per-run Kimi model selection**; the daily loop defaults to **K3**.
+
+## 2.4 (2026-06-27)
+
+Tags: `v2.4.0` - the Wilderness Journal retarget.
+
+- **Retargeted the whole platform** off the retired `da-live-postal-2025-07` site to the **`adapt-to-2026-demo` "Wilderness Journal"** EDS site (the adaptTo() Sept 2026 demo target).
+- **Per-site profiles** (`coordinator/src/site-profiles.ts`): editorial lane, voice, target folder, reference corpus, and prompt pattern keyed by site.
+- **Content IA split**: `/ai-content/**` is the hand-built reference corpus the migrator learns from (never written by agents); AI drafts land in `/ai-articles/**`.
+- Wilderness editorial lane + a real photo pool (real hero images instead of placeholders); article-pattern migration prompt modeled on `/ai-content/stories/chasing-sunsets`.
+- **Deprecations**: `content-authoring-eval/` and `agent-claude-sdk/` officially deprecated (the former stays running as the frozen v1.x backup, D5).
+
+## 2.3 (2026-06-25 to 2026-06-26)
+
+Tags: `v2.3.0`, `v2.3.1` - content quality + CI deploy.
+
+- **Agentic content backend**: content-gen writes compelling synthetic source pages with real Claude instead of lorem-style templates; rich typed feature blocks ported from the v1.0 block model.
+- **Cloudflare CI deploy**: `.github/workflows/deploy-agents.yml` builds all four container images and runs `wrangler deploy` on `v2.x+` tag pushes (this and every later release deploys through it).
+- Timeout budget realism: longer migration turns, longer coordinator recovery windows, Make.com callback 25m to 40m.
+- 2.3.1: slimmed the agentic content + migration prompts to fit the 20-minute budget.
+
+## 2.2 (2026-06-18)
+
+Tags: `v2.2.0` - the agentic daily loop.
+
+- **Daily content loop on GitHub Actions cron**: pre-warm, agent-led topic ideation (new `content.ideate` skill), full loop, preview - a fresh Wilderness Journal article every day with no human trigger, with self-heal retry.
+- Dashboard sign-in opened to any Google account (issue #7).
+- Agent-human collaboration thesis documented in [ai-docs/2026-06-17-v2.2-agentic-loop/](./ai-docs/2026-06-17-v2.2-agentic-loop/).
+
+## 2.1 (2026-06-16)
+
+Tags: `v2.1.0` - the hardening sprint + v1 UI parity.
+
+- **Eval scoring honesty**: no fabricated 100s/0s - failed screenshots fail the visual dimension, missing sources exclude the content dimension with weight renormalization, and every dimension records its mode (`agentic` / `deterministic-only` / `deterministic-fallback`).
+- **Coordinator dashboard reaches v1.0 eval-app parity**: single/bulk/direct-eval lanes, sample downloads, JSON export, live branch grid, failure reasons, evidence panel. The separate `agents/ui` app was retired and deleted.
+- **Bulk source-to-target eval** (v1-parity comparison for PDF/webpage sources), backend-owned.
+- Tolerant JSON extraction for agentic scorers (prose-wrapped JSON no longer silently zeroes a dimension).
+- **Domain migration**: the mesh moved from `*.xpri.ai` to `content-factory*.jackzhaojin.com` (Cloudflare-native zone).
+- E2E env-proofing (spawned agents get sanitized env) and narrated demo-video tooling.
+
+## 2.0 (2026-06-11)
+
+Tags: `v2.0.0` - the A2A platform itself, built June 5-10 and deployed to Cloudflare.
+
+- **Ground-up re-architecture**: a mesh of four independently-addressable A2A agents (coordinator :4004, eval :4001, content-gen :4002, migration :4003), each its own Express server on the official `@a2a-js/sdk`, sharing the `a2a-common` chassis (Agent Cards, task lifecycle, streaming, push notifications, mesh auth, edge webhook shim).
+- **The closed loop**: generate a synthetic legacy page, migrate it into da.live, evaluate the result across 4 dimensions, fan out and aggregate variance. Routes compose (`evaluate` / `migrate` / `generate+migrate` / `full-loop` / `auto`).
+- **Multi-vendor proof**: the migration facade's `opencode` backend put **Kimi K2.6** behind the same contract as the Make.com and dryrun backends - a non-Anthropic model authoring real da.live pages, judged by a Claude-powered eval.
+- **Eval engine decoupled** from the frozen v1 app: job-queued, browser-pooled, restart-rebuilding, reports persisted, screenshots to R2.
+- **Coordinator dashboard** (Next.js 15 on the coordinator's own port) with Google SSO and per-user runs.
+- **M5 Cloudflare deploy (2026-06-10)**: Workers + Containers, D1 via a Worker-proxied query endpoint (containers get no bindings), R2 artifacts, scale-to-zero sleep. Cloud acceptance: a Kimi-authored real page scored 91 by the in-container agentic eval.
+- `store-mcp` (conversational store queries over stdio MCP), three real-server test tiers plus a cloud tier, and the Oracle deploy workflow scoped to `v1.*` tags so the two lines can never cross.
+
+## 1.1 (2026-06-05)
+
+Tags: `v1.1.0` - the last v1-line feature release, focused on `functions/` auth.
+
+- **Server-side Adobe IMS S2S auth** in the MCP server, with per-request caller override (`bearerToken` accepted in tool-call args and advertised in tool schemas) - header-less clients can now write to da.live.
+- `da-live-author-playwright` skill: block/metadata operations, EDS-spec metadata table form, external-image auto-ingestion documented.
+- `hlx-admin/` joined the monorepo: auditable AEM admin API execution logs.
+
+## 1.0 (2026-01-01 to 2026-05-14)
+
+Tags: `v1.0.0` through `v1.0.7`. The founding line, tagged after ~150 commits of initial development (Oct to Dec 2025).
+
+- **The original products**: the Azure Functions MCP server for da.live authoring (`functions/`), the `content-authoring-eval` Next.js migration evaluator (4-dimension scoring, deployed to Oracle Cloud via Docker), Make.com migration prompts, and the Agent SDK experiments (`agent-claude-sdk/`), including blog static-site and PDF generators.
+- `list_dalive_content` MCP tool; open-source preparation pass.
+- **Release strategy pivot** (1.0.2, 2026-05-12): dropped the `release/1.0` branch model for trunk-based tagging from `main`.
+- 1.0.3 to 1.0.7: Docker/Playwright deployment hardening on Oracle (dual Chromium installs, separate browser caches, correct node_modules roots) - lessons that later saved the v2.0 container deploy.
+
+---
+
+Maintenance note: when cutting a release, add or extend the minor-version section here in the same commit as the version bump. Details worth recording: what shipped, why, and any migration/ops steps. Per-tag notes stay on [GitHub Releases](https://github.com/jackzhaojin/azure-da-mcp/releases).

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Azure DA.live MCP** — a monorepo of 7 independent AI-powered content authoring, migration, evaluation, and ops tools for [da.live](https://da.live) (Adobe Edge Delivery Services). Each subproject has its own dependencies, configs, and workflows; this root file orients you to which one to work in.
 
-> **Version lines**: **v2.0** is the new **`agents/` A2A platform** (project #7 — the current flagship workstream). **v1.x** (`v1.1.0`) is the legacy `content-authoring-eval` app — a **frozen backup**, never modified (decision D5). When in doubt about "the new platform" vs "the eval app", that's the v2.0 vs v1.x split.
+> **Version lines**: **v2.x** (currently `v2.8.0`) is the **`agents/` A2A platform** (project #7 — the current flagship workstream). **v1.x** (`v1.1.0`) is the legacy `content-authoring-eval` app — a **frozen backup**, never modified (decision D5). When in doubt about "the new platform" vs "the eval app", that's the v2.x vs v1.x split. Full history: [CHANGELOG.md](./CHANGELOG.md).
 
 ## Monorepo Structure
 
@@ -14,7 +14,7 @@ This repository contains 7 independent projects:
 
 ### 1. `functions/` - Azure Functions MCP Server
 **Purpose**: Production MCP server for AI-assisted da.live content editing
-**Tech**: Azure Functions v4, Node 20, Anthropic SDK, MCP SDK
+**Tech**: Azure Functions v4, Node 22, Anthropic SDK, MCP SDK
 **Status**: Production-ready
 **Docs**: [functions/CLAUDE.md](./functions/CLAUDE.md)
 
@@ -76,6 +76,7 @@ This repository contains 7 independent projects:
 **Purpose**: Auditable, one-at-a-time AEM Edge Delivery Services admin operations (`admin.hlx.page` config service, access control, code/content ops)
 **Tech**: curl + dated working directories with EXECUTION.md plans, JSON request/response files, retrospectives
 **Status**: Active use
+**Docs**: [hlx-admin/CLAUDE.md](./hlx-admin/CLAUDE.md)
 **Skill**: [hlx-admin-api-executor](https://github.com/jackzhaojin/ai-builder-kit/tree/main/skills/hlx-admin-api-executor) — drives the GET/SET/GET pattern and human-in-the-loop approval flow
 
 **When to work here**:
@@ -87,9 +88,9 @@ This repository contains 7 independent projects:
 
 ### 7. `agents/` - A2A Agent Platform (v2.0) ⭐ flagship workstream
 **Purpose**: A decoupled mesh of independently-addressable AI agents (content-gen, migration, eval, coordinator) speaking the **A2A protocol** — the ground-up v2.0 re-architecture for the adaptTo() Sept 2026 demo
-**Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard — the sole UI: single/bulk/direct-eval lanes, sample downloads, JSON export), vitest e2e
-**Status**: **M1–M5 DEPLOYED ON CLOUDFLARE (2026-06-10)** — the whole mesh runs as Workers + Containers (worker `content-factory`, agents/deploy/): dashboard at `content-factor-dash.jackzhaojin.com` (Google SSO, per-user runs), agents at `content-factory{,-eval,-gen,-migrate}.jackzhaojin.com`, store on D1 via the Worker's `/d1/query` proxy, artifacts on R2. Cloud acceptance green: full-loop with **Kimi K2.6 authoring a REAL da.live page from a container** + the real agentic eval scoring it 91 (cloud e2e `npm run test:cloud`, 4/4). Local dev unchanged (SQLite + localhost ports); the tunnel keeps only `a2a.jackzhaojin.com` → local :4003 for Make.com
-**Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · hardening sprint [ai-docs/2026-06-11-v2.1-hardening-sprint/](./ai-docs/2026-06-11-v2.1-hardening-sprint/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/)
+**Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard — the sole UI: single/bulk/direct-eval/migrate-a-real-page lanes, sample downloads, JSON export), Claude Agent SDK + opencode (Kimi), vitest e2e
+**Status**: **v2.8.0, DEPLOYED ON CLOUDFLARE** (M5 first deploy 2026-06-10; every `v2.x` tag redeploys) — the whole mesh runs as Workers + Containers (worker `content-factory`, agents/deploy/): dashboard at `content-factor-dash.jackzhaojin.com` (Google SSO, per-user runs), agents at `content-factory{,-eval,-gen,-migrate}.jackzhaojin.com`, store on D1 via the Worker's `/d1/query` proxy, artifacts on R2. Real migrations run under **Kimi (K3 default, per-run model)** or **Claude (Agent SDK `sdk` backend, per-run model)**; eval has three modes (`fidelity`/`quality`/`redesign`); an agent-led **daily content loop** (GH Actions cron) publishes a Wilderness Journal article every day; `npm run model-matrix` benchmarks N models over the same migration+eval (2026-08-29: K3 confirmed best). Local dev unchanged (SQLite + localhost ports); the tunnel keeps only `a2a.jackzhaojin.com` → local :4003 for Make.com
+**Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · [CHANGELOG.md](./CHANGELOG.md) (per-minor-version history) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · model assessment [ai-docs/2026-08-29-model-assessment/](./ai-docs/2026-08-29-model-assessment/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/) · full index [ai-docs/README.md](./ai-docs/README.md)
 
 **When to work here**:
 - A2A agents/protocol (Agent Cards, Task lifecycle, `message/stream`, push notifications, edge shim)
@@ -106,19 +107,28 @@ This repository contains 7 independent projects:
 
 1. **Each project is independent**: Separate dependencies, configs, and workflows
 2. **Check which directory you're in**: Always `cd` to the right subproject first
-3. **Use correct Node version**: `functions/` and `content-authoring-eval/` require Node 20
+3. **Use correct Node version**: `agents/` and `content-authoring-eval/` require Node 20; `functions/` and the Wrangler/Cloudflare CLI require Node 22
 4. **Read subproject CLAUDE.md**: Each has specific context and instructions
 
 ### Common Workflows
 
+**A2A platform development** (the flagship — see [agents/CLAUDE.md](./agents/CLAUDE.md)):
+```bash
+cd agents
+nvm use 20 && npm install
+set -a; source .env; set +a
+npm run dev:eval & npm run dev:content-gen & npm run dev:migration & npm run dev:coordinator &
+# dashboard: http://localhost:4004/ · closed loop: npm run loop -- "<topic>" · benchmark: npm run model-matrix
+```
+
 **Azure Functions development**:
 ```bash
 cd functions
-nvm use 20
+nvm use 22
 npm start
 ```
 
-**Content authoring eval development**:
+**Content authoring eval development** (⚠️ frozen, D5 — read-only reference; never modify or deploy):
 ```bash
 cd content-authoring-eval
 npm run dev
@@ -211,22 +221,24 @@ All projects support:
 This monorepo uses **lockstep versioning** + **trunk-based releases** — tag directly from `main`.
 
 ### Current State
-- **Current version**: `v1.1.0` (released 2026-06-05)
+- **Current version**: `v2.8.0` (agents platform, the active line) · `v1.1.0` = the frozen legacy line
 - **Branch model**: Trunk-based; `main` is the only long-lived branch
-- **Strategy doc**: [`RELEASES.md`](./RELEASES.md)
+- **Strategy doc**: [`RELEASES.md`](./RELEASES.md) · **Per-version history**: [`CHANGELOG.md`](./CHANGELOG.md) — update it in the same commit as any version bump
 - **Strategy history**: A `release/1.0` branch existed from 2026-01-01 to 2026-05-12 but was merged into `main` and deleted — that flow added overhead without benefit for a single-maintainer repo
 
-### Cutting a Release (`content-authoring-eval`)
+### Cutting a Release (`agents/` platform — the active v2.x line)
 
 ```bash
 git checkout main && git pull
-# Bump content-authoring-eval/package.json "version" → e.g. 1.0.3
-git commit -am "chore(content-authoring-eval): bump version to 1.0.3"
+# Bump agents/package.json "version" → e.g. 2.9.0, and add the CHANGELOG.md entry
+git commit -am "chore(agents): bump version to 2.9.0"
 git push
-git tag -a v1.0.3 -m "Release 1.0.3"
-git push origin v1.0.3              # tag push triggers the Oracle deploy
-gh release create v1.0.3 --generate-notes
+git tag -a v2.9.0 -m "Release 2.9.0"
+git push origin v2.9.0              # tag push triggers the Cloudflare deploy (deploy-agents.yml)
+gh release create v2.9.0 --generate-notes
 ```
+
+The frozen v1.x line follows the same flow with `content-authoring-eval/package.json` and a `v1.*` tag (Oracle deploy) — only for emergency fixes to the frozen backup.
 
 ### Deployment Mechanics
 
@@ -261,9 +273,10 @@ If you ever need to re-point a tag (e.g., because the tagged commit was wrong):
 
 ### Node Version Errors
 **Symptom**: `Error: Incompatible Node.js version`
-**Fix**: Use Node 20 for functions/ and content-authoring-eval/
+**Fix**: Use Node 20 for agents/ and content-authoring-eval/; Node 22 for functions/ and wrangler
 ```bash
-nvm use 20
+nvm use 20   # agents/, content-authoring-eval/
+nvm use 22   # functions/, wrangler
 ```
 
 ### Missing Dependencies
@@ -298,15 +311,21 @@ cp .env.example .env
 ### Root Level (Monorepo Overview)
 - `README.md` - User-facing monorepo overview (references child README.md files)
 - `CLAUDE.md` - This file (AI context, references child CLAUDE.md files)
+- `CHANGELOG.md` - Per-minor-version history of both release lines (update with every version bump)
+- `RELEASES.md` - Release process: versioning, tagging, deployment automation
 
-### agents/ (A2A Agent Platform — v2.0, flagship)
+### agents/ (A2A Agent Platform — v2.x, flagship)
 - `agents/CLAUDE.md` - Hub: structure, run, conventions, Cloudflare infra
 - `agents/README.md` - User-facing overview + status
-- `agents/<workspace>/CLAUDE.md` - Per-workspace AI context (a2a-common, eval-service, content-gen, migration-agent, coordinator, store-mcp, e2e)
-- `agents/docs/` - `r2-setup.md`, `tunnel-setup.md`, `makecom-scenario-checklist.md`
+- `agents/<workspace>/CLAUDE.md` - Per-workspace AI context (a2a-common, eval-service, content-gen, migration-agent, coordinator, store-mcp, e2e, deploy)
+- `agents/docs/` - `r2-setup.md`, `tunnel-setup.md`, `makecom-scenario-checklist.md`, `model-matrix.md`
+- `ai-docs/README.md` - Index of every planning PRD + as-built report
 - `ai-docs/2026-06-08-a2a-platform-v2.0/` - As-built build report (architecture + sequence diagrams)
-- `ai-docs/2026-06-11-v2.1-hardening-sprint/` - v2.1 hardening sprint (eval scoring honesty, local agentic eval, live runs + evidence UX, env-proof e2e)
+- `ai-docs/2026-08-29-model-assessment/` - Five-model migration benchmark (K3 confirmed as default)
 - `ai-docs/2026-06-05-a2a-agent-platform/` - The planning PRD (decisions D1–D6)
+
+### hlx-admin/ (AEM Admin Operations)
+- `hlx-admin/CLAUDE.md` - How the dated execution-log dirs work, auth paths, skill link
 
 ### functions/ (Azure Functions MCP Server)
 - `functions/CLAUDE.md` - Complete developer guide for MCP server
@@ -350,11 +369,11 @@ cp .env.example .env
 ## Related Documentation
 
 - `specs/` - Feature specifications and planning docs (historical)
-- `ai-docs/` - Planning PRDs + as-built reports (public + active; latest: `2026-06-11-v2.1-hardening-sprint/`)
+- `ai-docs/` - Planning PRDs + as-built reports (public + active; indexed in [`ai-docs/README.md`](./ai-docs/README.md); latest: `2026-08-29-model-assessment/`)
 
 ---
 
-**Last Updated**: 2026-06-27
+**Last Updated**: 2026-08-29
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
-**Version lines**: **v2.x** = the `agents/` A2A platform (flagship, **deployed on Cloudflare**; `v2.x+` tags trigger `deploy-agents.yml`) · **v1.1.0** = legacy `content-authoring-eval` (**deprecated**, frozen backup). `agent-claude-sdk/` is also **deprecated**. Trunk-based, tag from `main`.
+**Version lines**: **v2.x** = the `agents/` A2A platform (flagship, **v2.8.0 deployed on Cloudflare**; `v2.x+` tags trigger `deploy-agents.yml`) · **v1.1.0** = legacy `content-authoring-eval` (**deprecated**, frozen backup). `agent-claude-sdk/` is also **deprecated**. Trunk-based, tag from `main`; history in [`CHANGELOG.md`](./CHANGELOG.md).

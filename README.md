@@ -12,7 +12,7 @@ The repository's center of gravity is **v2.0 — the `agents/` A2A Agent Platfor
 
 ## ⭐ The flagship: `agents/` — A2A Agent Platform (v2.0)
 
-**Status**: **Deployed on Cloudflare Workers + Containers** (M1–M5); the closed loop runs end-to-end with **Kimi K2.6 really authoring da.live pages** (opencode backend), scored by the real agentic eval; the coordinator ships its **own Next.js dashboard** (Google SSO) on :4004 / `content-factor-dash.jackzhaojin.com`. An agent-led **daily content loop** (GitHub Actions cron) generates a fresh **Wilderness Journal** article each day onto the `adapt-to-2026-demo` site for the adaptTo() Sept-2026 demo.
+**Status**: **v2.8.0, deployed on Cloudflare Workers + Containers** (see [CHANGELOG.md](./CHANGELOG.md)); the closed loop runs end-to-end with **Kimi (K3 default) or Claude (Agent SDK) really authoring da.live pages**, scored by the real agentic eval in three modes (fidelity / quality / redesign); the coordinator ships its **own Next.js dashboard** (Google SSO) on :4004 / `content-factor-dash.jackzhaojin.com`. An agent-led **daily content loop** (GitHub Actions cron) generates a fresh **Wilderness Journal** article each day onto the `adapt-to-2026-demo` site for the adaptTo() Sept-2026 demo, and a **model-matrix benchmark** runs the same migration across N models (2026-08-29 result: K3 88 > Opus 5 86 > K2.7 85 > Sonnet 5 / Haiku 4.5 84).
 **Purpose**: A multi-agent mesh speaking the [A2A protocol](https://a2a-protocol.org/) (official `@a2a-js/sdk`), where each agent is its own Express server with an Agent Card, Task lifecycle, and streaming.
 
 The headline capability is a **closed loop**: the **coordinator** asks **content-gen** to fabricate a synthetic "legacy" page, hands it to the **migration agent** to author into da.live, then to the **eval agent** to score the result across four dimensions — fanned out and aggregated into variance stats. But the coordinator routes intelligently: it can also *just evaluate*, *just migrate*, *generate+migrate*, or *auto*-decide; it need not start at generation or end at evaluation.
@@ -21,9 +21,8 @@ The headline capability is a **closed loop**: the **coordinator** asks **content
 |-------|------|------|
 | coordinator | 4004 | Routes, fans out, aggregates variance (A2A client **and** server) — **plus its own Next.js dashboard** at `:4004/` (trigger, live activity feed, branch grid) |
 | content-gen | 4002 | Content briefs + synthetic legacy source pages (template tier) |
-| migration | 4003 | Authors into da.live — one Agent Card over backends (`dryrun` / **`opencode` = Kimi K2.6, real pages verified** / Make.com / SDK stub) |
-| eval | 4001 | 4-dimension migration-quality evaluation (engine copied from v1.x; deterministic always, agentic when Claude creds are set) |
-| ui | 3000 | Legacy thin Next.js dashboard — auth, runs, manual trigger (superseded by the coordinator dashboard) |
+| migration | 4003 | Authors into da.live — one Agent Card over backends (`dryrun` / **`opencode` = Kimi, K3 default** / **`sdk` = Claude via Agent SDK OAuth** / Make.com), all real-page verified |
+| eval | 4001 | 4-dimension migration-quality evaluation (engine copied from v1.x; deterministic always, agentic when Claude creds are set; modes `fidelity` / `quality` / `redesign`) |
 
 **Quick Start**:
 ```bash
@@ -32,7 +31,8 @@ nvm use 20 && npm install
 cp .env.example .env && set -a; source .env; set +a   # secrets gitignored
 npm run dev:eval & npm run dev:content-gen & npm run dev:migration & npm run dev:coordinator &
 npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loop
-npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin  # Kimi K2.6 authors a REAL Wilderness Journal article
+npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin  # Kimi authors a REAL Wilderness Journal article
+npm run model-matrix                                      # benchmark N models over the same migration + eval
 # coordinator dashboard: http://localhost:4004/
 ```
 
@@ -43,8 +43,8 @@ npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --s
 
 **Key Features**:
 - Official A2A SDK end-to-end: Agent Cards, `message/stream` (SSE), `tasks/get`, push notifications, an edge webhook shim
-- **Model-vendor-swappable migration**: the same contract, MCP server, and skill run under `dryrun`, Make.com, or **Kimi K2.6 headless via opencode** — real da.live pages authored, published, and scored
-- **Coordinator dashboard** (Next.js 15 riding the same :4004 process — A2A wire surface untouched): trigger runs, watch live tool/skill activity (`K2.6 → dalive_save_dalive_content`), branch grids, variance tables
+- **Model-vendor-swappable migration**: the same contract, MCP server, and skill run under `dryrun`, Make.com, **Kimi headless via opencode** (K3 default, per-run model selection), or **Claude via the Agent SDK** (subscription OAuth, per-run model) — real da.live pages authored, published, and scored, and benchmarked head-to-head by `npm run model-matrix` ([docs](./agents/docs/model-matrix.md))
+- **Coordinator dashboard** (Next.js 15 riding the same :4004 process — A2A wire surface untouched): trigger runs (single / bulk / direct-eval / migrate-a-real-page lanes, per-run model + guiding principles), watch live tool/skill activity (`K3 → dalive_save_dalive_content`), branch grids, variance tables, JSON export
 - Persistence on **Cloudflare D1** (same SQL as local SQLite) + artifacts on **R2** (public `r2.dev`)
 - **Make.com interop** through a live named `cloudflared` tunnel (`a2a.jackzhaojin.com`)
 - Browser-pooled, job-queued, restart-survivable eval; deterministic always + agentic when Claude creds are configured
@@ -72,7 +72,7 @@ cd functions && npm install && npm start
 
 ### `make-dot-com/` — Make.com Agent Prompts
 **Status**: Active versioning
-Progressive prompt files for the EDS migration agent on Make.com (MVP → +Memory → +BlockLibrary → Full). Copy-pasted into Make.com's UI, not deployed via Git. The platform's migration agent calls these Make.com scenarios as its primary backend.
+Progressive prompt files for the EDS migration agent on Make.com (MVP → +Memory → +BlockLibrary → Full). Copy-pasted into Make.com's UI, not deployed via Git. The platform's migration agent can call these Make.com scenarios via its `makecom` backend (the default backend is now `opencode`/Kimi).
 [make-dot-com/README.md](./make-dot-com/README.md)
 
 ### `bruno/` — API Testing Collections
@@ -97,12 +97,13 @@ azure-da-mcp/
 │   ├── a2a-common/            #    shared bootstrap (server, stores, client, migrations)
 │   ├── eval-service/          #    :4001 eval agent (engine copied from v1.x)
 │   ├── content-gen/           #    :4002 briefs + synthetic sources
-│   ├── migration-agent/       #    :4003 swappable backends (dryrun/opencode·Kimi/makecom/sdk)
-│   ├── coordinator/           #    :4004 routing + fan-out + variance + CLI + Next.js dashboard
-│   ├── ui/                    #    :3000 legacy thin Next.js dashboard
+│   ├── migration-agent/       #    :4003 swappable backends (dryrun/opencode·Kimi/sdk·Claude/makecom)
+│   ├── coordinator/           #    :4004 routing + fan-out + variance + CLI + Next.js dashboard (the sole UI)
+│   ├── deploy/                #    Cloudflare Worker + 4 Dockerfiles (standalone, Node 22)
+│   ├── contracts/             #    JSON Schemas for every skill
 │   ├── store-mcp/             #    stdio MCP — conversational store queries
-│   ├── e2e/                   #    real-server tests (fast/live/soak)
-│   └── docs/                  #    r2-setup · tunnel-setup · makecom checklist
+│   ├── e2e/                   #    real-server tests (fast/live/soak/cloud) + the model-matrix harness
+│   └── docs/                  #    r2-setup · tunnel-setup · makecom checklist · model-matrix
 ├── functions/                 # Azure Functions MCP Server (Node 22)
 ├── content-authoring-eval/    # v1.x eval app — FROZEN backup (Node 20, Docker)
 ├── agent-claude-sdk/          # Agent SDK experiments (TypeScript)
@@ -110,17 +111,18 @@ azure-da-mcp/
 ├── bruno/                     # API testing collections (Bruno)
 ├── hlx-admin/                 # AEM admin API execution logs (skill-driven)
 ├── references/                # POCs & spikes (cloudflare, kimi, claude)
-├── ai-docs/                   # Planning PRDs + as-built reports (public)
+├── ai-docs/                   # Planning PRDs + as-built reports (public, indexed in ai-docs/README.md)
+├── CHANGELOG.md               # Per-minor-version history of both release lines
 ├── RELEASES.md                # Release strategy and versioning
 └── README.md                  # This file
 ```
 
 ## Releases & Versioning
 
-Lockstep SemVer, **trunk-based** releases (tag directly from `main`) — see **[RELEASES.md](./RELEASES.md)**.
+Lockstep SemVer, **trunk-based** releases (tag directly from `main`) — strategy in **[RELEASES.md](./RELEASES.md)**, per-version history in **[CHANGELOG.md](./CHANGELOG.md)**.
 
 - **v1.1.0** — the legacy `content-authoring-eval` app (**deprecated**, frozen backup). `v1.*` tag push triggers the Oracle deploy.
-- **v2.x** — the `agents/` platform (the active line). A **major** bump because it's a ground-up re-architecture. **Deployed to Cloudflare Workers + Containers** via `.github/workflows/deploy-agents.yml` on `v2.x+` tags (version tracked in `agents/package.json`).
+- **v2.x** — the `agents/` platform (the active line, **currently v2.8.0**). A **major** bump because it's a ground-up re-architecture. **Deployed to Cloudflare Workers + Containers** via `.github/workflows/deploy-agents.yml` on `v2.x+` tags (version tracked in `agents/package.json`).
 
 ## Common Dependencies
 
@@ -162,6 +164,6 @@ Apache License 2.0
 
 ---
 
-**Last Updated**: 2026-06-27
-**Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP, opencode (Kimi K2.6)
-**Active workstream**: `agents/` v2.0 platform → the **Wilderness Journal** demo site (`adapt-to-2026-demo`) for adaptTo() Sept 2026. `content-authoring-eval/` + `agent-claude-sdk/` are **deprecated**.
+**Last Updated**: 2026-08-29
+**Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP, opencode (Kimi K3/K2.7)
+**Active workstream**: `agents/` v2.x platform (v2.8.0) → the **Wilderness Journal** demo site (`adapt-to-2026-demo`) for adaptTo() Sept 2026. `content-authoring-eval/` + `agent-claude-sdk/` are **deprecated**.

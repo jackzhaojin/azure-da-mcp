@@ -2,6 +2,8 @@
 
 This monorepo uses **trunk-based releases**: cut version tags directly from `main`.
 
+Per-version history lives in **[CHANGELOG.md](./CHANGELOG.md)** (grouped by minor version). This file covers the *process*: versioning model, tagging rules, and deployment automation.
+
 ## Versioning Model
 
 ### Lockstep Versioning
@@ -134,7 +136,8 @@ Before tagging, ensure:
 
 - [ ] All relevant changes are merged to `main`
 - [ ] Local `main` is up to date with `origin/main`
-- [ ] Version updated in `content-authoring-eval/package.json` (bump committed and pushed)
+- [ ] Version updated in the line's `package.json` (`agents/package.json` for v2.x; `content-authoring-eval/package.json` for the frozen v1.x line) — bump committed and pushed
+- [ ] [CHANGELOG.md](./CHANGELOG.md) has an entry (new or extended) for the minor version
 - [ ] Working tree is clean
 - [ ] No known critical regressions
 
@@ -210,12 +213,15 @@ The platform's content target moved off the retired `da-live-postal-2025-07` sit
 - **Daily loop** (`.github/workflows/daily-content-loop.yml`) now defaults to `adapt-to-2026-demo`.
 - **Deprecations**: `content-authoring-eval/` and `agent-claude-sdk/` officially deprecated.
 
+> Strategy-evolution entries stop at v2.5 — from v2.6 on, per-release narrative lives in [CHANGELOG.md](./CHANGELOG.md) (which also back-fills 1.0 through 2.5). Only *process* changes get recorded here.
+
 ### v2.5: Generated-content eval mode (2026-06-27)
 
 `eval.run.v1` gains a **`mode`** (`fidelity` | `quality`, default `fidelity`). The full-loop eval was comparing the migrated page against the *throwaway synthetic source*, so AI-generated content scored low by design (visual ~29 = the redesign succeeding; content ~66 = penalizing enrichment). **`quality` mode scores the page on its own merits** — content = intrinsic editorial quality (substance/coherence/completeness/expertise/structure via a new `content-no-source` scorer), visual = intrinsic design quality, structure/accessibility unchanged. The coordinator uses `quality` for any route that *generated* its source; real migrations stay `fidelity`. Validated against the live demo article: **67 → 89** (content 66→82, visual 29→100). Existing migration/eval lanes are byte-identical (default `fidelity`).
 
 ## Related Documentation
 
+- [CHANGELOG.md](./CHANGELOG.md) - Per-minor-version history of both release lines
 - [README.md](./README.md) - Monorepo overview
 - [CLAUDE.md](./CLAUDE.md) - AI context and development guide
 - [.github/workflows/deploy-content-authoring-eval.yml](./.github/workflows/deploy-content-authoring-eval.yml) - Tag-triggered build + deploy
@@ -223,6 +229,6 @@ The platform's content target moved off the retired `da-live-postal-2025-07` sit
 
 ---
 
-**Last Updated**: 2026-06-27
-**Current Version**: v1.1.0 (legacy line, **deprecated**, deployed on Oracle) · v2.x = `agents/` platform (active line, deployed on Cloudflare via `deploy-agents.yml`)
+**Last Updated**: 2026-08-29
+**Current Version**: **v2.8.0** (`agents/` platform, active line, deployed on Cloudflare via `deploy-agents.yml`) · v1.1.0 (legacy line, **deprecated**, frozen on Oracle)
 **Branch Model**: Trunk-based (tag from `main`)
