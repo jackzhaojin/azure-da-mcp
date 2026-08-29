@@ -15,17 +15,20 @@ export interface MigrationRunPayload {
   pattern?: "article" | "generic";
   backend?: "makecom" | "sdk" | "opencode" | "dryrun";
   /**
-   * opencode backend only: the model to drive for THIS run, overriding the
-   * agent's `KIMI_MODEL_ID` default. Lets one deployed container serve both
-   * `kimi-for-coding` (K2.7) and `k3` — the daily-loop workflow picks per run.
-   * Must be declared in opencode's `provider.kimi-code.models` map.
+   * The model to drive for THIS run, interpreted by the backend:
+   * - opencode: a Kimi model id (`kimi-for-coding` = K2.7, `k3`), overriding
+   *   `KIMI_MODEL_ID`. Must be declared in opencode's `provider.kimi-code.models` map.
+   * - sdk: a Claude model ("sonnet" | "opus" | "haiku" or a full model id),
+   *   overriding `CLAUDE_MIGRATION_MODEL`.
+   * Lets one agent serve every model in a comparison matrix — the daily-loop
+   * workflow and the model-matrix harness pick per run.
    */
   model?: string;
   /**
    * Operator guiding principles (free text) appended to the migration prompt —
    * e.g. "if an image is low-res, hunt for a higher-res variant; record a gap
    * if none exists". Followed within the run's step budget; unsatisfiable
-   * principles land in the report's gaps. opencode backend today; others ignore it.
+   * principles land in the report's gaps. opencode + sdk backends; others ignore it.
    */
   guidance?: string;
   maxRefinementIterations?: number;

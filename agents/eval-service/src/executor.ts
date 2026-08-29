@@ -182,7 +182,17 @@ export async function runEvalJob(opts: {
   try {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      publish(statusEvent("working", attempt === 1 ? "evaluation started" : `retry ${attempt}/${MAX_ATTEMPTS}`));
+      // Name the judge up front — consumers comparing rows (e.g. the model
+      // matrix) must be able to see the SAME judge model scored every run.
+      const judge = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+      publish(
+        statusEvent(
+          "working",
+          attempt === 1
+            ? `evaluation started (mode: ${payload.mode ?? "fidelity"}, judge: ${judge})`
+            : `retry ${attempt}/${MAX_ATTEMPTS}`
+        )
+      );
 
       const report = await runEvaluation(toEvaluationRequest(payload), (event) => {
         // map engine progress → A2A status updates (replaces the old SSE vocabulary, PRD part-2)
