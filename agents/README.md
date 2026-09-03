@@ -1,6 +1,6 @@
 # agents/ — A2A Agent Platform (v2.0)
 
-The flagship **v2.x** platform (currently **v2.8.0**): a decoupled mesh of A2A agents (generate → migrate → evaluate, intelligently routed), built for the adaptTo() 2026 demo. One Express A2A server per agent (D4). **Deployed on Cloudflare Workers + Containers since 2026-06-10** (M5/D6) — and still fully runnable locally with zero cloud dependencies. `content-authoring-eval/` is the **frozen v1.x backup** and not part of this system (D5).
+The flagship **v2.x** platform (currently **v2.8.1**): a decoupled mesh of A2A agents (generate → migrate → evaluate, intelligently routed), built for the adaptTo() 2026 demo. One Express A2A server per agent (D4). **Deployed on Cloudflare Workers + Containers since 2026-06-10** (M5/D6) — and still fully runnable locally with zero cloud dependencies. `content-authoring-eval/` is the **frozen v1.x backup** and not part of this system (D5).
 
 **Docs**: [CHANGELOG.md](../CHANGELOG.md) (what shipped, per minor version) · [build report (as-built)](../ai-docs/2026-06-08-a2a-platform-v2.0/) — see especially [07: the M5 deployment chronicle](../ai-docs/2026-06-08-a2a-platform-v2.0/07-m5-cloudflare-deployment.md) · [PRD / plan](../ai-docs/2026-06-05-a2a-agent-platform/) · [dev hub `CLAUDE.md`](./CLAUDE.md) · [deploy runbook](./deploy/CLAUDE.md) · each workspace below has its own `CLAUDE.md`.
 

@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -142,6 +143,12 @@ export interface OpencodeConfigOptions {
   playwrightOut: string;
   /** MCP request timeout — da.live preview-publish + first-call S2S mint exceed the 5s default. */
   mcpTimeoutMs?: number;
+  /**
+   * Route the kimi-code provider through this base URL instead of the global
+   * config's api.kimi.com - the in-process wire-repair proxy (kimi-proxy.ts).
+   * Deep-merged over the global provider entry, so apiKey/headers/timeouts stay.
+   */
+  kimiBaseURL?: string;
 }
 
 /** The additive opencode config object (serialized to a file, loaded via OPENCODE_CONFIG). */
@@ -150,6 +157,11 @@ export function buildOpencodeConfig(opts: OpencodeConfigOptions): Record<string,
   return {
     $schema: "https://opencode.ai/config.json",
     model: `${KIMI_PROVIDER_ID}/${KIMI_MODEL_ID}`,
+    // opencode auto-installs PATCH releases at startup unless told not to. A
+    // headless backend must run the binary it was built/tested with - the cloud
+    // image pins the version (migration.Dockerfile) and this keeps it pinned.
+    autoupdate: false,
+    ...(opts.kimiBaseURL ? { provider: { [KIMI_PROVIDER_ID]: { options: { baseURL: opts.kimiBaseURL } } } } : {}),
     // Trusted, autonomous local backend: allow every tool (built-ins + dalive_*/playwright_*).
     permission: "allow",
     mcp: {
@@ -180,6 +192,34 @@ export function buildOpencodeConfig(opts: OpencodeConfigOptions): Record<string,
     },
     skills: { paths: [opts.skillsPath] },
   };
+}
+
+// The opencode binary's version, for /health. The container installs opencode
+// at image-build time (now pinned) and opencode can self-update patch releases,
+// so "which opencode is actually running" was unknowable from outside - this
+// is the same class of blind spot the timeout/model fields closed.
+let opencodeVersion: string | null = null;
+let opencodeVersionInFlight: Promise<string | null> | null = null;
+
+export function resolveOpencodeVersion(): Promise<string | null> {
+  if (opencodeVersion) return Promise.resolve(opencodeVersion);
+  if (opencodeVersionInFlight) return opencodeVersionInFlight;
+  opencodeVersionInFlight = new Promise<string | null>((resolve) => {
+    const bin = resolveOpencodeBin();
+    if (!existsSync(bin)) return resolve(null);
+    execFile(bin, ["--version"], { timeout: 15_000 }, (err, stdout) => {
+      if (err) return resolve(null);
+      const v = String(stdout).trim().split(/\s+/).pop() ?? null;
+      opencodeVersion = v || null;
+      resolve(opencodeVersion);
+    });
+  }).finally(() => (opencodeVersionInFlight = null));
+  return opencodeVersionInFlight;
+}
+
+/** Sync peek for /health - null until resolveOpencodeVersion() has run. */
+export function cachedOpencodeVersion(): string | null {
+  return opencodeVersion;
 }
 
 /** assertConfigured() helper — returns a setup-hint string if unusable, else null. */

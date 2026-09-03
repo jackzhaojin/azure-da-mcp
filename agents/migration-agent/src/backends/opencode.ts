@@ -12,10 +12,12 @@ import {
   opencodeSetupProblem,
   KIMI_PROVIDER_ID,
   KIMI_MODEL_ID,
+  KIMI_API_BASE,
   DEFAULT_DALIVE_MCP_URL,
   resolveKimiModelLabel,
 } from "./opencode-config.ts";
 import { buildMigrationPrompt, migrationTargets, parseMigrationReport } from "./opencode-prompt.ts";
+import { startKimiProxy, type KimiProxy } from "./kimi-proxy.ts";
 
 const log = createLogger("da-migration-agent");
 
@@ -33,6 +35,16 @@ const log = createLogger("da-migration-agent");
  */
 
 const TURN_TIMEOUT_MS = Number(process.env.OPENCODE_MIGRATION_TIMEOUT_MS ?? 40 * 60 * 1000);
+/**
+ * When a turn dies on a provider error (Kimi 400 on a replayed empty turn, an
+ * SSE read timeout opencode gave up on), send ONE follow-up message in the SAME
+ * session instead of failing the task: the work already done (files, da.live
+ * pages, previews) survives, and the wire-repair proxy makes the replayed
+ * history acceptable. Bounded by the original turn budget - never extends it.
+ */
+const MAX_CONTINUATIONS = Math.max(0, Number(process.env.OPENCODE_MAX_CONTINUATIONS ?? 1) || 0);
+/** Don't start a continuation with less than this left on the clock. */
+const MIN_CONTINUATION_BUDGET_MS = 4 * 60 * 1000;
 
 // ── long-lived server singleton ─────────────────────────────────────────────
 interface OpencodeServer {
@@ -41,19 +53,54 @@ interface OpencodeServer {
 }
 let serverPromise: Promise<OpencodeServer> | null = null;
 let serverChild: ChildProcess | null = null; // direct ref for synchronous cleanup on exit
+let kimiProxy: KimiProxy | null = null; // one per process, outlives opencode restarts
 
-function startServer(): Promise<OpencodeServer> {
+/** For /health: where the Kimi traffic goes + what the proxy has had to repair. */
+export function kimiProxyStatus() {
+  return kimiProxy ? { base: kimiProxy.base, upstream: kimiProxy.upstream, ...kimiProxy.stats } : null;
+}
+
+/**
+ * Confirm the generated config actually rerouted the provider (a silent merge
+ * miss would mean the proxy is idle and the 400s come back). Never fatal.
+ */
+async function verifyProxyWiring(base: string, expectedBaseURL: string): Promise<void> {
+  try {
+    const cfg = await (await fetch(`${base}/config`, { signal: AbortSignal.timeout(10_000) })).json();
+    const actual = (cfg as any)?.provider?.[KIMI_PROVIDER_ID]?.options?.baseURL;
+    if (actual === expectedBaseURL) {
+      log.info("opencode kimi-code provider routed through the wire-repair proxy", { baseURL: actual });
+    } else {
+      log.warn("opencode kimi-code provider is NOT using the wire-repair proxy - empty-assistant 400s can recur", {
+        expected: expectedBaseURL,
+        actual: actual ?? null,
+      });
+    }
+  } catch (e) {
+    log.warn("could not verify opencode provider wiring", { error: String(e).slice(0, 200) });
+  }
+}
+
+async function startServer(): Promise<OpencodeServer> {
   const bin = resolveOpencodeBin();
   const workdir = path.join(os.tmpdir(), "a2a-opencode-migration");
   const pwOut = playwrightOutputDir();
   mkdirSync(workdir, { recursive: true });
   mkdirSync(pwOut, { recursive: true });
 
+  // The Kimi wire-repair proxy (kimi-proxy.ts): opencode → 127.0.0.1 → api.kimi.com.
+  // KIMI_PROXY_DISABLED=1 restores the direct path (debugging lever only).
+  if (!kimiProxy && process.env.KIMI_PROXY_DISABLED !== "1") {
+    kimiProxy = await startKimiProxy({ upstream: KIMI_API_BASE });
+  }
+  const kimiBaseURL = kimiProxy ? `${kimiProxy.base}${new URL(KIMI_API_BASE).pathname}` : undefined;
+
   const config = buildOpencodeConfig({
     daliveUrl: process.env.DALIVE_MCP_URL ?? DEFAULT_DALIVE_MCP_URL,
     daliveBearer: process.env.DALIVE_BEARER_TOKEN || undefined,
     skillsPath: resolveSkillsPath(),
     playwrightOut: pwOut,
+    kimiBaseURL,
   });
   const cfgPath = path.join(workdir, "opencode.json");
   writeFileSync(cfgPath, JSON.stringify(config, null, 2));
@@ -62,6 +109,7 @@ function startServer(): Promise<OpencodeServer> {
     bin,
     dalive_url: (config.mcp as any).dalive.url,
     skills_path: (config.skills as any).paths[0],
+    kimi_base_url: kimiBaseURL ?? "(direct)",
   });
 
   const proc = spawn(bin, ["serve", "--port", "0", "--hostname", "127.0.0.1", "--log-level", "INFO"], {
@@ -71,7 +119,7 @@ function startServer(): Promise<OpencodeServer> {
   });
   serverChild = proc;
 
-  return new Promise<OpencodeServer>((resolve, reject) => {
+  const server = await new Promise<OpencodeServer>((resolve, reject) => {
     let settled = false;
     const strip = (s: string) => s.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "");
     const onData = (b: Buffer) => {
@@ -93,6 +141,9 @@ function startServer(): Promise<OpencodeServer> {
     });
     setTimeout(() => !settled && reject(new Error("timed out waiting for opencode serve to listen")), 45_000);
   });
+
+  if (kimiBaseURL) await verifyProxyWiring(server.base, kimiBaseURL);
+  return server;
 }
 
 function getServer(): Promise<OpencodeServer> {
@@ -110,6 +161,7 @@ function killServerChild(): void {
   } catch {
     /* already gone */
   }
+  void kimiProxy?.close().catch(() => {});
 }
 process.once("exit", killServerChild);
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
@@ -194,6 +246,20 @@ function tapSession(base: string, sessionId: string, onProgress: (note: string) 
   return { summary, stop: () => ctrl.abort() };
 }
 
+/** The follow-up sent into the same session after a provider-side turn failure. */
+function continuationPrompt(reason: string): string {
+  return [
+    `Your previous turn in this session was cut short by a transient API error (${reason}).`,
+    "Everything you already did is still in place: files you wrote, da.live pages you created, previews you published.",
+    "Continue the migration from where you left off. Do NOT start over and do NOT re-create pages that already exist.",
+    "1. Re-check the current state first (GET the target page on da.live and/or open its preview URL).",
+    "2. Finish the remaining steps of the original task.",
+    "3. End with the FINAL_REPORT block exactly as the original instructions specified.",
+  ].join("\n");
+}
+
+const errorSummary = (err: any): string => String(err?.data?.message ?? err?.message ?? err?.name ?? JSON.stringify(err)).slice(0, 160);
+
 // ── the backend ─────────────────────────────────────────────────────────────
 export const opencodeBackend: MigrationBackend = {
   name: "opencode",
@@ -223,25 +289,49 @@ export const opencodeBackend: MigrationBackend = {
     const tap = tapSession(base, sessionId, ctx.onProgress, model);
     ctx.onProgress(`opencode/${model}: migrating ${payload.sourceType} ${payload.sourceLocation} → ${targets.folder}/${payload.pageSlug}`);
 
+    // One turn budget covers the prompt AND any continuation - the ceilings above
+    // us (coordinator stream recovery, daily-loop MAX_WAIT_S) are sized to it.
+    const deadline = Date.now() + TURN_TIMEOUT_MS;
     let message: any;
+    let continuations = 0;
+    let prompt = buildMigrationPrompt({ payload, ...targets });
     try {
-      message = await postJson(
-        base,
-        `/session/${sessionId}/message`,
-        {
-          providerID: KIMI_PROVIDER_ID,
-          modelID: modelId,
-          parts: [{ type: "text", text: buildMigrationPrompt({ payload, ...targets }) }],
-        },
-        TURN_TIMEOUT_MS
-      );
+      for (;;) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw new Error(`opencode/${model}: turn budget (${TURN_TIMEOUT_MS} ms) exhausted`);
+        message = await postJson(
+          base,
+          `/session/${sessionId}/message`,
+          { providerID: KIMI_PROVIDER_ID, modelID: modelId, parts: [{ type: "text", text: prompt }] },
+          remaining
+        );
+        const err = message?.info?.error;
+        if (!err) break;
+
+        const errText = JSON.stringify(err).slice(0, 300);
+        const budgetLeft = deadline - Date.now();
+        if (continuations >= MAX_CONTINUATIONS || budgetLeft < MIN_CONTINUATION_BUDGET_MS) {
+          const suffix = continuations ? ` (after ${continuations} continuation${continuations > 1 ? "s" : ""})` : "";
+          throw new Error(`opencode/${model} turn errored${suffix}: ${errText}`);
+        }
+        continuations++;
+        log.warn("opencode turn errored - continuing in the same session", {
+          a2a_task_id: ctx.taskId,
+          session_id: sessionId,
+          continuation: continuations,
+          budget_left_ms: budgetLeft,
+          error: errText,
+        });
+        ctx.onProgress(
+          `opencode/${model}: turn errored (${errorSummary(err)}) - continuing in the same session, attempt ${continuations}/${MAX_CONTINUATIONS}`
+        );
+        prompt = continuationPrompt(errorSummary(err));
+      }
     } finally {
       // give the event stream a beat to flush the final tool states, then stop
       await new Promise((r) => setTimeout(r, 250));
       tap.stop();
     }
-
-    if (message?.info?.error) throw new Error(`opencode/${model} turn errored: ${JSON.stringify(message.info.error).slice(0, 300)}`);
 
     const text = (message?.parts ?? [])
       .filter((p: { type: string; text?: string }) => p.type === "text" && typeof p.text === "string")
@@ -263,6 +353,8 @@ export const opencodeBackend: MigrationBackend = {
       skill_fired: tap.summary.skillFired,
       tools_fired: [...tap.summary.toolsFired],
       validations: tap.summary.validations,
+      continuations,
+      kimi_proxy: kimiProxyStatus(),
       tokens: message?.info?.tokens,
       cost: message?.info?.cost,
     });

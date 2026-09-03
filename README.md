@@ -12,7 +12,7 @@ The repository's center of gravity is **v2.0 — the `agents/` A2A Agent Platfor
 
 ## ⭐ The flagship: `agents/` — A2A Agent Platform (v2.0)
 
-**Status**: **v2.8.0, deployed on Cloudflare Workers + Containers** (see [CHANGELOG.md](./CHANGELOG.md)); the closed loop runs end-to-end with **Kimi (K3 default) or Claude (Agent SDK) really authoring da.live pages**, scored by the real agentic eval in three modes (fidelity / quality / redesign); the coordinator ships its **own Next.js dashboard** (Google SSO) on :4004 / `content-factor-dash.jackzhaojin.com`. An agent-led **daily content loop** (GitHub Actions cron) generates a fresh **Wilderness Journal** article each day onto the `adapt-to-2026-demo` site for the adaptTo() Sept-2026 demo, and a **model-matrix benchmark** runs the same migration across N models (2026-08-29 result: K3 88 > Opus 5 86 > K2.7 85 > Sonnet 5 / Haiku 4.5 84).
+**Status**: **v2.8.1, deployed on Cloudflare Workers + Containers** (see [CHANGELOG.md](./CHANGELOG.md)); the closed loop runs end-to-end with **Kimi (K3 default) or Claude (Agent SDK) really authoring da.live pages**, scored by the real agentic eval in three modes (fidelity / quality / redesign); the coordinator ships its **own Next.js dashboard** (Google SSO) on :4004 / `content-factor-dash.jackzhaojin.com`. An agent-led **daily content loop** (GitHub Actions cron) generates a fresh **Wilderness Journal** article each day onto the `adapt-to-2026-demo` site for the adaptTo() Sept-2026 demo, and a **model-matrix benchmark** runs the same migration across N models (2026-08-29 result: K3 88 > Opus 5 86 > K2.7 85 > Sonnet 5 / Haiku 4.5 84).
 **Purpose**: A multi-agent mesh speaking the [A2A protocol](https://a2a-protocol.org/) (official `@a2a-js/sdk`), where each agent is its own Express server with an Agent Card, Task lifecycle, and streaming.
 
 The headline capability is a **closed loop**: the **coordinator** asks **content-gen** to fabricate a synthetic "legacy" page, hands it to the **migration agent** to author into da.live, then to the **eval agent** to score the result across four dimensions — fanned out and aggregated into variance stats. But the coordinator routes intelligently: it can also *just evaluate*, *just migrate*, *generate+migrate*, or *auto*-decide; it need not start at generation or end at evaluation.
@@ -122,7 +122,7 @@ azure-da-mcp/
 Lockstep SemVer, **trunk-based** releases (tag directly from `main`) — strategy in **[RELEASES.md](./RELEASES.md)**, per-version history in **[CHANGELOG.md](./CHANGELOG.md)**.
 
 - **v1.1.0** — the legacy `content-authoring-eval` app (**deprecated**, frozen backup). `v1.*` tag push triggers the Oracle deploy.
-- **v2.x** — the `agents/` platform (the active line, **currently v2.8.0**). A **major** bump because it's a ground-up re-architecture. **Deployed to Cloudflare Workers + Containers** via `.github/workflows/deploy-agents.yml` on `v2.x+` tags (version tracked in `agents/package.json`).
+- **v2.x** — the `agents/` platform (the active line, **currently v2.8.1**). A **major** bump because it's a ground-up re-architecture. **Deployed to Cloudflare Workers + Containers** via `.github/workflows/deploy-agents.yml` on `v2.x+` tags (version tracked in `agents/package.json`).
 
 ## Common Dependencies
 
@@ -166,4 +166,4 @@ Apache License 2.0
 
 **Last Updated**: 2026-08-29
 **Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP, opencode (Kimi K3/K2.7)
-**Active workstream**: `agents/` v2.x platform (v2.8.0) → the **Wilderness Journal** demo site (`adapt-to-2026-demo`) for adaptTo() Sept 2026. `content-authoring-eval/` + `agent-claude-sdk/` are **deprecated**.
+**Active workstream**: `agents/` v2.x platform (v2.8.1) → the **Wilderness Journal** demo site (`adapt-to-2026-demo`) for adaptTo() Sept 2026. `content-authoring-eval/` + `agent-claude-sdk/` are **deprecated**.

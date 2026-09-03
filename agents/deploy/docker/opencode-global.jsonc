@@ -1,5 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  // Never self-update inside the container: opencode auto-installs PATCH
+  // releases at startup by default, which made "which opencode is running"
+  // drift from what the image was built with. The version is pinned in
+  // migration.Dockerfile and reported on the agent's /health.
+  "autoupdate": false,
   "model": "kimi-code/kimi-for-coding",
   "enabled_providers": ["kimi-code"],
   "provider": {

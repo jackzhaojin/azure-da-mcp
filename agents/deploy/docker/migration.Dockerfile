@@ -16,8 +16,15 @@ COPY store-mcp/package.json store-mcp/
 COPY e2e/package.json e2e/
 RUN npm ci -w @agents/migration-agent --include-workspace-root=false --ignore-scripts
 
-# opencode binary (drives Kimi headlessly via `opencode serve` + REST)
-RUN curl -fsSL https://opencode.ai/install | bash
+# opencode binary (drives Kimi headlessly via `opencode serve` + REST).
+# PINNED (v2.8.1): unpinned installs meant every image build silently took the
+# newest opencode, and opencode also auto-installs patch releases at startup
+# (autoupdate is now false in opencode-global.jsonc). The migration backend
+# must run the binary it was tested with; bump deliberately, then re-run the
+# opencode live test. 1.18.25 = the version behind the Aug 29 - Sep 1 successes.
+ARG OPENCODE_VERSION=1.18.25
+RUN curl -fsSL https://opencode.ai/install | bash -s -- --version ${OPENCODE_VERSION} \
+  && /root/.opencode/bin/opencode --version
 ENV OPENCODE_BIN=/root/.opencode/bin/opencode
 
 # global opencode config: the kimi-code provider (key injected at runtime via

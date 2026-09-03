@@ -4,11 +4,16 @@ import { startAgentServer, createLogger, SqliteTaskStore } from "@agents/a2a-com
 import { randomUUID } from "node:crypto";
 import { migrationExecutor } from "./executor.ts";
 import { resolveCallback } from "./callbacks.ts";
-import { cachedKimiModelLabel, KIMI_MODEL_ID } from "./backends/opencode-config.ts";
+import { cachedKimiModelLabel, cachedOpencodeVersion, resolveOpencodeVersion, KIMI_MODEL_ID } from "./backends/opencode-config.ts";
+import { kimiProxyStatus } from "./backends/opencode.ts";
 import type { MigrationResult } from "./backends/types.ts";
 
 const log = createLogger("da-migration-agent");
 const DB_PATH = process.env.STORE_DB_PATH ?? "./data/store.db";
+
+// Resolve the opencode binary's version once at boot (fire-and-forget; /health
+// reads the cache). Never blocks startup - a missing binary just reads null.
+void resolveOpencodeVersion();
 
 await startAgentServer({
   name: "da-migration-agent",
@@ -33,10 +38,15 @@ await startAgentServer({
   // is what made a timeout hard to diagnose) and the model the `kimi-for-coding`
   // alias actually resolves to (null until the first opencode migration
   // resolves it — the lookup is lazy so boot never depends on the provider).
+  // v2.8.1 adds the two things the 2026-08-24..09-02 failures made visible as
+  // blind spots: which opencode binary is actually running, and whether Kimi
+  // traffic goes through the wire-repair proxy (+ what it has had to fix).
   healthExtras: () => ({
     opencodeMigrationTimeoutMs: Number(process.env.OPENCODE_MIGRATION_TIMEOUT_MS ?? 40 * 60 * 1000),
+    opencodeVersion: cachedOpencodeVersion(),
     kimiModelAlias: KIMI_MODEL_ID,
     kimiModelResolved: cachedKimiModelLabel(),
+    kimiProxy: kimiProxyStatus(),
   }),
   extraRoutes: ({ app, db, edgeToken }) => {
     const taskStore = new SqliteTaskStore(db, "da-migration-agent");

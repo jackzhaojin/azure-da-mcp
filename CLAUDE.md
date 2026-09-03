@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Azure DA.live MCP** — a monorepo of 7 independent AI-powered content authoring, migration, evaluation, and ops tools for [da.live](https://da.live) (Adobe Edge Delivery Services). Each subproject has its own dependencies, configs, and workflows; this root file orients you to which one to work in.
 
-> **Version lines**: **v2.x** (currently `v2.8.0`) is the **`agents/` A2A platform** (project #7 — the current flagship workstream). **v1.x** (`v1.1.0`) is the legacy `content-authoring-eval` app — a **frozen backup**, never modified (decision D5). When in doubt about "the new platform" vs "the eval app", that's the v2.x vs v1.x split. Full history: [CHANGELOG.md](./CHANGELOG.md).
+> **Version lines**: **v2.x** (currently `v2.8.1`) is the **`agents/` A2A platform** (project #7 — the current flagship workstream). **v1.x** (`v1.1.0`) is the legacy `content-authoring-eval` app — a **frozen backup**, never modified (decision D5). When in doubt about "the new platform" vs "the eval app", that's the v2.x vs v1.x split. Full history: [CHANGELOG.md](./CHANGELOG.md).
 
 ## Monorepo Structure
 
@@ -89,7 +89,7 @@ This repository contains 7 independent projects:
 ### 7. `agents/` - A2A Agent Platform (v2.0) ⭐ flagship workstream
 **Purpose**: A decoupled mesh of independently-addressable AI agents (content-gen, migration, eval, coordinator) speaking the **A2A protocol** — the ground-up v2.0 re-architecture for the adaptTo() Sept 2026 demo
 **Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard — the sole UI: single/bulk/direct-eval/migrate-a-real-page lanes, sample downloads, JSON export), Claude Agent SDK + opencode (Kimi), vitest e2e
-**Status**: **v2.8.0, DEPLOYED ON CLOUDFLARE** (M5 first deploy 2026-06-10; every `v2.x` tag redeploys) — the whole mesh runs as Workers + Containers (worker `content-factory`, agents/deploy/): dashboard at `content-factor-dash.jackzhaojin.com` (Google SSO, per-user runs), agents at `content-factory{,-eval,-gen,-migrate}.jackzhaojin.com`, store on D1 via the Worker's `/d1/query` proxy, artifacts on R2. Real migrations run under **Kimi (K3 default, per-run model)** or **Claude (Agent SDK `sdk` backend, per-run model)**; eval has three modes (`fidelity`/`quality`/`redesign`); an agent-led **daily content loop** (GH Actions cron) publishes a Wilderness Journal article every day; `npm run model-matrix` benchmarks N models over the same migration+eval (2026-08-29: K3 confirmed best). Local dev unchanged (SQLite + localhost ports); the tunnel keeps only `a2a.jackzhaojin.com` → local :4003 for Make.com
+**Status**: **v2.8.1, DEPLOYED ON CLOUDFLARE** (M5 first deploy 2026-06-10; every `v2.x` tag redeploys) — the whole mesh runs as Workers + Containers (worker `content-factory`, agents/deploy/): dashboard at `content-factor-dash.jackzhaojin.com` (Google SSO, per-user runs), agents at `content-factory{,-eval,-gen,-migrate}.jackzhaojin.com`, store on D1 via the Worker's `/d1/query` proxy, artifacts on R2. Real migrations run under **Kimi (K3 default, per-run model)** or **Claude (Agent SDK `sdk` backend, per-run model)**; eval has three modes (`fidelity`/`quality`/`redesign`); an agent-led **daily content loop** (GH Actions cron) publishes a Wilderness Journal article every day; `npm run model-matrix` benchmarks N models over the same migration+eval (2026-08-29: K3 confirmed best). Local dev unchanged (SQLite + localhost ports); the tunnel keeps only `a2a.jackzhaojin.com` → local :4003 for Make.com
 **Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · [CHANGELOG.md](./CHANGELOG.md) (per-minor-version history) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · model assessment [ai-docs/2026-08-29-model-assessment/](./ai-docs/2026-08-29-model-assessment/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/) · full index [ai-docs/README.md](./ai-docs/README.md)
 
 **When to work here**:
@@ -221,7 +221,7 @@ All projects support:
 This monorepo uses **lockstep versioning** + **trunk-based releases** — tag directly from `main`.
 
 ### Current State
-- **Current version**: `v2.8.0` (agents platform, the active line) · `v1.1.0` = the frozen legacy line
+- **Current version**: `v2.8.1` (agents platform, the active line) · `v1.1.0` = the frozen legacy line
 - **Branch model**: Trunk-based; `main` is the only long-lived branch
 - **Strategy doc**: [`RELEASES.md`](./RELEASES.md) · **Per-version history**: [`CHANGELOG.md`](./CHANGELOG.md) — update it in the same commit as any version bump
 - **Strategy history**: A `release/1.0` branch existed from 2026-01-01 to 2026-05-12 but was merged into `main` and deleted — that flow added overhead without benefit for a single-maintainer repo
@@ -376,4 +376,4 @@ cp .env.example .env
 **Last Updated**: 2026-08-29
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
-**Version lines**: **v2.x** = the `agents/` A2A platform (flagship, **v2.8.0 deployed on Cloudflare**; `v2.x+` tags trigger `deploy-agents.yml`) · **v1.1.0** = legacy `content-authoring-eval` (**deprecated**, frozen backup). `agent-claude-sdk/` is also **deprecated**. Trunk-based, tag from `main`; history in [`CHANGELOG.md`](./CHANGELOG.md).
+**Version lines**: **v2.x** = the `agents/` A2A platform (flagship, **v2.8.1 deployed on Cloudflare**; `v2.x+` tags trigger `deploy-agents.yml`) · **v1.1.0** = legacy `content-authoring-eval` (**deprecated**, frozen backup). `agent-claude-sdk/` is also **deprecated**. Trunk-based, tag from `main`; history in [`CHANGELOG.md`](./CHANGELOG.md).

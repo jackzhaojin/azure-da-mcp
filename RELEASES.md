@@ -230,5 +230,5 @@ The platform's content target moved off the retired `da-live-postal-2025-07` sit
 ---
 
 **Last Updated**: 2026-08-29
-**Current Version**: **v2.8.0** (`agents/` platform, active line, deployed on Cloudflare via `deploy-agents.yml`) · v1.1.0 (legacy line, **deprecated**, frozen on Oracle)
+**Current Version**: **v2.8.1** (`agents/` platform, active line, deployed on Cloudflare via `deploy-agents.yml`) · v1.1.0 (legacy line, **deprecated**, frozen on Oracle)
 **Branch Model**: Trunk-based (tag from `main`)

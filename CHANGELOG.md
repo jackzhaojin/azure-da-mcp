@@ -9,9 +9,16 @@ Two release lines:
 
 ---
 
-## 2.8 (2026-08-29)
+## 2.8 (2026-08-29 to 2026-09-02)
 
-Tags: `v2.8.0` - the model-assessment release, built for the adaptTo() talk's "Model and Prompt Comparison" slide.
+Tags: `v2.8.0` (the model-assessment release, built for the adaptTo() talk's "Model and Prompt Comparison" slide), `v2.8.1` (Kimi empty-assistant hotfix).
+
+- **2.8.1 (2026-09-02) - daily loop reliability.** From 2026-08-24 the daily loop failed on 4 of 10 days (both attempts) with a non-retryable Kimi 400, `the message at position N with role 'assistant' must not be empty`. opencode replays the whole session history on every agentic step, so one empty K3 turn (a stop with no content, or an aborted step persisted with no visible parts) bricked the migration mid-authoring; the eighth failure was an SSE read timeout. Upstream: anomalyco/opencode #37946, #46577, #46881, PR #45839 (unmerged). Fix, in `agents/migration-agent`:
+  - **Kimi wire-repair proxy** (`src/backends/kimi-proxy.ts`): a tiny in-process HTTP proxy between `opencode serve` and `api.kimi.com`; the generated `OPENCODE_CONFIG` points `provider.kimi-code.options.baseURL` at it. It drops exactly the shape Kimi rejects (assistant with no text, no `tool_calls`, no `reasoning_content` - probed directly against K3) and streams everything else through untouched. Version-independent of opencode. Covered by `e2e/tests/kimi-proxy.e2e.test.ts` (real sockets, fake upstream speaking the Kimi wire shape).
+  - **Same-session continuation**: when a turn still dies on a provider error, the backend sends one follow-up message into the same opencode session (within the original turn budget) instead of failing the task, so the pages already authored on da.live are finished rather than abandoned. `OPENCODE_MAX_CONTINUATIONS` (default 1).
+  - **opencode pinned to 1.18.25** in `migration.Dockerfile` (was unpinned = newest at every image build) and `autoupdate: false` in the baked global config (opencode self-installs patch releases at startup).
+  - `/health` on the migration agent now reports `opencodeVersion` and `kimiProxy` (base, upstream, requests, sanitized, dropped, upstream errors) - the blind spots that made this hard to see from outside.
+  - The 9 failed daily-loop runs (all score 0, no child rows) were removed from the store; nothing else changed in D1.
 
 - **`sdk` migration backend is now real** (it had been an M3 stub): the Claude Agent SDK drives the same migration prompt, `da-live-author-playwright` skill, and da.live/Playwright MCP servers as the opencode/Kimi backend. Auth via subscription OAuth (`CLAUDE_CODE_OAUTH_TOKEN`), per-run Claude model via the payload (`claude-sonnet-5`, `claude-opus-5`, `claude-haiku-4-5`, or aliases).
 - **Model-matrix benchmark harness** (`npm run model-matrix` in `agents/`): runs the same migration + eval across N models sequentially, with resume/merge, `--eval-only` re-scoring, and per-row eval-report evidence. Docs in `agents/docs/model-matrix.md`.
