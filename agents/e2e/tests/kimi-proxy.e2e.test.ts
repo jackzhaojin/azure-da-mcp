@@ -60,6 +60,16 @@ describe("kimi proxy - repairs chat/completions on the wire, streams everything 
   let upstreamBase: string;
   let proxy: KimiProxy;
   const seen: Array<{ method: string; url: string; headers: Record<string, string | string[] | undefined>; body: string }> = [];
+  // streaming proof: the test arms a gate; the upstream releases the tail of the
+  // SSE only once the client has consumed the head (see the handler below)
+  let gateForNext: { promise: Promise<void>; release: () => void } | null = null;
+  let streamedLive: boolean | null = null;
+  const armGate = () => {
+    let release!: () => void;
+    const promise = new Promise<void>((r) => (release = r));
+    gateForNext = { promise, release };
+    return gateForNext;
+  };
   const SSE_LINES = ['data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n', 'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n', "data: [DONE]\n\n"];
 
   beforeAll(async () => {
@@ -79,12 +89,17 @@ describe("kimi proxy - repairs chat/completions on the wire, streams everything 
           res.writeHead(400, { "content-type": "application/json" });
           return res.end(JSON.stringify({ error: { message: "the message at position 1 with role 'assistant' must not be empty", type: "invalid_request_error" } }));
         }
-        // a real SSE stream: chunks arrive over time, not as one buffer
+        // a real SSE stream: the first chunk goes out, then the upstream HOLDS the
+        // rest until the test has read that chunk through the proxy (or 3s pass).
+        // Ordering, not wall-clock, proves the proxy streams instead of buffering.
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", "x-request-id": "req-123" });
-        for (const line of SSE_LINES) {
-          res.write(line);
-          await new Promise((r) => setTimeout(r, 30));
+        res.write(SSE_LINES[0]);
+        const gate = gateForNext;
+        gateForNext = null;
+        if (gate) {
+          streamedLive = await Promise.race([gate.promise.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]);
         }
+        for (const line of SSE_LINES.slice(1)) res.write(line);
         return res.end();
       }
       res.writeHead(404);
@@ -109,7 +124,7 @@ describe("kimi proxy - repairs chat/completions on the wire, streams everything 
       { role: "assistant", content: "" }, // the poison pill
       { role: "user", content: "continue" },
     ];
-    const t0 = Date.now();
+    const gate = armGate();
     const res = await fetch(`${proxy.base}/coding/v1/chat/completions`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: "Bearer sk-test", "user-agent": "opencode/1.16.2" },
@@ -119,19 +134,21 @@ describe("kimi proxy - repairs chat/completions on the wire, streams everything 
     expect(res.headers.get("content-type")).toBe("text/event-stream");
     expect(res.headers.get("x-request-id")).toBe("req-123");
 
-    // streamed, not buffered: the first chunk lands well before the last is written (~90ms in)
+    // streamed, not buffered: the head chunk reaches us while the upstream is
+    // still holding the tail; only then do we release it. A buffering proxy
+    // would never deliver the head first (the upstream gives up after 3s and
+    // streamedLive reads false).
     const reader = res.body!.getReader();
     const chunks: string[] = [];
-    let firstAt = 0;
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
-      if (!firstAt) firstAt = Date.now() - t0;
       chunks.push(Buffer.from(value).toString("utf8"));
+      if (chunks.length === 1) gate.release();
     }
+    expect(chunks[0]).toBe(SSE_LINES[0]);
     expect(chunks.join("")).toBe(SSE_LINES.join(""));
-    expect(chunks.length).toBeGreaterThan(1);
-    expect(firstAt).toBeLessThan(80);
+    expect(streamedLive).toBe(true);
 
     expect(seen).toHaveLength(1);
     const got = seen[0];
