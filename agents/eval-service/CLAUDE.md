@@ -2,7 +2,7 @@
 
 **Purpose**: A2A eval agent — runs a 4-dimension (structure, accessibility, content, visual) migration-quality evaluation against a published EDS page. **Tech**: Express + `@a2a-js/sdk@0.3.13`, `@agents/a2a-common`, p-queue, SQLite/D1, Playwright/axe, Anthropic SDK · **Port**: 4001 · **Status**: M1 core done (real engine, queue, semaphore, `eval_reports`, restart rebuild, R2 artifacts). v2.0 of the platform — **v1.1.0 = the frozen `content-authoring-eval/`, do not touch it (D5)**.
 
-Platform context: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-06-08-a2a-platform-v2.0/) · original PRD [`ai-docs/2026-06-05-a2a-agent-platform/`](../../ai-docs/2026-06-05-a2a-agent-platform/) · sibling agents in [`agents/README.md`](../README.md).
+Platform context: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-06-08-a2a-platform-v2.0/) · original PRD [`ai-docs/2026-06-05-a2a-agent-platform/`](../../ai-docs/2026-06-05-a2a-agent-platform/) · sibling agents in [`agents/README.md`](../README.md) · user-facing [`README.md`](./README.md) (the deterministic-vs-agentic breakdown table, blend formulas per dimension, the three modes, what is carried over but dead - keep it in sync when the engine changes).
 
 ## When to work here
 - The `eval.run` skill (contract `agents/contracts/eval.run.v1.json`): payload, validation, retry, A2A event shapes.
