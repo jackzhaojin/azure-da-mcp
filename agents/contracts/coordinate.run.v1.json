@@ -27,6 +27,10 @@
       },
       "description": "Evaluate route: pages to score. Each target \u00d7 fanOut becomes one eval.run child."
     },
+    "memoryPath": {
+      "type": "string",
+      "description": "Site-relative page path of the agent-memory page (e.g. 'ai-content/memory'). Overrides the site profile's memoryPath; unprofiled sites have none. Threaded to migration.run (read, memory injected into the prompt) and eval.reflect (write, after the run is scored)."
+    },
     "fanOut": {
       "type": "integer",
       "minimum": 1,

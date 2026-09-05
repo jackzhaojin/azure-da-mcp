@@ -23,6 +23,7 @@ import {
   Camera,
   Download,
   Layers,
+  Brain,
 } from "lucide-react";
 
 function StageChip({ stage, state, durationMs }: { stage: string; state: string; durationMs?: number }) {
@@ -251,7 +252,96 @@ function BranchCard({ b }: { b: BranchResult }) {
           </a>
         )}
         {b.error && <div className="p-2 bg-red-50 border border-red-200 rounded-md text-xs text-red-600">{b.error}</div>}
+        {b.migration && (b.migration.lessons?.length || b.migration.gaps?.length || b.migration.memory) ? (
+          <div className="rounded-md border bg-gray-50 p-2 text-xs space-y-1">
+            {b.migration.memory && (
+              <p className="text-muted-foreground">
+                memory read: <span className="font-medium text-foreground">{b.migration.memory.status}</span>
+                {b.migration.memory.status === "loaded"
+                  ? ` — ${b.migration.memory.chars} chars, ${b.migration.memory.entries} prior entr${b.migration.memory.entries === 1 ? "y" : "ies"}`
+                  : b.migration.memory.reason
+                    ? ` — ${b.migration.memory.reason}`
+                    : ""}
+              </p>
+            )}
+            {b.migration.lessons && b.migration.lessons.length > 0 && (
+              <div>
+                <p className="text-muted-foreground">migrator&apos;s lessons</p>
+                <ul className="list-disc pl-4">
+                  {b.migration.lessons.map((l, i) => (
+                    <li key={i}>{l}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {b.migration.gaps && b.migration.gaps.length > 0 && (
+              <div>
+                <p className="text-muted-foreground">gaps</p>
+                <ul className="list-disc pl-4">
+                  {b.migration.gaps.map((g, i) => (
+                    <li key={i}>{g}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : null}
         {b.evalTaskId && <EvidencePanel evalTaskId={b.evalTaskId} />}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The agent-memory write-back for this run (eval.reflect): what was learned
+ * and where it went. Memory is the human-readable da.live page the migration
+ * agent reads before its next run — this card is the "improves itself" proof.
+ */
+function MemoryCard({ memory }: { memory: NonNullable<RunView["stats"]>["memory"] }) {
+  if (!memory) return null;
+  const tone = memory.written ? "border-l-emerald-500" : memory.error ? "border-l-red-500" : "border-l-gray-300";
+  return (
+    <Card className={`border-l-4 ${tone}`}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Brain className="h-4 w-4" /> Memory
+          <span className="text-xs font-normal text-muted-foreground">
+            {memory.written
+              ? `${memory.lessons?.length ?? 0} new rule${(memory.lessons?.length ?? 0) === 1 ? "" : "s"} appended · ${memory.entries ?? "?"} entries on the page`
+              : memory.skipped
+                ? `not written — ${memory.skipped}`
+                : memory.error
+                  ? "write failed"
+                  : "not written"}
+          </span>
+        </CardTitle>
+        <CardDescription>
+          What this run taught the migration agent (distilled {memory.tier === "agentic" ? `by ${memory.model ?? "Claude"}` : "deterministically"} from the eval findings + the
+          migrator&apos;s own report). The agent reads this page before every run
+          {memory.editUrl ? (
+            <>
+              {" "}
+              —{" "}
+              <a href={memory.editUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                open the memory page in da.live <ExternalLink className="h-3 w-3" />
+              </a>
+            </>
+          ) : null}
+          .
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {memory.summary && <p className="italic text-muted-foreground">{memory.summary}</p>}
+        {memory.lessons && memory.lessons.length > 0 ? (
+          <ul className="list-disc pl-5 space-y-1">
+            {memory.lessons.map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        ) : memory.attempted && !memory.error ? (
+          <p className="text-muted-foreground">No new rules — the standing rules held for this run.</p>
+        ) : null}
+        {memory.error && <div className="p-2 bg-red-50 border border-red-200 rounded-md text-xs text-red-600">{memory.error}</div>}
       </CardContent>
     </Card>
   );
@@ -475,6 +565,8 @@ export function RunDetail({ id }: { id: string }) {
           </CardContent>
         </Card>
       )}
+
+      {stats?.memory && <MemoryCard memory={stats.memory} />}
 
       {branches.length > 0 && (
         <div className="space-y-3">

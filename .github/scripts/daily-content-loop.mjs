@@ -215,6 +215,16 @@ async function poll(runId) {
 
 // ── 5. step summary + exit code ──────────────────────────────────────────────
 import { appendFileSync } from "node:fs";
+/** The agent-memory write-back (v2.9): what this run taught the migrator, or why nothing was written. */
+function memoryLine(memory) {
+  if (!memory) return "n/a (site has no memory page)";
+  if (memory.written) {
+    const n = memory.lessons?.length ?? 0;
+    return `${n} new rule${n === 1 ? "" : "s"} appended (${memory.entries ?? "?"} entries) — ${memory.editUrl ?? memory.path ?? ""}`;
+  }
+  return `not written — ${memory.skipped ?? memory.error ?? "unknown"}`;
+}
+
 function summarize(run) {
   const cfg = run.config ?? {};
   const stats = run.stats ?? {};
@@ -234,6 +244,7 @@ function summarize(run) {
     `| **Model** | ${(cfg.backend ?? BACKEND) === "opencode" ? `\`${cfg.model ?? MODEL}\`` : "n/a"} |`,
     `| **Branches** | ${stats.completed ?? 0}/${stats.branches ?? branches.length} completed |`,
     `| **Overall score** | ${typeof score === "number" ? score : "—"} |`,
+    `| **Memory** | ${memoryLine(stats.memory)} |`,
     `| **Run** | \`${run.id}\` |`,
     dashHost ? `| **Dashboard** | ${dashHost}/runs/${run.id} |` : "",
     "",

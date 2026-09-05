@@ -24,8 +24,40 @@ export interface BranchResult {
   overallScore?: number;
   dimensionScores?: Record<string, number>;
   confidence?: number;
+  /** Migration report details (blocks, gaps, the model's self-reported lessons, memory use). */
+  migration?: {
+    pageSlug: string;
+    backend?: string;
+    model?: string;
+    status?: string;
+    confidence?: number;
+    blocksUsed?: string[];
+    gaps?: string[];
+    lessons?: string[];
+    memory?: { status: string; chars: number; entries: number; path?: string; reason?: string } | null;
+    pageUrl?: string;
+    previewUrl?: string;
+  };
+  evalFindings?: Array<{ dimension: string; severity: string; issue: string; recommendation?: string }>;
+  evalMode?: string;
   stages: StageResult[];
   error?: string;
+}
+
+/** The run-level memory write-back (eval.reflect) outcome. */
+export interface MemoryOutcome {
+  attempted: boolean;
+  written: boolean;
+  path?: string;
+  editUrl?: string;
+  entries?: number;
+  lessons?: string[];
+  summary?: string;
+  tier?: string;
+  model?: string;
+  skipped?: string;
+  error?: string;
+  taskId?: string;
 }
 
 export interface DimensionSummary {
@@ -45,6 +77,8 @@ export interface RunStats {
   passRate?: number;
   migrationConfidence?: { mean: number; stddev: number; min: number; max: number };
   perDimension?: Record<string, DimensionSummary>;
+  /** Agent-memory write-back for this run (absent when the site has no memory page). */
+  memory?: MemoryOutcome;
   branchResults?: BranchResult[];
 }
 

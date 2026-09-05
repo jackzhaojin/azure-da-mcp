@@ -31,6 +31,14 @@ export interface MigrationRunPayload {
    * principles land in the report's gaps. opencode + sdk backends; others ignore it.
    */
   guidance?: string;
+  /**
+   * The site's agent-memory page (`/source/{owner}/{site}/{path}.html`, e.g.
+   * `/source/jackzhaojin/adapt-to-2026-demo/ai-content/memory.html`). When set,
+   * the opencode/sdk/dryrun backends READ it before the run (needs
+   * `DALIVE_MCP_URL`) and inject it into the prompt as lessons from previous
+   * runs; the coordinator's post-eval reflect step WRITES to it. Never fatal.
+   */
+  memoryPath?: string;
   maxRefinementIterations?: number;
   runId?: string;
   labels?: Record<string, string>;
@@ -46,6 +54,25 @@ export interface MigrationResult {
   refinementIterations: number;
   gaps: string[];
   backend: string;
+  /**
+   * What the model says it learned this run for the NEXT migration to this
+   * site (errors + fixes, block mappings that worked/failed). Raw input to the
+   * reflect step, which curates them into the memory page.
+   */
+  lessons?: string[];
+  /** How memory was used for this run (null when the run carried no memoryPath). */
+  memory?: MemoryUse | null;
+}
+
+/** Observability for the memory read at the start of a run. */
+export interface MemoryUse {
+  path: string;
+  editUrl?: string;
+  /** loaded = injected into the prompt; empty = page missing/blank; skipped = disabled; error = read failed (run continued). */
+  status: "loaded" | "empty" | "skipped" | "error";
+  chars: number;
+  entries: number;
+  reason?: string;
 }
 
 /**

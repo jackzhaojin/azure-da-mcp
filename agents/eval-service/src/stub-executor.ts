@@ -2,6 +2,7 @@ import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from "@a2a-
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
 import { createLogger } from "@agents/a2a-common";
 import { randomUUID } from "node:crypto";
+import { isReflectPayload, validateReflectPayload, deterministicLessons, reflectArtifact, reflectStatus, type ReflectResult } from "./reflect";
 
 const log = createLogger("da-eval-agent");
 const DIMENSIONS = ["structure", "accessibility", "content", "visual"] as const;
@@ -14,6 +15,43 @@ const DIMENSIONS = ["structure", "accessibility", "content", "visual"] as const;
 export const stubExecutor: AgentExecutor = {
   async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
     const { taskId, contextId, userMessage } = ctx;
+
+    // eval.reflect in stub mode: same artifact contract, deterministic lessons,
+    // never touches da.live or Claude (the fast tier's closed-loop test relies on this).
+    const data = userMessage.parts.find((p) => p.kind === "data")?.data;
+    if (isReflectPayload(data)) {
+      bus.publish({
+        kind: "task",
+        id: taskId,
+        contextId,
+        status: { state: "submitted", timestamp: new Date().toISOString() },
+        history: [userMessage],
+      } satisfies Task);
+      try {
+        validateReflectPayload(data);
+        const { summary, lessons } = deterministicLessons(data);
+        const result: ReflectResult = {
+          attempted: true,
+          written: false,
+          path: data.memoryPath,
+          editUrl: `https://da.live/edit#/${data.memoryPath.replace(/^\/source\//, "").replace(/\.html$/, "")}`,
+          lessons,
+          summary,
+          tier: "deterministic",
+          skipped: "stub engine",
+          stub: true,
+        };
+        bus.publish(reflectStatus(taskId, contextId, "working", `memory: stub — ${lessons.length} deterministic lesson(s), nothing written`));
+        bus.publish({ kind: "artifact-update", taskId, contextId, artifact: reflectArtifact(result) } satisfies TaskArtifactUpdateEvent);
+        bus.publish(reflectStatus(taskId, contextId, "completed", undefined, true));
+      } catch (err) {
+        bus.publish(reflectStatus(taskId, contextId, "failed", String(err), true));
+      } finally {
+        bus.finished();
+      }
+      return;
+    }
+
     log.info("eval.run received (stub)", { a2a_task_id: taskId, context_id: contextId });
 
     const initial: Task = {

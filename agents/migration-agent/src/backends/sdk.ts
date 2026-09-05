@@ -6,6 +6,7 @@ import { createLogger } from "@agents/a2a-common";
 import type { MigrationBackend, MigrationRunPayload, MigrationResult, BackendContext } from "./types.ts";
 import { DEFAULT_DALIVE_MCP_URL, resolveSkillsPath, repoRoot } from "./opencode-config.ts";
 import { buildMigrationPrompt, migrationTargets, parseMigrationReport } from "./opencode-prompt.ts";
+import { loadRunMemory } from "../memory.ts";
 
 const log = createLogger("da-migration-agent");
 
@@ -70,6 +71,9 @@ export const sdkBackend: MigrationBackend = {
     const pwOut = sdkPlaywrightOutputDir();
     mkdirSync(pwOut, { recursive: true });
 
+    // lessons from previous runs on this site (same read the opencode backend does)
+    const memory = await loadRunMemory(payload, ctx.onProgress);
+
     ctx.onProgress(`sdk/${model}: starting Claude Agent SDK session`);
     ctx.onProgress(`sdk/${model}: migrating ${payload.sourceType} ${payload.sourceLocation} → ${targets.folder}/${payload.pageSlug}`);
 
@@ -92,7 +96,7 @@ export const sdkBackend: MigrationBackend = {
 
     try {
       for await (const message of query({
-        prompt: buildMigrationPrompt({ payload, ...targets }),
+        prompt: buildMigrationPrompt({ payload, ...targets, ...(memory?.text ? { memory: { text: memory.text, editUrl: memory.editUrl } } : {}) }),
         options: {
           model,
           cwd,
@@ -161,6 +165,7 @@ export const sdkBackend: MigrationBackend = {
     const result = parseMigrationReport(text, payload, targets, { refinementIterations: validations || undefined });
     result.backend = "sdk";
     if (errors.length) result.gaps = [...result.gaps, ...errors];
+    result.memory = memory?.use ?? null;
 
     log.info("sdk migration done", {
       a2a_task_id: ctx.taskId,

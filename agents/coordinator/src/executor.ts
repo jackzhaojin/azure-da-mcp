@@ -1,6 +1,6 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from "@a2a-js/sdk";
 import type { AgentExecutor, RequestContext, ExecutionEventBus } from "@a2a-js/sdk/server";
-import { meshClientFactory, createLogger, type StoreDb } from "@agents/a2a-common";
+import { meshClientFactory, createLogger, memorySourcePath, memoryEditUrl, type StoreDb } from "@agents/a2a-common";
 import PQueue from "p-queue";
 import { randomUUID } from "node:crypto";
 import { getSiteProfile } from "./site-profiles.ts";
@@ -11,6 +11,8 @@ const CONTENT_GEN_URL = process.env.CONTENT_GEN_URL ?? "http://localhost:4002";
 const MIGRATION_AGENT_URL = process.env.MIGRATION_AGENT_URL ?? "http://localhost:4003";
 const FANOUT_CONCURRENCY = Number(process.env.COORD_FANOUT_CONCURRENCY ?? 2);
 const PASS_THRESHOLD = 75; // matches the engine's passedDimensions rule (PRD part-2)
+/** Public base of the dashboard (memory entries link back to the run). */
+const DASHBOARD_PUBLIC_BASE = (process.env.DASHBOARD_PUBLIC_BASE ?? process.env.A2A_PUBLIC_BASE ?? "http://localhost:4004").replace(/\/$/, "");
 
 export type Stage = "generate" | "migrate" | "evaluate";
 
@@ -40,6 +42,8 @@ export interface CoordinateRunPayload {
   model?: string;
   /** Operator guiding principles for the migration prompt (free text); merged AFTER the site profile's standing migrationGuidance. */
   guidance?: string;
+  /** Site-relative agent-memory page (e.g. "ai-content/memory"); overrides the site profile's memoryPath. */
+  memoryPath?: string;
   fanOut?: number;
   labels?: Record<string, string>;
   /** Groups the N runs fired by one bulk submission → runs.batch_id. */
@@ -66,8 +70,72 @@ export interface BranchResult {
   overallScore?: number;
   dimensionScores?: Record<string, number>;
   confidence?: number; // migration confidence, when the route migrated
+  /** Migration report details (the memory loop's evidence + dashboard detail). */
+  migration?: BranchMigration;
+  /** Top eval findings (severity-ranked, capped) — evidence for eval.reflect. */
+  evalFindings?: BranchFinding[];
+  evalMode?: string;
   stages: StageResult[];
   error?: string;
+}
+
+export interface BranchMigration {
+  pageSlug: string;
+  backend?: string;
+  model?: string;
+  status?: string;
+  confidence?: number;
+  blocksUsed?: string[];
+  gaps?: string[];
+  /** What the model said it learned this run (raw input to eval.reflect). */
+  lessons?: string[];
+  /** How memory was used for this run's prompt (from the migration agent). */
+  memory?: { status: string; chars: number; entries: number; path?: string; reason?: string } | null;
+  pageUrl?: string;
+  previewUrl?: string;
+}
+
+export interface BranchFinding {
+  dimension: string;
+  severity: string;
+  issue: string;
+  recommendation?: string;
+}
+
+/** The run-level memory write-back (eval.reflect) outcome — persisted in runs.stats.memory. */
+export interface MemoryOutcome {
+  attempted: boolean;
+  written: boolean;
+  path?: string;
+  editUrl?: string;
+  entries?: number;
+  lessons?: string[];
+  summary?: string;
+  tier?: string;
+  model?: string;
+  skipped?: string;
+  error?: string;
+  taskId?: string;
+}
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3, info: 4 };
+const MAX_BRANCH_FINDINGS = 8;
+
+/** Severity-ranked, size-capped findings out of an eval report (kept small — it rides in runs.stats). */
+function topFindings(report: unknown): BranchFinding[] {
+  const raw = (report as { findings?: unknown[] } | undefined)?.findings;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((f): f is Record<string, unknown> => Boolean(f && typeof f === "object"))
+    .map((f) => ({
+      dimension: String(f.dimension ?? ""),
+      severity: String(f.severity ?? "info"),
+      issue: String(f.issue ?? "").slice(0, 240),
+      ...(f.recommendation ? { recommendation: String(f.recommendation).slice(0, 240) } : {}),
+    }))
+    .filter((f) => f.issue && f.severity !== "info")
+    .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9))
+    .slice(0, MAX_BRANCH_FINDINGS);
 }
 
 /**
@@ -367,6 +435,11 @@ async function runPipelineBranch(opts: {
       // default, e.g. the image-quality rule), then the operator's per-run
       // guidance — both apply, neither replaces the other.
       const guidance = [site.migrationGuidance, payload.guidance?.trim()].filter(Boolean).join("\n");
+      // Agent memory (v2.9): the site's memory page, read by the migration
+      // agent before the run (lessons from previous runs) — explicit per-run
+      // path beats the profile's; unprofiled sites have none.
+      const memoryPage = payload.memoryPath?.trim() || site.memoryPath;
+      const memoryPath = memoryPage ? memorySourcePath(payload.owner ?? "jackzhaojin", payload.site ?? "demo-site", memoryPage) : undefined;
       call = await callAgent(
         MIGRATION_AGENT_URL,
         {
@@ -382,15 +455,42 @@ async function runPipelineBranch(opts: {
           ...(payload.backend ? { backend: payload.backend } : {}),
           ...(payload.model ? { model: payload.model } : {}),
           ...(guidance ? { guidance } : {}),
+          ...(memoryPath ? { memoryPath } : {}),
           runId,
         },
         contextId,
         forwardNote
       );
       if (call.state === "completed") {
-        const a = call.artifact as { previewUrl?: string; confidence?: number } | undefined;
+        const a = call.artifact as
+          | {
+              previewUrl?: string;
+              pageUrl?: string;
+              confidence?: number;
+              status?: string;
+              blocksUsed?: string[];
+              gaps?: string[];
+              lessons?: string[];
+              backend?: string;
+              memory?: BranchMigration["memory"];
+            }
+          | undefined;
         targetUrl = a?.previewUrl;
         result.confidence = a?.confidence;
+        result.migration = {
+          pageSlug,
+          backend: a?.backend ?? payload.backend,
+          ...(payload.model ? { model: payload.model } : {}),
+          status: a?.status,
+          confidence: a?.confidence,
+          blocksUsed: a?.blocksUsed ?? [],
+          gaps: a?.gaps ?? [],
+          lessons: a?.lessons ?? [],
+          memory: a?.memory ?? null,
+          pageUrl: a?.pageUrl,
+          previewUrl: a?.previewUrl,
+        };
+        if (a?.lessons?.length) forwardNote(`migrator reported ${a.lessons.length} lesson(s) for memory`);
       }
     } else {
       agent = "eval";
@@ -414,10 +514,12 @@ async function runPipelineBranch(opts: {
         forwardNote
       );
       if (call.state === "completed") {
-        const a = call.artifact as { overallScore?: number; dimensionScores?: Record<string, number> } | undefined;
+        const a = call.artifact as { overallScore?: number; dimensionScores?: Record<string, number>; report?: unknown } | undefined;
         result.overallScore = a?.overallScore;
         result.dimensionScores = a?.dimensionScores;
         result.evalTaskId = call.taskId;
+        result.evalMode = evalMode;
+        result.evalFindings = topFindings(a?.report);
       }
     }
 
@@ -446,6 +548,104 @@ async function runPipelineBranch(opts: {
   result.target = targetUrl ?? result.target;
   onUpdate?.({ ...result, stages: [...result.stages] });
   return result;
+}
+
+/**
+ * The memory write-back: one eval.reflect call per run, after the branches
+ * finished. Returns null when the run has no memory page or migrated nothing
+ * (nothing to learn from); otherwise a MemoryOutcome that is persisted in
+ * runs.stats.memory. Never throws.
+ */
+async function reflectIntoMemory(opts: {
+  payload: CoordinateRunPayload;
+  route: Stage[];
+  runId: string;
+  contextId: string;
+  results: BranchResult[];
+  note: (text: string) => void;
+}): Promise<MemoryOutcome | null> {
+  const { payload, route, runId, contextId, results, note } = opts;
+  if (!route.includes("migrate")) return null;
+  const site = getSiteProfile(payload.site);
+  const memoryPage = payload.memoryPath?.trim() || site.memoryPath;
+  if (!memoryPage) return null;
+  const owner = payload.owner ?? "jackzhaojin";
+  const siteName = payload.site ?? "demo-site";
+  const memoryPath = memorySourcePath(owner, siteName, memoryPage);
+  const migrated = results.filter((b) => b.migration && b.stages.some((s) => s.stage === "migrate" && s.state === "completed"));
+  if (!migrated.length) {
+    note("memory: nothing migrated this run — no reflection");
+    return { attempted: false, written: false, path: memoryPath, editUrl: memoryEditUrl(memoryPath), skipped: "no completed migration" };
+  }
+
+  note(`memory: reflecting ${migrated.length} branch(es) into ${memoryPage} via the eval agent`);
+  const call = await callAgent(
+    EVAL_AGENT_URL,
+    {
+      skill: "eval.reflect",
+      site: siteName,
+      owner,
+      memoryPath,
+      runId,
+      runUrl: `${DASHBOARD_PUBLIC_BASE}/runs/${runId}`,
+      ...(payload.topic ? { topic: payload.topic } : {}),
+      route: route.join("→"),
+      branches: migrated.map((b) => ({
+        branch: b.branch,
+        pageSlug: b.migration!.pageSlug,
+        previewUrl: b.migration!.previewUrl ?? b.target,
+        pageUrl: b.migration!.pageUrl,
+        sourceUrl: b.sourceUrl,
+        migration: {
+          backend: b.migration!.backend,
+          model: b.migration!.model,
+          status: b.migration!.status,
+          confidence: b.migration!.confidence,
+          blocksUsed: b.migration!.blocksUsed,
+          gaps: b.migration!.gaps,
+          lessons: b.migration!.lessons,
+        },
+        ...(typeof b.overallScore === "number"
+          ? {
+              eval: {
+                overallScore: b.overallScore,
+                mode: b.evalMode,
+                dimensionScores: b.dimensionScores,
+                findings: b.evalFindings ?? [],
+              },
+            }
+          : {}),
+      })),
+    },
+    contextId,
+    (n) => note(`memory: ${n.replace(/^memory: /, "")}`)
+  );
+
+  const a = (call.artifact ?? {}) as Partial<MemoryOutcome> & { attempted?: boolean };
+  if (call.state !== "completed") {
+    note(`memory: reflection ${call.state}${call.error ? ` — ${call.error.slice(0, 160)}` : ""}`);
+    return { attempted: true, written: false, path: memoryPath, editUrl: memoryEditUrl(memoryPath), error: call.error ?? `eval.reflect ${call.state}`, taskId: call.taskId };
+  }
+  const outcome: MemoryOutcome = {
+    attempted: a.attempted ?? true,
+    written: Boolean(a.written),
+    path: a.path ?? memoryPath,
+    editUrl: a.editUrl ?? memoryEditUrl(memoryPath),
+    ...(typeof a.entries === "number" ? { entries: a.entries } : {}),
+    lessons: Array.isArray(a.lessons) ? a.lessons : [],
+    ...(a.summary ? { summary: a.summary } : {}),
+    ...(a.tier ? { tier: a.tier } : {}),
+    ...(a.model ? { model: a.model } : {}),
+    ...(a.skipped ? { skipped: a.skipped } : {}),
+    ...(a.error ? { error: a.error } : {}),
+    taskId: call.taskId,
+  };
+  note(
+    outcome.written
+      ? `memory: wrote ${outcome.lessons?.length ?? 0} new rule(s) → ${outcome.editUrl} (${outcome.entries ?? "?"} entries)`
+      : `memory: not written${outcome.skipped ? ` — ${outcome.skipped}` : outcome.error ? ` — ${outcome.error.slice(0, 120)}` : ""}`
+  );
+  return outcome;
 }
 
 /**
@@ -621,6 +821,16 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
           )
         );
 
+        // Memory write-back (v2.9, "improves itself"): once the branches are
+        // scored, ask the eval agent to distil this run into rules and append
+        // them to the site's memory page. One write per run (never per branch —
+        // fan-out would race on the page); best-effort — a failure here is
+        // recorded in stats.memory and never fails the run.
+        const memory = await reflectIntoMemory({ payload, route, runId, contextId, results, note: (n) => {
+          bus.publish(status("working", n));
+          persistNote(n);
+        } });
+
         const stats = computeStats(results, route);
         const runStatus = stats.failed === 0 ? "completed" : "completed_with_failures";
         // branchResults ride along in the stats JSON so the UI can render the
@@ -628,7 +838,7 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
         // live is cleared — stats.branchResults is the durable record now
         await db.prepare("update runs set status = ?, stats = ?, live = null, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where id = ?").run(
           runStatus,
-          JSON.stringify({ ...stats, branchResults: results }),
+          JSON.stringify({ ...stats, ...(memory ? { memory } : {}), branchResults: results }),
           runId
         );
 
@@ -639,7 +849,7 @@ export function createCoordinateExecutor(db: StoreDb): AgentExecutor {
           artifact: {
             artifactId: randomUUID(),
             name: "run-stats",
-            parts: [{ kind: "data", data: { runId, ...stats, branchResults: results } as unknown as Record<string, unknown> }],
+            parts: [{ kind: "data", data: { runId, ...stats, ...(memory ? { memory } : {}), branchResults: results } as unknown as Record<string, unknown> }],
           },
         } satisfies TaskArtifactUpdateEvent);
         bus.publish(status("completed", undefined, true));

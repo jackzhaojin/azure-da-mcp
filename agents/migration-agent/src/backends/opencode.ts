@@ -18,6 +18,7 @@ import {
 } from "./opencode-config.ts";
 import { buildMigrationPrompt, migrationTargets, parseMigrationReport } from "./opencode-prompt.ts";
 import { startKimiProxy, type KimiProxy } from "./kimi-proxy.ts";
+import { loadRunMemory } from "../memory.ts";
 
 const log = createLogger("da-migration-agent");
 
@@ -271,6 +272,9 @@ export const opencodeBackend: MigrationBackend = {
 
   async run(payload: MigrationRunPayload, ctx: BackendContext): Promise<MigrationResult> {
     const targets = migrationTargets(payload);
+    // v1's "STEP 1: READ MEMORY" — lessons from previous runs on this site,
+    // read deterministically (no model turn spent) and injected into the prompt.
+    const memory = await loadRunMemory(payload, ctx.onProgress);
 
     // Per-run model override (the daily-loop workflow's dropdown) falling back
     // to the container's KIMI_MODEL_ID default.
@@ -294,7 +298,7 @@ export const opencodeBackend: MigrationBackend = {
     const deadline = Date.now() + TURN_TIMEOUT_MS;
     let message: any;
     let continuations = 0;
-    let prompt = buildMigrationPrompt({ payload, ...targets });
+    let prompt = buildMigrationPrompt({ payload, ...targets, ...(memory?.text ? { memory: { text: memory.text, editUrl: memory.editUrl } } : {}) });
     try {
       for (;;) {
         const remaining = deadline - Date.now();
@@ -343,6 +347,7 @@ export const opencodeBackend: MigrationBackend = {
 
     // fold observed gaps in (e.g. a 401 the model hit) so the artifact is honest
     if (tap.summary.errors.length) result.gaps = [...result.gaps, ...tap.summary.errors];
+    result.memory = memory?.use ?? null;
 
     log.info("opencode migration done", {
       a2a_task_id: ctx.taskId,
@@ -354,6 +359,8 @@ export const opencodeBackend: MigrationBackend = {
       tools_fired: [...tap.summary.toolsFired],
       validations: tap.summary.validations,
       continuations,
+      lessons: result.lessons?.length ?? 0,
+      memory: result.memory?.status ?? "none",
       kimi_proxy: kimiProxyStatus(),
       tokens: message?.info?.tokens,
       cost: message?.info?.cost,

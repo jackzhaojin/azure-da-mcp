@@ -44,6 +44,10 @@
       "type": "string",
       "description": "Operator guiding principles (free text) appended to the migration prompt — e.g. 'if an image is low-res, find a higher-res variant of the same image; record a gap if none exists'. Followed within the run's step budget; unsatisfiable principles are recorded in the report's gaps. Honored by the opencode and sdk backends; other backends ignore it."
     },
+    "memoryPath": {
+      "type": "string",
+      "description": "The site's agent-memory page as a da.live source path (/source/{owner}/{site}/{page}.html). The opencode/sdk/dryrun backends READ it before the run (needs DALIVE_MCP_URL in the agent) and inject it into the prompt as lessons from previous runs; the model reports new 'lessons' in its final report, which the coordinator feeds to eval.reflect. Never fatal: a missing/unreadable page is recorded on the result's 'memory' field and the run continues."
+    },
     "maxRefinementIterations": { "type": "integer", "minimum": 0, "default": 3 },
     "runId": { "type": "string" },
     "labels": { "type": "object", "additionalProperties": { "type": "string" } }

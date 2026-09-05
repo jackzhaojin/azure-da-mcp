@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eval.reflect.v1",
+  "title": "eval.reflect task payload (v1)",
+  "description": "Input for the eval agent's eval.reflect skill — the memory write-back of the closed loop (v2.9). After a run is scored, the coordinator sends the migration report(s) + eval report(s); the eval agent distils 0-3 NEW generalizable rules (Claude, tool-free; deterministic fallback without creds) and appends one dated section to the site's agent-memory page on da.live, which the migration agent reads before its next run. Append-only; dryrun migrations are skipped. Sent as an A2A data part with skill: \"eval.reflect\".",
+  "type": "object",
+  "required": ["skill", "site", "owner", "memoryPath", "branches"],
+  "properties": {
+    "skill": { "const": "eval.reflect" },
+    "site": { "type": "string" },
+    "owner": { "type": "string" },
+    "memoryPath": {
+      "type": "string",
+      "description": "The memory page as a da.live source path: /source/{owner}/{site}/{page}.html, e.g. /source/jackzhaojin/adapt-to-2026-demo/ai-content/memory.html"
+    },
+    "runId": { "type": "string" },
+    "runUrl": { "type": "string", "format": "uri", "description": "Dashboard link for the run; goes into the memory entry" },
+    "topic": { "type": "string" },
+    "route": { "type": "string", "description": "e.g. generate→migrate→evaluate" },
+    "dryRun": { "type": "boolean", "description": "Distil lessons but do not write the page" },
+    "branches": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["branch"],
+        "properties": {
+          "branch": { "type": "integer" },
+          "pageSlug": { "type": "string" },
+          "previewUrl": { "type": "string" },
+          "pageUrl": { "type": "string" },
+          "sourceUrl": { "type": "string" },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "backend": { "type": "string" },
+              "model": { "type": "string" },
+              "status": { "enum": ["PASS", "NEEDS-REFINEMENT", "FAIL"] },
+              "confidence": { "type": "number" },
+              "blocksUsed": { "type": "array", "items": { "type": "string" } },
+              "gaps": { "type": "array", "items": { "type": "string" } },
+              "lessons": { "type": "array", "items": { "type": "string" }, "description": "The migrator's self-reported lessons (migration-report.lessons)" }
+            }
+          },
+          "eval": {
+            "type": "object",
+            "properties": {
+              "overallScore": { "type": "number" },
+              "grade": { "type": "string" },
+              "mode": { "enum": ["fidelity", "quality", "redesign"] },
+              "dimensionScores": { "type": "object", "additionalProperties": { "type": "number" } },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["dimension", "severity", "issue"],
+                  "properties": {
+                    "dimension": { "type": "string" },
+                    "severity": { "enum": ["critical", "serious", "moderate", "minor", "info"] },
+                    "issue": { "type": "string" },
+                    "recommendation": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "result": {
+    "description": "Artifact 'memory-update': { attempted, written, path, editUrl, entries?, chars?, lessons[], summary?, tier: agentic|deterministic|none, model?, skipped?, error?, stub? }"
+  }
+}

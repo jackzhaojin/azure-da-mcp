@@ -1,9 +1,10 @@
 import type { Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from "@a2a-js/sdk";
-import { startAgentServer, createLogger, createArtifactStore, SqliteTaskStore, openDb } from "@agents/a2a-common";
+import { startAgentServer, createLogger, createArtifactStore, SqliteTaskStore, openDb, daliveMcpUrl } from "@agents/a2a-common";
 import { mkdirSync } from "node:fs";
 import { stubExecutor } from "./stub-executor";
 import { createEvalExecutor, runEvalJob, type EvalRunPayload } from "./executor";
 import { evalQueue, queueStats } from "./jobs/queue";
+import { isReflectPayload } from "./reflect";
 import { browserSemaphoreStats } from "./browser/semaphore";
 
 const log = createLogger("da-eval-agent");
@@ -43,10 +44,21 @@ await startAgentServer({
       inputModes: ["application/json"],
       outputModes: ["application/json"],
     },
+    {
+      id: "eval.reflect",
+      name: "Reflect into memory",
+      description:
+        "Distil a scored run (eval findings + the migrator's self-reported lessons) into 0-3 new rules and append a dated entry to the site's agent-memory page on da.live. Payload contract: eval.reflect.v1 (send skill: \"eval.reflect\")",
+      tags: ["eval", "memory", "eds"],
+      inputModes: ["application/json"],
+      outputModes: ["application/json"],
+    },
   ],
   executor,
   healthExtras: () => ({
     engine: ENGINE,
+    // memory write-back (eval.reflect) needs the da.live MCP; null = disabled here
+    memory: { daliveMcp: daliveMcpUrl() ?? null, agentic: Boolean(process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY) },
     queue: queueStats(),
     browser: browserSemaphoreStats(),
   }),
@@ -85,6 +97,14 @@ if (ENGINE === "real") {
     const payload = task.metadata?.payload as EvalRunPayload | undefined;
     if (!payload) {
       log.warn("rebuild: task has no payload metadata — marking failed", { a2a_task_id: task.id });
+      task.status = { state: "failed", timestamp: new Date().toISOString() };
+      void taskStore.save(task);
+      continue;
+    }
+    // An in-flight eval.reflect is NOT replayed: it may already have appended
+    // its entry, and memory is append-only (a replay would double-write).
+    if (isReflectPayload(payload)) {
+      log.warn("rebuild: eval.reflect interrupted by restart — marking failed (memory is append-only, never replayed)", { a2a_task_id: task.id });
       task.status = { state: "failed", timestamp: new Date().toISOString() };
       void taskStore.save(task);
       continue;

@@ -4,16 +4,16 @@ The **v2.0** workstream: a decoupled mesh of independently-addressable AI agents
 
 - **Plan**: [`ai-docs/2026-06-05-a2a-agent-platform/`](../ai-docs/2026-06-05-a2a-agent-platform/) (decisions D1–D6)
 - **As-built report**: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../ai-docs/2026-06-08-a2a-platform-v2.0/) — read this first to understand what exists
-- **What shipped since** (v2.1 → current v2.8): per-minor-version history in the root [`CHANGELOG.md`](../CHANGELOG.md); the ai-docs index is [`ai-docs/README.md`](../ai-docs/README.md)
+- **What shipped since** (v2.1 → current v2.9): per-minor-version history in the root [`CHANGELOG.md`](../CHANGELOG.md); the ai-docs index is [`ai-docs/README.md`](../ai-docs/README.md)
 - **Per-workspace context**: each subdir has its own `CLAUDE.md` (read the one for the dir you're in)
 
 ## Structure (npm workspaces)
 
 | Workspace | Port | What | CLAUDE.md |
 |-----------|------|------|-----------|
-| `a2a-common/` | — | Shared bootstrap: server factory, stores (task/push/artifact), client, logging, D1/SQLite migrations | [✓](./a2a-common/CLAUDE.md) |
+| `a2a-common/` | — | Shared bootstrap: server factory, stores (task/push/artifact), client, logging, D1/SQLite migrations, **da.live MCP client + the agent-memory page module** (v2.9) | [✓](./a2a-common/CLAUDE.md) |
 | `contracts/` | — | JSON Schemas for every skill | — |
-| `eval-service/` | 4001 | Eval agent — engine **copied** from the frozen app; `eval.run` (4 dims) | [✓](./eval-service/CLAUDE.md) |
+| `eval-service/` | 4001 | Eval agent — engine **copied** from the frozen app; `eval.run` (4 dims) + **`eval.reflect`** (v2.9: distil a scored run into rules → append to the site's memory page) | [✓](./eval-service/CLAUDE.md) |
 | `content-gen/` | 4002 | Briefs + synthetic legacy source pages | [✓](./content-gen/CLAUDE.md) |
 | `migration-agent/` | 4003 | One Agent Card, backends `dryrun`/`makecom`/`opencode` (Kimi)/`sdk` (Claude, Agent SDK + OAuth); owns the Make.com callback | [✓](./migration-agent/CLAUDE.md) |
 | `coordinator/` | 4004 | A2A client+server: routing, fan-out, variance; CLI; **+ its own Next.js dashboard on :4004/** — the sole UI: single/bulk/direct-eval + migrate-a-real-page lanes (multi-URL → one branch per URL, folder override, per-run Kimi model), sample downloads, JSON export, live activity, branch grid | [✓](./coordinator/CLAUDE.md) |
@@ -39,7 +39,7 @@ npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --s
 npm run model-matrix              # benchmark N models (Kimi + Claude) over the same migration+eval — docs/model-matrix.md
 ```
 
-> **Content target + IA**: generated articles + the daily loop point at the **`adapt-to-2026-demo`** "Wilderness Journal" site (the old `da-live-postal-2025-07` site is retired). Per-site behavior — editorial lane, voice, target folder, reference corpus — lives in `coordinator/src/site-profiles.ts`. **IA split**: `…/ai-content/**` is the hand-built best-practice REFERENCE corpus the migrator learns from (block showcases + `/ai-content/stories/chasing-sunsets`); **AI-generated drafts land in `…/ai-articles/**`** so they never pollute the reference tree.
+> **Content target + IA**: generated articles + the daily loop point at the **`adapt-to-2026-demo`** "Wilderness Journal" site (the old `da-live-postal-2025-07` site is retired). Per-site behavior — editorial lane, voice, target folder, reference corpus — lives in `coordinator/src/site-profiles.ts`. **IA split**: `…/ai-content/**` is the hand-built best-practice REFERENCE corpus the migrator learns from (block showcases + `/ai-content/stories/chasing-sunsets`); **AI-generated drafts land in `…/ai-articles/**`** so they never pollute the reference tree. **Agent memory (v2.9)**: `…/ai-content/memory` is a human-editable da.live page the migration agent READS before every run (injected into its prompt) and the eval agent APPENDS to after every scored run (`eval.reflect`, 0-3 new rules per run) — the closed loop now "improves itself". Enabled wherever `DALIVE_MCP_URL` is set (it is in `.env` and in cloud); the fast e2e tier strips it.
 
 ## Conventions (the things that bite)
 

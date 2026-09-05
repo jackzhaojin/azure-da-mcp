@@ -62,6 +62,11 @@ const SANITIZED_ENV_VARS = [
   // matter the invoking shell; a test wanting the agentic path passes them via opts.env.
   "CLAUDE_CODE_OAUTH_TOKEN",
   "ANTHROPIC_API_KEY",
+  // Agent memory (v2.9) reads/writes the REAL da.live memory page through this
+  // MCP URL. Strip it so spawned agents report memory as "skipped" and never
+  // touch the page; the live opencode test passes it explicitly via opts.env.
+  "DALIVE_MCP_URL",
+  "DALIVE_BEARER_TOKEN",
 ] as const;
 
 function sanitizedEnv(): Record<string, string | undefined> {

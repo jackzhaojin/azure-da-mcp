@@ -15,6 +15,7 @@ interface PipelineStats {
   passRate: number;
   migrationConfidence?: { mean: number };
   perDimension: Record<string, { n: number }>;
+  memory?: { attempted: boolean; written: boolean; path?: string; skipped?: string; lessons?: string[]; taskId?: string };
   branchResults: Array<{
     branch: number;
     state: string;
@@ -23,6 +24,7 @@ interface PipelineStats {
     evalTaskId?: string;
     confidence?: number;
     overallScore?: number;
+    migration?: { pageSlug: string; backend?: string; lessons?: string[]; memory?: { status: string; path?: string } | null };
     stages: Array<{ stage: string; agent: string; state: string; taskId?: string }>;
   }>;
 }
@@ -204,6 +206,57 @@ describe("closed loop: routed pipelines via coordinate.run", () => {
     const customIdx = raw.indexOf("Title Case (e2e custom principle)");
     expect(profileIdx).toBeGreaterThan(-1);
     expect(customIdx).toBeGreaterThan(profileIdx);
+  }, 60_000);
+
+  it("memory loop threads through: profiled site → migration reads memory, eval.reflect runs once per run", async () => {
+    const { contextId, finalState, stats } = await coordinate(coordinator.url, {
+      goal: "auto",
+      sourceLocation: "https://example.com/legacy-trail-report",
+      site: "adapt-to-2026-demo", // profiled site → memoryPath ai-content/memory
+      backend: "dryrun",
+      fanOut: 2,
+    });
+    expect(finalState).toBe("completed");
+    expect(stats!.route).toBe("migrate→evaluate");
+
+    // the migration agent got the memory page path and reported the read
+    // (skipped here — spawned agents have no DALIVE_MCP_URL — but present)
+    const memoryPath = "/source/jackzhaojin/adapt-to-2026-demo/ai-content/memory.html";
+    for (const b of stats!.branchResults) {
+      expect(b.migration?.memory?.status).toBe("skipped");
+      expect(b.migration?.memory?.path).toBe(memoryPath);
+    }
+    const db = new Database(migration.dbPath, { readonly: true });
+    const rows = db.prepare("select payload from tasks where context_id = ?").all(contextId) as Array<{ payload: string }>;
+    db.close();
+    expect(rows.length).toBe(2);
+    for (const r of rows) expect(r.payload).toContain(memoryPath);
+
+    // ONE eval.reflect for the whole run (never one per branch — the page would
+    // race), recorded in stats.memory; the stub engine reflects without writing
+    expect(stats!.memory).toBeDefined();
+    expect(stats!.memory!.attempted).toBe(true);
+    expect(stats!.memory!.written).toBe(false);
+    expect(stats!.memory!.path).toBe(memoryPath);
+    expect(stats!.memory!.taskId).toBeTruthy();
+    const evalDb = new Database(evalAgent.dbPath, { readonly: true });
+    const evalTasks = evalDb.prepare("select payload from tasks where context_id = ?").all(contextId) as Array<{ payload: string }>;
+    evalDb.close();
+    const reflects = evalTasks.filter((t) => t.payload.includes('"eval.reflect"'));
+    expect(reflects.length).toBe(1);
+    expect(evalTasks.length).toBe(3); // 2 evals + 1 reflect, one contextId
+  }, 60_000);
+
+  it("unprofiled sites have no memory loop (stats.memory absent, migration.memory null)", async () => {
+    const { finalState, stats } = await coordinate(coordinator.url, {
+      goal: "auto",
+      sourceLocation: "https://example.com/some-source",
+      site: "demo-site",
+      backend: "dryrun",
+    });
+    expect(finalState).toBe("completed");
+    expect(stats!.memory).toBeUndefined();
+    expect(stats!.branchResults[0].migration?.memory).toBeNull();
   }, 60_000);
 
   it("auto routing follows the state table deterministically", async () => {

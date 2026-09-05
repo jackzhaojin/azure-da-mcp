@@ -34,6 +34,13 @@ export interface SiteProfile {
    * (both apply); principles the agent can't satisfy land in the report's gaps.
    */
   migrationGuidance?: string;
+  /**
+   * Site-relative page path of the agent-MEMORY page (e.g. `ai-content/memory`)
+   * — a human-readable da.live document the migration agent reads before every
+   * run and the eval agent (eval.reflect) appends a dated lessons entry to after
+   * every scored run. Humans edit it directly in da.live. Unset = no memory loop.
+   */
+  memoryPath?: string;
 }
 
 const AEM_BASE = "https://main--adapt-to-2026-demo--jackzhaojin.aem.page";
@@ -49,9 +56,18 @@ const PROFILES: Record<string, SiteProfile> = {
     pageType: "article",
     legacyStyle: "clean",
     contentFolder: "ai-articles",
+    // The Wilderness Path block library: an index page linking ONE showcase
+    // page per block (hero, columns, quote, gallery, cards, stats, table,
+    // accordion, newsletter, author-bio) — the canonical definition of every
+    // block the migrator may use.
     blockLibraryUrl: `${AEM_BASE}/ai-content/blocks/`,
     neighborPageUrl: `${AEM_BASE}/ai-content/stories/chasing-sunsets`,
     pattern: "article",
+    // Agent memory (v2.9): https://da.live/edit#/jackzhaojin/adapt-to-2026-demo/ai-content/memory
+    // Lives in the reference tree on purpose — it is curated, human-editable
+    // context, not generated content. Read before each migration, appended
+    // to after each scored run.
+    memoryPath: "ai-content/memory",
     // Issue #13: low-res source images were carried over as-is (e.g. a 600×400
     // hero). EDS optimizes DOWN, never up — the uploaded original is the ceiling.
     migrationGuidance:

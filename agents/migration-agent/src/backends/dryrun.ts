@@ -1,4 +1,5 @@
 import type { MigrationBackend, MigrationRunPayload, MigrationResult, BackendContext } from "./types.ts";
+import { loadRunMemory } from "../memory.ts";
 
 /**
  * Dry-run backend: simulates a migration with the real artifact contract and
@@ -16,6 +17,10 @@ export const dryrunBackend: MigrationBackend = {
   async run(payload: MigrationRunPayload, { onProgress }: BackendContext): Promise<MigrationResult> {
     const folder = `migration-batch-dryrun${payload.folderPostfix ? `-${payload.folderPostfix}` : ""}`;
     const base = `${payload.owner}/${payload.site}/${folder}/${payload.pageSlug}`;
+
+    // The memory READ is real even in a dryrun (harmless, and it proves the
+    // read path end to end at $0); only the migration itself is simulated.
+    const memory = await loadRunMemory(payload, onProgress);
 
     onProgress(`dryrun: analyzing source (${payload.sourceType}) ${payload.sourceLocation}`);
     await new Promise((r) => setTimeout(r, 400));
@@ -40,6 +45,10 @@ export const dryrunBackend: MigrationBackend = {
       blocksUsed: ["hero", "cards", "columns"],
       refinementIterations: 1,
       gaps: confidence >= 85 ? [] : ["dryrun: simulated low-confidence gap"],
+      // A simulated migration learns nothing real — no lessons, so the reflect
+      // step never pollutes the site's memory with dryrun entries.
+      lessons: [],
+      memory: memory?.use ?? null,
       backend: "dryrun",
     };
   },

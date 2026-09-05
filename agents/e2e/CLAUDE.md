@@ -21,7 +21,7 @@ v2.0 "A2A agent platform" (v1.1.0 = legacy `content-authoring-eval`, frozen — 
 
 ## Gotchas / non-obvious (MOST IMPORTANT)
 - **FOUR tiers** (run from `agents/`):
-  - `npm run test:e2e` → fast (`tests/`, **the CI tier**) — stub engine, no browsers, no API keys. Safe to run with or without `.env` sourced: `startAgent` strips behavior-changing env (mesh/edge tokens, SSO, peer URLs, `EVAL_ENGINE`, D1 proxy, R2, Make.com) before spawning, so spawned agents are deterministic regardless of the invoking shell. A test that wants one of those vars passes it explicitly via `opts.env` (see `SANITIZED_ENV_VARS` in `helpers/mesh.ts`).
+  - `npm run test:e2e` → fast (`tests/`, **the CI tier**) — stub engine, no browsers, no API keys. Safe to run with or without `.env` sourced: `startAgent` strips behavior-changing env (mesh/edge tokens, SSO, peer URLs, `EVAL_ENGINE`, D1 proxy, R2, Make.com, and since v2.9 `DALIVE_MCP_URL` so the agent-memory loop never touches the real da.live page — `tests/memory.e2e.test.ts` + the closed-loop memory cases assert the "skipped"/stub outcomes) before spawning, so spawned agents are deterministic regardless of the invoking shell. A test that wants one of those vars passes it explicitly via `opts.env` (see `SANITIZED_ENV_VARS` in `helpers/mesh.ts`).
   - `npm run test:live` → live (`tests-live/`) — real engine, real Chromium/axe/screenshots, real R2; creds-gated
   - `npm run test:soak` → `tests-soak/full-loop-10x` — M4 DoD "10x run completes unattended"
   - `npm run test:cloud` → cloud (`tests-cloud/`) — the DEPLOYED Cloudflare mesh, real A2A client against the public hostnames; needs `A2A_MESH_TOKEN` (+ `DALIVE_TEST_OWNER`/`DALIVE_TEST_SITE` to opt into the real-Kimi suite)

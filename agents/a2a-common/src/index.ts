@@ -13,3 +13,18 @@ export {
 } from "./store/artifactStore.ts";
 export { meshClientFactory } from "./client.ts";
 export { createLogger, type Logger } from "./logging.ts";
+export { daliveMcpUrl, daliveToolCall, getDaliveContent, saveDaliveContent, DaliveError } from "./dalive.ts";
+export {
+  memorySourcePath,
+  memoryEditUrl,
+  htmlToMemoryText,
+  countMemoryEntries,
+  memoryPromptExcerpt,
+  readMemory,
+  renderMemoryEntry,
+  appendMemoryEntry,
+  appendMemoryToDalive,
+  EMPTY_MEMORY_HTML,
+  type MemorySnapshot,
+  type MemoryEntry,
+} from "./memory.ts";

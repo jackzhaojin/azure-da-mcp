@@ -7,6 +7,7 @@ import { basename } from "node:path";
 import { runEvaluation } from "./engine/evaluator";
 import type { EvaluationRequest, EvaluationReport } from "@/types/evaluation";
 import { evalQueue } from "./jobs/queue";
+import { isReflectPayload, validateReflectPayload, runReflect, reflectArtifact, reflectStatus, type ReflectPayload } from "./reflect";
 
 const log = createLogger("da-eval-agent");
 const MAX_ATTEMPTS = Number(process.env.EVAL_MAX_ATTEMPTS ?? 3);
@@ -237,6 +238,15 @@ export function createEvalExecutor(db: StoreDb, store: ArtifactStore): AgentExec
     async execute(ctx: RequestContext, bus: ExecutionEventBus): Promise<void> {
       const { taskId, contextId, userMessage } = ctx;
 
+      // eval.reflect (memory write-back) — a short, tool-free pass that runs
+      // inline (no browser, no queue slot); skips are reported on the artifact,
+      // only a real write failure fails the task.
+      const reflectData = userMessage.parts.find((p) => p.kind === "data")?.data;
+      if (isReflectPayload(reflectData)) {
+        await runReflectTask(reflectData, taskId, contextId, userMessage, bus);
+        return;
+      }
+
       let payload: EvalRunPayload;
       try {
         payload = extractPayload(userMessage);
@@ -327,4 +337,39 @@ export function createEvalExecutor(db: StoreDb, store: ArtifactStore): AgentExec
       bus.finished();
     },
   };
+}
+
+/** eval.reflect executor body (shared by the real executor; the stub has its own $0 variant). */
+export async function runReflectTask(
+  payload: ReflectPayload,
+  taskId: string,
+  contextId: string,
+  userMessage: Message,
+  bus: ExecutionEventBus
+): Promise<void> {
+  bus.publish({
+    kind: "task",
+    id: taskId,
+    contextId,
+    status: { state: "submitted", timestamp: new Date().toISOString() },
+    history: [userMessage],
+    metadata: { payload: payload as unknown as Record<string, unknown> },
+  } satisfies Task);
+  // keepalive across the Worker↔container hop while the Claude pass runs
+  const heartbeat = setInterval(() => bus.publish(reflectStatus(taskId, contextId, "working", "reflecting…")), 45_000);
+  try {
+    validateReflectPayload(payload);
+    log.info("eval.reflect accepted", { a2a_task_id: taskId, context_id: contextId, run_id: payload.runId, path: payload.memoryPath });
+    bus.publish(reflectStatus(taskId, contextId, "working", `reflect: distilling lessons for ${payload.memoryPath}`));
+    const result = await runReflect(payload, (text) => bus.publish(reflectStatus(taskId, contextId, "working", text)));
+    bus.publish({ kind: "artifact-update", taskId, contextId, artifact: reflectArtifact(result) } satisfies TaskArtifactUpdateEvent);
+    bus.publish(reflectStatus(taskId, contextId, "completed", undefined, true));
+    log.info("eval.reflect completed", { a2a_task_id: taskId, written: result.written, lessons: result.lessons.length, tier: result.tier });
+  } catch (err) {
+    bus.publish(reflectStatus(taskId, contextId, "failed", `reflect failed: ${String(err)}`, true));
+    log.error("eval.reflect failed", { a2a_task_id: taskId, error: String(err) });
+  } finally {
+    clearInterval(heartbeat);
+    bus.finished();
+  }
 }

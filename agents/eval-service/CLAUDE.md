@@ -6,6 +6,7 @@ Platform context: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-0
 
 ## When to work here
 - The `eval.run` skill (contract `agents/contracts/eval.run.v1.json`): payload, validation, retry, A2A event shapes.
+- The **`eval.reflect`** skill (v2.9, contract `agents/contracts/eval.reflect.v1.json`): the memory write-back — distil a scored run into rules and append them to the site's da.live memory page.
 - The eval engine itself (`src/engine/`, ~5.5k lines copied out of the frozen app) — scoring agents, prompts, deterministic Playwright/axe tools.
 - Job queue, browser concurrency, artifact (screenshot) storage, restart-rebuild behavior.
 - NOT for the coordinator, migration, content-gen, or UI — those are sibling workspaces.
@@ -13,7 +14,8 @@ Platform context: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-0
 ## Key files
 - `src/index.ts` — server bootstrap via `startAgentServer`; picks `real` vs `stub` executor (`EVAL_ENGINE`); pre-creates `./.tmp` + `./output/screenshots`; serves `/artifacts` static; **rebuilds in-flight tasks from the store on restart** (re-enqueues `submitted`/`working` tasks — sleep-tolerance).
 - `src/executor.ts` — the real `eval.run`: validate → publish `submitted` Task → `evalQueue.add` → `runEvalJob` (`runEvaluation` → `persistScreenshot` → `writeEvalReport` row → artifact + `completed`). 3-attempt retry (`EVAL_MAX_ATTEMPTS`, backoff `[2s, 8s]`). Submit-and-detach: `message/send` returns the submitted task immediately.
-- `src/stub-executor.ts` — `EVAL_ENGINE=stub`: no browsers, no API. Same event choreography as real. Used by the fast e2e tier + CI.
+- `src/reflect.ts` — **`eval.reflect` (v2.9)**: `runReflect(payload, note)` reads the memory page (`@agents/a2a-common` `readMemory`), distils `{ summary, lessons }` with Claude (`REFLECT_MODEL` → `CLAUDE_MODEL` → `claude-sonnet-4-6`; tool-free `maxTurns:1`, `REFLECT_TIMEOUT_MS` 120s) or the deterministic fallback (`deterministicLessons`: migrator lessons + recommendations behind serious/critical findings, deduped against memory), builds one dated `MemoryEntry`, and `appendMemoryToDalive`s it. Skips (reported on the `memory-update` artifact, task still `completed`): all-dryrun migrations, no `DALIVE_MCP_URL`, `dryRun: true`. Routed in `executor.ts` (`isReflectPayload` → `runReflectTask`, inline, no queue slot) and stubbed in `stub-executor.ts` ($0, never writes).
+- `src/stub-executor.ts` — `EVAL_ENGINE=stub`: no browsers, no API. Same event choreography as real (incl. a deterministic `eval.reflect`). Used by the fast e2e tier + CI.
 - `src/jobs/queue.ts` — p-queue, `EVAL_CONCURRENCY=2`.
 - `src/browser/semaphore.ts` — `BROWSER_PERMITS=3`; `withBrowserPermit()` wraps **every** Chromium entry point (deterministic `.cjs` shell-outs AND agentic Playwright-MCP spawns). Service-wide cap.
 - `src/engine/evaluator.ts` — `runEvaluation(request, onProgress)`: orchestrates the 4 dimensions, emits progress events the executor maps to A2A status updates.
@@ -34,6 +36,7 @@ Platform context: [`ai-docs/2026-06-08-a2a-platform-v2.0/`](../../ai-docs/2026-0
 - **Restart rebuild only runs for `EVAL_ENGINE=real`.** It reads the persisted Task's `metadata.payload` (set when the task was accepted). A task with no payload metadata is marked `failed`. Rebuilt tasks have no SSE subscribers — events apply straight to the stored Task; clients poll `tasks/get`.
 - **Own `tsconfig.json`.** Engine `@/` path aliases mean this workspace compiles separately. Root `npm run typecheck` runs **both** (`tsc -p tsconfig.json && tsc -p eval-service/tsconfig.json`) — a change here can break the root typecheck.
 - **`cancelTask` is best-effort** — queued jobs aren't individually removable; it just marks the task `canceled`.
+- **`eval.reflect` is append-only and never replayed.** The restart rebuild marks an interrupted reflect `failed` instead of re-enqueueing it (it may already have appended). The page is re-read immediately before the save to shrink the lost-update window between concurrent runs. Why it lives HERE and not on the migration agent: the grader holds the evidence, and "the thing being measured never grades itself". The eval container gets `DALIVE_MCP_URL` in `deploy/src/index.ts` for this; `/health` reports `memory: { daliveMcp, agentic }`.
 
 ## Run / test
 ```bash

@@ -17,10 +17,16 @@ export interface PromptContext {
   folder: string;
   previewUrl: string;
   pageUrl: string;
+  /**
+   * The site's agent memory (lessons from previous runs), already read by the
+   * backend and excerpted to a prompt-safe size. Undefined = no memory for
+   * this run (no memoryPath, page empty, or the read failed — never fatal).
+   */
+  memory?: { text: string; editUrl?: string };
 }
 
 export function buildMigrationPrompt(ctx: PromptContext): string {
-  const { payload, folder, previewUrl, pageUrl } = ctx;
+  const { payload, folder, previewUrl, pageUrl, memory } = ctx;
   const neighbor = payload.neighborPageUrl;
   const reference = neighbor ?? payload.blockLibraryUrl;
   const articlePattern = payload.pattern === "article";
@@ -37,7 +43,7 @@ The working context is ALREADY CONFIRMED — skip the skill's confirmation gate 
 - page slug:    ${payload.pageSlug}
 - target path:  /source/${payload.owner}/${payload.site}/${folder}/${payload.pageSlug}.html
 - preview URL:  ${previewUrl}
-${payload.blockLibraryUrl ? `- block library:${payload.blockLibraryUrl}\n` : ""}${neighbor ? `- reference page (mimic its blocks/look): ${neighbor}\n` : ""}- max refinement iterations: ${payload.maxRefinementIterations ?? 2}
+${payload.blockLibraryUrl ? `- block library:${payload.blockLibraryUrl} (the canonical definition of every block on this site — an index linking ONE showcase page per block with all its variations; GET a specific block page only when you need its exact shape)\n` : ""}${neighbor ? `- reference page (mimic its blocks/look): ${neighbor}\n` : ""}- max refinement iterations: ${payload.maxRefinementIterations ?? 2}
 
 Authentication: the da.live MCP server self-authenticates to da.live (server-side S2S technical account). Call its tools normally — do NOT ask for a bearer token. If a tool returns 401 / "Authentication failed", STOP, do not retry forever, and record it as a gap in the final report.
 
@@ -66,6 +72,16 @@ ${payload.guidance}
 `
       : ""
   }
+${
+    memory
+      ? `
+MEMORY — what previous runs on this site learned${memory.editUrl ? ` (a human-editable page: ${memory.editUrl})` : ""}. Apply these lessons within the steps above; they may also point you at resources (e.g. the block library). You do NOT write to this page — the evaluation step appends to it after your run.
+<<<MEMORY
+${memory.text}
+MEMORY>>>
+`
+      : ""
+  }
 When finished, output your normal report, then end your message with EXACTLY this machine-readable block and nothing after it:
 
 FINAL_REPORT:
@@ -77,9 +93,12 @@ FINAL_REPORT:
   "pageUrl": "${pageUrl}",
   "blocksUsed": [],
   "refinementIterations": 0,
-  "gaps": []
+  "gaps": [],
+  "lessons": []
 }
 \`\`\`
+
+"lessons" = 0-3 short, generalizable lessons for the NEXT migration to this site (an error you hit and how you fixed it, a block mapping that worked or failed, something the reference page taught you). Rules for the next agent, not a diary — and nothing already covered by MEMORY. Empty if nothing new.
 `;
 }
 
@@ -143,8 +162,22 @@ export function parseMigrationReport(
     refinementIterations:
       clamp(Number(parsed.refinementIterations), 0, 99, NaN) || observed.refinementIterations || 1,
     gaps: Array.isArray(parsed.gaps) ? (parsed.gaps as string[]) : [],
+    lessons: parseLessons(parsed.lessons),
     backend: "opencode",
   };
+}
+
+/** Model-reported lessons: strings only, trimmed, deduped, bounded (raw input to the reflect step). */
+export function parseLessons(raw: unknown, max = 5): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    const text = String(item ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
+    if (!text || out.some((l) => l.toLowerCase() === text.toLowerCase())) continue;
+    out.push(text);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 function clamp(n: number, lo: number, hi: number, fallback: number): number {

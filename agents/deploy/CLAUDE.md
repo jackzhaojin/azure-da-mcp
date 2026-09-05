@@ -12,7 +12,7 @@
 | `content-factory-migrate.jackzhaojin.com` | MigrationContainer | `docker/migration.Dockerfile` (opencode + kimi config + skill + Chromium) | standard-1 |
 
 - **D1 access**: containers have NO bindings — the Worker serves secret-gated `POST /d1/query` (header `x-d1-secret`) and a2a-common's `D1ProxyDb` calls back into it (`D1_PROXY_URL`/`D1_PROXY_SECRET` env). ~100ms/query (measured, references/cloudflare/d1-container). Schema changes: `wrangler d1 execute a2a-agents --remote --file …` — D1 has no `_migrations` table.
-- **Env into containers**: ONLY string env vars, injected in each Container class constructor (src/index.ts) from Worker vars/secrets. Change an env → redeploy → containers pick it up on next cold start.
+- **Env into containers**: ONLY string env vars, injected in each Container class constructor (src/index.ts) from Worker vars/secrets. Change an env → redeploy → containers pick it up on next cold start. Since v2.9 the **eval** container also gets `DALIVE_MCP_URL` (memory write-back via `eval.reflect`) and the **coordinator** gets `DASHBOARD_PUBLIC_BASE` (run links inside memory entries).
 - **Long SSE through containers is safe** (22-min streams measured, references/cloudflare/long-session-container); open streams block `sleepAfter`.
 
 ## Deploy / operate
