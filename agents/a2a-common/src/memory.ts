@@ -78,9 +78,11 @@ export function countMemoryEntries(html: string): number {
 }
 
 /**
- * Bound what goes into a prompt: the human preamble at the top must survive
- * (that's where pointers and standing rules live), and the newest entries are
- * the most relevant, so a long page keeps its head + tail and elides the middle.
+ * Safety cap for what goes into a prompt. The INTENT (v2.9.1) is that the
+ * model reads the whole page — callers pass a large budget — and this only
+ * kicks in when episodic entries have piled up faster than compaction: the
+ * approved memory at the top must survive, and the newest entries are the most
+ * relevant, so an over-long page keeps its head + tail and elides the middle.
  */
 export function memoryPromptExcerpt(text: string, maxChars = 7000): string {
   if (text.length <= maxChars) return text;
@@ -182,11 +184,61 @@ export function renderMemoryEntry(e: MemoryEntry): string {
 export const EMPTY_MEMORY_HTML = "\n<body>\n  <header></header>\n  <main></main>\n  <footer></footer>\n</body>\n";
 
 /**
- * Append one entry as a new section at the END of <main>, leaving every
- * existing byte in place (human edits and earlier entries are never rewritten).
+ * The two-tier page (v2.9.1): an "Approved memory" section that humans (and a
+ * future compaction process) own, and an "Episodic memory" section that run
+ * entries are appended INTO. The episodic section is recognised by an <h2>
+ * whose text contains this word; when the page has none, an entry falls back
+ * to a new section at the end of <main> (the v2.9.0 behavior).
+ */
+const EPISODIC_HEADING = /<h2[^>]*>[^<]*episodic[^<]*<\/h2>/i;
+
+/**
+ * Top-level sections of <main> (a da.live section = one depth-1 <div>) as
+ * [start, end) offsets into `html`, found with a depth-aware tag walk so
+ * nested block divs never confuse the boundaries.
+ */
+function mainSections(html: string): Array<{ start: number; end: number }> {
+  const open = html.search(/<main[^>]*>/i);
+  if (open === -1) return [];
+  const mainStart = open + html.match(/<main[^>]*>/i)![0].length;
+  const close = html.slice(mainStart).search(/<\/main>/i);
+  const mainEnd = close === -1 ? html.length : mainStart + close;
+  const sections: Array<{ start: number; end: number }> = [];
+  const re = /<div\b[^>]*>|<\/div>/gi;
+  re.lastIndex = mainStart;
+  let depth = 0;
+  let sectionStart = -1;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) && m.index < mainEnd) {
+    if (m[0][1] === "/") {
+      depth--;
+      if (depth === 0 && sectionStart !== -1) {
+        sections.push({ start: sectionStart, end: m.index + m[0].length });
+        sectionStart = -1;
+      }
+    } else {
+      if (depth === 0) sectionStart = m.index;
+      depth++;
+    }
+  }
+  return sections;
+}
+
+/**
+ * Append one entry, leaving every existing byte in place (human edits and
+ * earlier entries are never rewritten): INSIDE the "Episodic memory" section
+ * when the page has one (as an <h3> block at its end), else as a new section
+ * at the end of <main>.
  */
 export function appendMemoryEntry(html: string, entry: MemoryEntry): string {
   const base = html.trim() ? html : EMPTY_MEMORY_HTML;
+  const episodic = mainSections(base).find((s) => EPISODIC_HEADING.test(base.slice(s.start, s.end)));
+  if (episodic) {
+    // strip the section wrapper: the entry becomes part of the episodic section
+    const inner = renderMemoryEntry(entry).replace(/^<div>\n?/, "").replace(/\n?<\/div>$/, "");
+    const closeAt = base.lastIndexOf("</div>", episodic.end);
+    return `${base.slice(0, closeAt)}${inner}\n${base.slice(closeAt)}`;
+  }
   const section = renderMemoryEntry(entry);
   if (/<\/main>/i.test(base)) return base.replace(/<\/main>/i, `${section}\n</main>`);
   if (/<\/body>/i.test(base)) return base.replace(/<\/body>/i, `<main>${section}</main>\n</body>`);

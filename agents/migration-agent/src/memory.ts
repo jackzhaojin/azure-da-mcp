@@ -3,8 +3,12 @@ import type { MigrationRunPayload, MemoryUse } from "./backends/types.ts";
 
 const log = createLogger("da-migration-agent");
 
-/** Upper bound on memory text injected into a migration prompt. */
-const MEMORY_PROMPT_MAX_CHARS = Number(process.env.MEMORY_PROMPT_MAX_CHARS ?? 7000);
+/**
+ * Upper bound on memory text injected into a migration prompt. Sized so the
+ * WHOLE page is read in practice (approved memory + the episodic log); the
+ * head+tail excerpt is only a safety net until compaction trims the log.
+ */
+const MEMORY_PROMPT_MAX_CHARS = Number(process.env.MEMORY_PROMPT_MAX_CHARS ?? 30_000);
 
 export interface RunMemory {
   use: MemoryUse;

@@ -96,6 +96,38 @@ describe("agent memory: page format (a2a-common/memory)", () => {
     expect(third).toContain("No new rules");
   });
 
+  it("two-tier page: entries land INSIDE the episodic section and the approved tier is untouched", () => {
+    const twoTier = [
+      "\n<body>\n  <header></header>\n  <main>",
+      "<div>\n<h1>Agent Memory</h1>\n<p>intro</p>\n</div>",
+      '<div>\n<h2>Approved memory (condensed, human-curated)</h2>\n<h3>Site facts</h3>\n<ul><li>Block library is at <a href="https://x/blocks/">https://x/blocks/</a></li></ul>\n</div>',
+      "<div>\n<h2>Episodic memory (append-only run log)</h2>\n<p>One entry per scored run.</p>\n</div>",
+      "</main>\n  <footer></footer>\n</body>\n",
+    ].join("\n");
+    const one = appendMemoryEntry(twoTier, { date: "2026-09-06", runId: "aaaa1111", title: "first-run", lessons: ["Rule A."] });
+    const approvedEnd = one.indexOf("Episodic memory");
+    // everything before the episodic heading is byte-identical
+    expect(one.slice(0, approvedEnd)).toBe(twoTier.slice(0, twoTier.indexOf("Episodic memory")));
+    // the entry is inside the episodic section: after its heading, before </main>, and no new top-level section was added
+    const entryAt = one.indexOf("Run aaaa1111");
+    expect(entryAt).toBeGreaterThan(approvedEnd);
+    expect(entryAt).toBeLessThan(one.indexOf("</main>"));
+    expect((one.match(/\n<div>\n/g) ?? []).length).toBe((twoTier.match(/\n<div>\n/g) ?? []).length);
+    expect(countMemoryEntries(one)).toBe(1);
+
+    // a second run appends AFTER the first, still inside the section (chronological)
+    const two = appendMemoryEntry(one, { date: "2026-09-07", runId: "bbbb2222", title: "second-run", lessons: [] });
+    expect(two.indexOf("Run aaaa1111")).toBeLessThan(two.indexOf("Run bbbb2222"));
+    expect(two.indexOf("Run bbbb2222")).toBeLessThan(two.indexOf("</main>"));
+    expect(countMemoryEntries(two)).toBe(2);
+
+    // the prompt text keeps the tiers readable: approved first, episodic entries after, as one section
+    const text = htmlToMemoryText(two);
+    expect(text.indexOf("## Approved memory")).toBeLessThan(text.indexOf("## Episodic memory"));
+    expect(text.indexOf("## Episodic memory")).toBeLessThan(text.indexOf("### 2026-09-06 · Run aaaa1111"));
+    expect(text.slice(text.indexOf("## Episodic memory"))).not.toContain("\n---\n"); // no section break between entries
+  });
+
   it("creates the document from nothing on a first run (missing page)", () => {
     const html = appendMemoryEntry("", { date: "2026-09-05", runId: "11112222", title: "first", lessons: ["Rule one."] });
     expect(html).toContain(EMPTY_MEMORY_HTML.trim().split("\n")[0]); // <body>

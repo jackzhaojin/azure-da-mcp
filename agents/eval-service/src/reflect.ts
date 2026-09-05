@@ -122,6 +122,8 @@ const REFLECT_SYSTEM = `You are the reflection step of a self-improving content-
 Return ONLY one JSON object (no prose, no markdown fence):
 { "summary": "one sentence on how this run went and the main reason", "lessons": ["rule", "..."] }
 
+The memory page has two tiers. "Approved memory" is condensed, human-curated ground truth (site facts, what has worked, what has not, findings the agent cannot fix) - never contradict it and never restate it. "Episodic memory" is the append-only run log your output lands in; a separate compaction process later promotes recurring lessons into the approved tier, so each lesson you emit should be worth promoting.
+
 Rules for "lessons":
 - 0 to ${MAX_LESSONS} items. An empty list is a valid, honest answer when nothing new was learned.
 - Each is ONE imperative, specific, actionable sentence (max 200 characters). Say what to do, e.g. "Put the byline inside the hero block, not as a separate paragraph, so the article template renders it as the dek."
@@ -206,7 +208,7 @@ async function agenticLessons(p: ReflectPayload, memoryText: string): Promise<{ 
   const timer = setTimeout(() => controller.abort(new Error(`reflect timed out after ${REFLECT_TIMEOUT_MS}ms`)), REFLECT_TIMEOUT_MS);
   const prompt = `CURRENT MEMORY (what the migration agent already reads before every run):
 <<<MEMORY
-${memoryPromptExcerpt(memoryText, 6000) || "(empty — this is the first entry)"}
+${memoryPromptExcerpt(memoryText, 24_000) || "(empty — this is the first entry)"}
 MEMORY>>>
 
 THIS RUN'S EVIDENCE:
