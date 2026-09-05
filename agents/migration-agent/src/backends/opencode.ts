@@ -17,7 +17,8 @@ import {
   resolveKimiModelLabel,
 } from "./opencode-config.ts";
 import { buildMigrationPrompt, migrationTargets, parseMigrationReport, parseSelfReports } from "./opencode-prompt.ts";
-import { buildUsage, describeUsage, readTarget } from "../usage.ts";
+import { buildUsage, describeUsage } from "../usage.ts";
+import { createToolTracker } from "./opencode-events.ts";
 import { startKimiProxy, type KimiProxy } from "./kimi-proxy.ts";
 import { loadRunMemory } from "../memory.ts";
 
@@ -192,8 +193,9 @@ async function postJson(base: string, p: string, body: unknown, timeoutMs = 30_0
  */
 function tapSession(base: string, sessionId: string, onProgress: (note: string) => void, model: string) {
   const ctrl = new AbortController();
-  const summary = { toolsFired: new Set<string>(), skillFired: false, validations: 0, errors: [] as string[], reads: [] as string[] };
-  const seen = new Set<string>(); // partID:state → emit once
+  // The rules (one note per part, read targets captured from ANY update of the
+  // part, errors once) live in opencode-events.ts so they are unit-testable.
+  const tracker = createToolTracker({ model, onProgress });
 
   (async () => {
     const res = await fetch(`${base}/event`, { signal: ctrl.signal });
@@ -219,37 +221,14 @@ function tapSession(base: string, sessionId: string, onProgress: (note: string) 
         const part = ev.properties?.part;
         if (!part || part.type !== "tool") continue;
         if (part.sessionID && part.sessionID !== sessionId) continue;
-        const status: string = part.state?.status ?? "";
-        const key = `${part.id}:${status}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const tool: string = part.tool ?? "tool";
-        if (status === "running") {
-          if (tool === "skill") {
-            const skillName = part.state?.input?.skill ?? part.state?.input?.name ?? "skill";
-            summary.skillFired ||= /da-live-author-playwright/.test(JSON.stringify(part.state?.input ?? {}));
-            onProgress(`${model} → skill ${skillName}`);
-          } else {
-            summary.toolsFired.add(tool);
-            if (/playwright_browser_(navigate|snapshot|take_screenshot)/.test(tool)) summary.validations++;
-            // Evidence (v2.9.2): what was READ — the block library, the reference
-            // page, memory, the source — shows up in the note and in the usage summary.
-            const target = readTarget(tool, part.state?.input);
-            if (target) summary.reads.push(target);
-            onProgress(target ? `${model} → ${tool} ${target.slice(0, 140)}` : `${model} → ${tool}`);
-          }
-        } else if (status === "error") {
-          const errText = String(part.state?.error ?? part.state?.title ?? "tool error").slice(0, 200);
-          summary.errors.push(`${tool}: ${errText}`);
-          onProgress(`${model} ✗ ${tool}: ${errText}`);
-        }
+        tracker.handle(part);
       }
     }
   })().catch(() => {
     /* aborted or stream closed — expected at end of turn */
   });
 
-  return { summary, stop: () => ctrl.abort() };
+  return { summary: tracker.summary, stop: () => ctrl.abort() };
 }
 
 /** The follow-up sent into the same session after a provider-side turn failure. */
