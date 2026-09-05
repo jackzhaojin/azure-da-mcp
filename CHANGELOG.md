@@ -9,6 +9,17 @@ Two release lines:
 
 ---
 
+## 2.9 (2026-09-05)
+
+Tags: `v2.9.0` - agent memory (the self-improvement loop from the talk's "Core Capabilities" slide, restored from v1).
+
+- **Agent memory lives in da.live again.** v1's Make.com prompt read and wrote an `agent-memory` page; v2 had lost that. The site's memory is now an ordinary da.live document (`adapt-to-2026-demo` → [`/ai-content/memory`](https://da.live/edit#/jackzhaojin/adapt-to-2026-demo/ai-content/memory), seeded by hand with the block-library pointer) that **the migration agent reads before every run and the eval agent appends to after every scored run**. Humans edit it directly; agents only ever append.
+  - **Read (migration agent)**: `migration.run.v1` gains `memoryPath`; the `opencode`/`sdk`/`dryrun` backends fetch the page through the deployed da.live MCP (no model turn spent), inject it into the prompt as a `MEMORY` section (head + newest entries, capped at ~7k chars), and report how memory was used on the artifact (`memory: loaded|empty|skipped|error`). Never fatal - an unreadable page is a note, not a failed migration. The model now also returns `lessons` in its `FINAL_REPORT` (what the NEXT migration should do differently).
+  - **Write (eval agent, new skill `eval.reflect`)**: after the branches are scored, the coordinator sends one `eval.reflect` per run (never per branch - fan-out would race on the page) with the migration report(s) + the severity-ranked eval findings. Claude (`claude-sonnet-4-6`, tool-free, `REFLECT_MODEL`) distils **0-3 new, generalizable rules** that are not already in memory; without creds it falls back to the migrator's lessons + the recommendations behind serious/critical findings. One dated section is appended (score line, preview + run links, summary, `Rule:` bullets), re-reading the page right before the save. Dryrun migrations are skipped so memory never fills with simulated runs; an in-flight reflect is never replayed after a restart (append-only).
+  - **Block library**: the migration prompt now describes `blockLibraryUrl` as what it is - the index linking one showcase page per block (hero, columns, quote, gallery, cards, stats, table, accordion, newsletter, author-bio) - and tells the model to GET a block page only when it needs the exact shape.
+  - **Dashboard**: a Memory card on the run detail (rules appended, tier/model, link to the page; or why nothing was written) and per-branch memory-read status, migrator lessons, and gaps. `runs.stats.memory` persists the outcome; the daily-loop GitHub summary gets a Memory row.
+  - **Plumbing**: `a2a-common` gains a stateless da.live MCP client (`dalive.ts`, `tools/call` with the server's S2S auth) and the memory page module (`memory.ts`: HTML→prompt text, append-only entry writer). Memory is enabled only where `DALIVE_MCP_URL` is set explicitly (the fast e2e tier strips it, so tests never touch the real page); the eval container now receives it in `deploy/src/index.ts`. Site profiles carry `memoryPath`; `coordinate.run.v1` accepts a per-run override. Covered by `e2e/tests/memory.e2e.test.ts` + two new closed-loop cases (81 fast tests green).
+
 ## 2.8 (2026-08-29 to 2026-09-02)
 
 Tags: `v2.8.0` (the model-assessment release, built for the adaptTo() talk's "Model and Prompt Comparison" slide), `v2.8.1` (Kimi empty-assistant hotfix).
