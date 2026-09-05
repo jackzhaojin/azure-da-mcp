@@ -30,6 +30,7 @@ export function buildMigrationPrompt(ctx: PromptContext): string {
   const neighbor = payload.neighborPageUrl;
   const reference = neighbor ?? payload.blockLibraryUrl;
   const articlePattern = payload.pattern === "article";
+  const libBase = (payload.blockLibraryUrl ?? "").replace(/\/+$/, "");
   return `You are a da.live (Adobe Edge Delivery Services / EDS) content migration agent running HEADLESS — there is no human to answer questions, so do not ask any. Use the **da-live-author-playwright** skill (invoke the \`skill\` tool with name "da-live-author-playwright"). It orchestrates the da.live MCP (CRUD + preview-publish) and Playwright MCP (view the source + validate the published preview).
 
 The working context is ALREADY CONFIRMED — skip the skill's confirmation gate and proceed straight to the create-page-from-source operation:
@@ -49,7 +50,11 @@ Authentication: the da.live MCP server self-authenticates to da.live (server-sid
 
 Do the migration end to end. Be DECISIVE and move fast — read each thing ONCE, don't re-fetch or explore beyond what the steps below ask. The goal is a published, validated page within budget, not an exhaustive survey:
 1. Read the SOURCE once (Playwright for a webpage; the da.live MCP/read for a PDF or da.live path). One pass — don't fetch it twice with different tools.
-2. GET exactly ONE reference page${reference ? ` (${reference})` : " (a neighbor page or the block library)"} to learn this site's block conventions and editorial look. Do NOT enumerate the whole folder — a single read is enough.
+2. Learn the target${reference ? `: GET the reference page (${reference}) ONCE for the editorial look and block order` : ""}${
+    payload.blockLibraryUrl
+      ? `, then open the block library page of EVERY block you are about to author — one GET per block, the index alone is NOT enough. The index (${payload.blockLibraryUrl}) only lists the blocks; each block's page at ${libBase}/<block-name> (e.g. ${libBase}/hero, ${libBase}/stats, ${libBase}/quote, ${libBase}/author-bio) is the canonical definition on THIS site: every variant, the exact cell layout, what it can and cannot do. The reference page shows ONE usage; the library page shows the definition, and a block authored from your memory of another site (or from a description) renders wrong here — so for each block you use, read its library page before you write it, and list those pages in referencesConsulted`
+      : ""
+  }. Do NOT enumerate whole folders.
 3. CREATE/SAVE the page at the target path, then preview-publish it (full /source/... path). This is the priority — reach it quickly.
 4. VALIDATE the published ${previewUrl} with Playwright (navigate + snapshot/screenshot) ONCE. Refine only if it is clearly broken, up to the max iterations. Preserve all factual source content exactly — structural transformation only.
 5. Be honest about confidence and gaps.
@@ -94,10 +99,13 @@ FINAL_REPORT:
   "blocksUsed": [],
   "refinementIterations": 0,
   "gaps": [],
-  "lessons": []
+  "lessons": [],
+  "memoryApplied": [],
+  "referencesConsulted": []
 }
 \`\`\`
 
+"memoryApplied" = the MEMORY rules (quoted or paraphrased) that changed a decision in this run — empty if memory changed nothing. "referencesConsulted" = the URLs/paths you actually read (reference page, block library pages).
 "lessons" = 0-3 short, generalizable lessons for the NEXT migration to this site (an error you hit and how you fixed it, a block mapping that worked or failed, something the reference page taught you). Rules for the next agent, not a diary — and nothing already covered by MEMORY. Empty if nothing new.
 `;
 }
@@ -165,6 +173,24 @@ export function parseMigrationReport(
     lessons: parseLessons(parsed.lessons),
     backend: "opencode",
   };
+}
+
+/** The model's self-reports about memory + references (soft evidence; the observed reads are the hard evidence). */
+export function parseSelfReports(text: string): { memoryApplied: string[]; referencesConsulted: string[] } {
+  let parsed: Record<string, unknown> = {};
+  const afterMarker = text.split(/FINAL_REPORT:/i).pop() ?? text;
+  const fenced = afterMarker.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = fenced ? fenced[1] : afterMarker;
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      parsed = JSON.parse(body.slice(start, end + 1));
+    } catch {
+      /* no self-reports */
+    }
+  }
+  return { memoryApplied: parseLessons(parsed.memoryApplied, 8), referencesConsulted: parseLessons(parsed.referencesConsulted, 12) };
 }
 
 /** Model-reported lessons: strings only, trimmed, deduped, bounded (raw input to the reflect step). */

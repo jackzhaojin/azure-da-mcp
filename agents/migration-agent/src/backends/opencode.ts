@@ -16,7 +16,8 @@ import {
   DEFAULT_DALIVE_MCP_URL,
   resolveKimiModelLabel,
 } from "./opencode-config.ts";
-import { buildMigrationPrompt, migrationTargets, parseMigrationReport } from "./opencode-prompt.ts";
+import { buildMigrationPrompt, migrationTargets, parseMigrationReport, parseSelfReports } from "./opencode-prompt.ts";
+import { buildUsage, describeUsage, readTarget } from "../usage.ts";
 import { startKimiProxy, type KimiProxy } from "./kimi-proxy.ts";
 import { loadRunMemory } from "../memory.ts";
 
@@ -191,7 +192,7 @@ async function postJson(base: string, p: string, body: unknown, timeoutMs = 30_0
  */
 function tapSession(base: string, sessionId: string, onProgress: (note: string) => void, model: string) {
   const ctrl = new AbortController();
-  const summary = { toolsFired: new Set<string>(), skillFired: false, validations: 0, errors: [] as string[] };
+  const summary = { toolsFired: new Set<string>(), skillFired: false, validations: 0, errors: [] as string[], reads: [] as string[] };
   const seen = new Set<string>(); // partID:state → emit once
 
   (async () => {
@@ -231,7 +232,11 @@ function tapSession(base: string, sessionId: string, onProgress: (note: string) 
           } else {
             summary.toolsFired.add(tool);
             if (/playwright_browser_(navigate|snapshot|take_screenshot)/.test(tool)) summary.validations++;
-            onProgress(`${model} → ${tool}`);
+            // Evidence (v2.9.2): what was READ — the block library, the reference
+            // page, memory, the source — shows up in the note and in the usage summary.
+            const target = readTarget(tool, part.state?.input);
+            if (target) summary.reads.push(target);
+            onProgress(target ? `${model} → ${tool} ${target.slice(0, 140)}` : `${model} → ${tool}`);
           }
         } else if (status === "error") {
           const errText = String(part.state?.error ?? part.state?.title ?? "tool error").slice(0, 200);
@@ -348,6 +353,9 @@ export const opencodeBackend: MigrationBackend = {
     // fold observed gaps in (e.g. a 401 the model hit) so the artifact is honest
     if (tap.summary.errors.length) result.gaps = [...result.gaps, ...tap.summary.errors];
     result.memory = memory?.use ?? null;
+    result.usage = buildUsage(tap.summary.reads, payload, parseSelfReports(text));
+    if (memory?.use.status === "loaded") result.usage.reads.memory += 1; // the backend's own read, before the turn
+    ctx.onProgress(`opencode/${model}: evidence — ${describeUsage(result.usage)}`);
 
     log.info("opencode migration done", {
       a2a_task_id: ctx.taskId,
@@ -361,6 +369,7 @@ export const opencodeBackend: MigrationBackend = {
       continuations,
       lessons: result.lessons?.length ?? 0,
       memory: result.memory?.status ?? "none",
+      usage: { reads: result.usage.reads, blocks: result.usage.blocksLookedAt, memory_applied: result.usage.memoryApplied.length },
       kimi_proxy: kimiProxyStatus(),
       tokens: message?.info?.tokens,
       cost: message?.info?.cost,

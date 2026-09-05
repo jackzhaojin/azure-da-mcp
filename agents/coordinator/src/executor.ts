@@ -91,8 +91,18 @@ export interface BranchMigration {
   lessons?: string[];
   /** How memory was used for this run's prompt (from the migration agent). */
   memory?: { status: string; chars: number; entries: number; path?: string; reason?: string } | null;
+  /** Evidence (v2.9.2): what the migration read (block library, reference page, memory) + the model's self-reports. */
+  usage?: MigrationUsage;
   pageUrl?: string;
   previewUrl?: string;
+}
+
+export interface MigrationUsage {
+  reads: { source: number; referencePage: number; blockLibraryIndex: number; blockPages: number; memory: number; other: number };
+  blocksLookedAt: string[];
+  urls: string[];
+  memoryApplied: string[];
+  referencesConsulted: string[];
 }
 
 export interface BranchFinding {
@@ -473,6 +483,7 @@ async function runPipelineBranch(opts: {
               lessons?: string[];
               backend?: string;
               memory?: BranchMigration["memory"];
+              usage?: MigrationUsage;
             }
           | undefined;
         targetUrl = a?.previewUrl;
@@ -487,10 +498,17 @@ async function runPipelineBranch(opts: {
           gaps: a?.gaps ?? [],
           lessons: a?.lessons ?? [],
           memory: a?.memory ?? null,
+          ...(a?.usage ? { usage: a.usage } : {}),
           pageUrl: a?.pageUrl,
           previewUrl: a?.previewUrl,
         };
         if (a?.lessons?.length) forwardNote(`migrator reported ${a.lessons.length} lesson(s) for memory`);
+        if (a?.usage) {
+          const u = a.usage;
+          forwardNote(
+            `evidence: block library ${u.reads.blockLibraryIndex ? "index" : "no index"}${u.blocksLookedAt.length ? ` + blocks looked at: ${u.blocksLookedAt.join(", ")}` : ""} · reference page ${u.reads.referencePage ? "read" : "NOT read"} · memory rules applied: ${u.memoryApplied.length}`
+          );
+        }
       }
     } else {
       agent = "eval";

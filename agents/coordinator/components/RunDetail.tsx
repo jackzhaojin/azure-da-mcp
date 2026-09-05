@@ -252,6 +252,42 @@ function BranchCard({ b }: { b: BranchResult }) {
           </a>
         )}
         {b.error && <div className="p-2 bg-red-50 border border-red-200 rounded-md text-xs text-red-600">{b.error}</div>}
+        {b.migration?.usage && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50/50 p-2 text-xs space-y-1">
+            <p className="font-medium text-emerald-900">Evidence: what the migrator read</p>
+            <p>
+              block library:{" "}
+              <span className="font-medium">
+                {b.migration.usage.reads.blockLibraryIndex ? "index" : "index not read"}
+                {b.migration.usage.blocksLookedAt.length > 0 ? ` · blocks looked at: ${b.migration.usage.blocksLookedAt.join(", ")}` : ""}
+              </span>
+              {" · "}reference page: <span className="font-medium">{b.migration.usage.reads.referencePage ? "read" : "not read"}</span>
+              {" · "}source: <span className="font-medium">{b.migration.usage.reads.source ? "read" : "not read"}</span>
+            </p>
+            {b.migration.usage.memoryApplied.length > 0 ? (
+              <div>
+                <p className="text-muted-foreground">memory rules the model says it applied ({b.migration.usage.memoryApplied.length})</p>
+                <ul className="list-disc pl-4">
+                  {b.migration.usage.memoryApplied.map((l, i) => (
+                    <li key={i}>{l}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">memory rules applied: none reported</p>
+            )}
+            {b.migration.usage.urls.length > 0 && (
+              <details>
+                <summary className="cursor-pointer text-muted-foreground">{b.migration.usage.urls.length} read(s) observed</summary>
+                <ul className="list-disc pl-4 break-all">
+                  {b.migration.usage.urls.map((u, i) => (
+                    <li key={i}>{u}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
         {b.migration && (b.migration.lessons?.length || b.migration.gaps?.length || b.migration.memory) ? (
           <div className="rounded-md border bg-gray-50 p-2 text-xs space-y-1">
             {b.migration.memory && (
@@ -297,7 +333,7 @@ function BranchCard({ b }: { b: BranchResult }) {
  * and where it went. Memory is the human-readable da.live page the migration
  * agent reads before its next run — this card is the "improves itself" proof.
  */
-function MemoryCard({ memory }: { memory: NonNullable<RunView["stats"]>["memory"] }) {
+function MemoryCard({ memory, applied }: { memory: NonNullable<RunView["stats"]>["memory"]; applied: number }) {
   if (!memory) return null;
   const tone = memory.written ? "border-l-emerald-500" : memory.error ? "border-l-red-500" : "border-l-gray-300";
   return (
@@ -331,6 +367,9 @@ function MemoryCard({ memory }: { memory: NonNullable<RunView["stats"]>["memory"
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
+        <p className="text-xs text-muted-foreground">
+          Rules applied this run (self-reported by the migrator): <span className="font-medium text-foreground">{applied}</span>
+        </p>
         {memory.summary && <p className="italic text-muted-foreground">{memory.summary}</p>}
         {memory.lessons && memory.lessons.length > 0 ? (
           <ul className="list-disc pl-5 space-y-1">
@@ -566,7 +605,9 @@ export function RunDetail({ id }: { id: string }) {
         </Card>
       )}
 
-      {stats?.memory && <MemoryCard memory={stats.memory} />}
+      {stats?.memory && (
+        <MemoryCard memory={stats.memory} applied={branches.reduce((n, b) => n + (b.migration?.usage?.memoryApplied.length ?? 0), 0)} />
+      )}
 
       {branches.length > 0 && (
         <div className="space-y-3">

@@ -1,5 +1,6 @@
 import type { MigrationBackend, MigrationRunPayload, MigrationResult, BackendContext } from "./types.ts";
 import { loadRunMemory } from "../memory.ts";
+import { emptyUsage } from "../usage.ts";
 
 /**
  * Dry-run backend: simulates a migration with the real artifact contract and
@@ -49,6 +50,8 @@ export const dryrunBackend: MigrationBackend = {
       // step never pollutes the site's memory with dryrun entries.
       lessons: [],
       memory: memory?.use ?? null,
+      // no tool calls happen in a simulation; the only real read is the memory page
+      usage: { ...emptyUsage(), reads: { ...emptyUsage().reads, memory: memory?.use.status === "loaded" ? 1 : 0 } },
       backend: "dryrun",
     };
   },

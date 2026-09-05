@@ -35,6 +35,14 @@ export interface BranchResult {
     gaps?: string[];
     lessons?: string[];
     memory?: { status: string; chars: number; entries: number; path?: string; reason?: string } | null;
+    /** Evidence: what the migration read + what the model says it applied (v2.9.2). */
+    usage?: {
+      reads: { source: number; referencePage: number; blockLibraryIndex: number; blockPages: number; memory: number; other: number };
+      blocksLookedAt: string[];
+      urls: string[];
+      memoryApplied: string[];
+      referencesConsulted: string[];
+    };
     pageUrl?: string;
     previewUrl?: string;
   };

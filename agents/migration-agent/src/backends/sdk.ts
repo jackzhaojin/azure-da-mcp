@@ -5,7 +5,8 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createLogger } from "@agents/a2a-common";
 import type { MigrationBackend, MigrationRunPayload, MigrationResult, BackendContext } from "./types.ts";
 import { DEFAULT_DALIVE_MCP_URL, resolveSkillsPath, repoRoot } from "./opencode-config.ts";
-import { buildMigrationPrompt, migrationTargets, parseMigrationReport } from "./opencode-prompt.ts";
+import { buildMigrationPrompt, migrationTargets, parseMigrationReport, parseSelfReports } from "./opencode-prompt.ts";
+import { buildUsage, describeUsage, readTarget } from "../usage.ts";
 import { loadRunMemory } from "../memory.ts";
 
 const log = createLogger("da-migration-agent");
@@ -88,6 +89,7 @@ export const sdkBackend: MigrationBackend = {
     const texts: string[] = [];
     const toolsFired = new Set<string>();
     const errors: string[] = [];
+    const reads: string[] = [];
     let resolvedModel = model;
     let skillFired = false;
     let validations = 0;
@@ -144,7 +146,9 @@ export const sdkBackend: MigrationBackend = {
               } else {
                 toolsFired.add(tool);
                 if (/playwright.*browser_(navigate|snapshot|take_screenshot)/.test(tool)) validations++;
-                ctx.onProgress(`sdk/${resolvedModel} → ${tool}`);
+                const target = readTarget(tool, block.input);
+                if (target) reads.push(target);
+                ctx.onProgress(target ? `sdk/${resolvedModel} → ${tool} ${target.slice(0, 140)}` : `sdk/${resolvedModel} → ${tool}`);
               }
             }
           }
@@ -166,6 +170,9 @@ export const sdkBackend: MigrationBackend = {
     result.backend = "sdk";
     if (errors.length) result.gaps = [...result.gaps, ...errors];
     result.memory = memory?.use ?? null;
+    result.usage = buildUsage(reads, payload, parseSelfReports(text));
+    if (memory?.use.status === "loaded") result.usage.reads.memory += 1;
+    ctx.onProgress(`sdk/${resolvedModel}: evidence — ${describeUsage(result.usage)}`);
 
     log.info("sdk migration done", {
       a2a_task_id: ctx.taskId,

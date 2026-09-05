@@ -62,6 +62,21 @@ export interface MigrationResult {
   lessons?: string[];
   /** How memory was used for this run (null when the run carried no memoryPath). */
   memory?: MemoryUse | null;
+  /** Evidence of what the run READ (block library, reference page, memory) + the model's self-reports. */
+  usage?: MigrationUsage;
+}
+
+/** What a migration read (observed tool targets, classified) and what the model says it applied (v2.9.2). */
+export interface MigrationUsage {
+  reads: { source: number; referencePage: number; blockLibraryIndex: number; blockPages: number; memory: number; other: number };
+  /** Distinct block-library pages opened, by slug (e.g. ["hero", "stats", "author-bio"]). */
+  blocksLookedAt: string[];
+  /** Distinct read targets, in order (capped). */
+  urls: string[];
+  /** Self-reported: memory rules that changed a decision in this run. */
+  memoryApplied: string[];
+  /** Self-reported: references the model says it consulted. */
+  referencesConsulted: string[];
 }
 
 /** Observability for the memory read at the start of a run. */
