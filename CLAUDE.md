@@ -90,7 +90,7 @@ This repository contains 7 independent projects:
 **Purpose**: A decoupled mesh of independently-addressable AI agents (content-gen, migration, eval, coordinator) speaking the **A2A protocol** — the ground-up v2.0 re-architecture for the adaptTo() Sept 2026 demo
 **Tech**: TypeScript, `@a2a-js/sdk@0.3.13`, Express (one server per agent), Node 20, npm workspaces, better-sqlite3 / Cloudflare D1, R2, Next.js 15 (coordinator dashboard — the sole UI: single/bulk/direct-eval/migrate-a-real-page lanes, sample downloads, JSON export), Claude Agent SDK + opencode (Kimi), vitest e2e
 **Status**: **v2.9.3, DEPLOYED ON CLOUDFLARE** (M5 first deploy 2026-06-10; every `v2.x` tag redeploys) — the whole mesh runs as Workers + Containers (worker `content-factory`, agents/deploy/): dashboard at `content-factor-dash.jackzhaojin.com` (Google SSO, per-user runs), agents at `content-factory{,-eval,-gen,-migrate}.jackzhaojin.com`, store on D1 via the Worker's `/d1/query` proxy, artifacts on R2. Real migrations run under **Kimi (K3 default, per-run model)** or **Claude (Agent SDK `sdk` backend, per-run model)**; eval has three modes (`fidelity`/`quality`/`redesign`); an agent-led **daily content loop** (GH Actions cron) publishes a Wilderness Journal article every day; `npm run model-matrix` benchmarks N models over the same migration+eval (2026-08-29: K3 confirmed best); **agent memory (v2.9)**: the migrator reads the site's da.live memory page (`/ai-content/memory`) before every run and the eval agent (`eval.reflect`) appends distilled rules after every scored run - the v1 self-improvement loop, restored. Local dev unchanged (SQLite + localhost ports); the tunnel keeps only `a2a.jackzhaojin.com` → local :4003 for Make.com
-**Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · [CHANGELOG.md](./CHANGELOG.md) (per-minor-version history) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · model assessment [ai-docs/2026-08-29-model-assessment/](./ai-docs/2026-08-29-model-assessment/) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/) · full index [ai-docs/README.md](./ai-docs/README.md)
+**Docs**: [agents/CLAUDE.md](./agents/CLAUDE.md) (hub; each sub-workspace has its own CLAUDE.md) · [CHANGELOG.md](./CHANGELOG.md) (per-minor-version history) · build report [ai-docs/2026-06-08-a2a-platform-v2.0/](./ai-docs/2026-06-08-a2a-platform-v2.0/) · model assessments [ai-docs/2026-08-29-model-assessment/](./ai-docs/2026-08-29-model-assessment/) (baseline) and [ai-docs/2026-09-08-model-assessment-with-memory/](./ai-docs/2026-09-08-model-assessment-with-memory/) (re-run on v2.9: every model held or improved) · plan [ai-docs/2026-06-05-a2a-agent-platform/](./ai-docs/2026-06-05-a2a-agent-platform/) · full index [ai-docs/README.md](./ai-docs/README.md)
 
 **When to work here**:
 - A2A agents/protocol (Agent Cards, Task lifecycle, `message/stream`, push notifications, edge shim)
@@ -322,6 +322,7 @@ cp .env.example .env
 - `ai-docs/README.md` - Index of every planning PRD + as-built report
 - `ai-docs/2026-06-08-a2a-platform-v2.0/` - As-built build report (architecture + sequence diagrams)
 - `ai-docs/2026-08-29-model-assessment/` - Five-model migration benchmark (K3 confirmed as default)
+- `ai-docs/2026-09-08-model-assessment-with-memory/` - The same benchmark re-run on v2.9 with agent memory (every model held or improved; evidence table; v2.9 version history)
 - `ai-docs/2026-06-05-a2a-agent-platform/` - The planning PRD (decisions D1–D6)
 
 ### hlx-admin/ (AEM Admin Operations)
@@ -369,11 +370,11 @@ cp .env.example .env
 ## Related Documentation
 
 - `specs/` - Feature specifications and planning docs (historical)
-- `ai-docs/` - Planning PRDs + as-built reports (public + active; indexed in [`ai-docs/README.md`](./ai-docs/README.md); latest: `2026-08-29-model-assessment/`)
+- `ai-docs/` - Planning PRDs + as-built reports (public + active; indexed in [`ai-docs/README.md`](./ai-docs/README.md); latest: `2026-09-08-model-assessment-with-memory/`)
 
 ---
 
-**Last Updated**: 2026-09-05
+**Last Updated**: 2026-09-08
 **Primary Maintainer**: jackjin
 **Repository**: Personal monorepo for AI content authoring tools
 **Version lines**: **v2.x** = the `agents/` A2A platform (flagship, **v2.9.3 deployed on Cloudflare**; `v2.x+` tags trigger `deploy-agents.yml`) · **v1.1.0** = legacy `content-authoring-eval` (**deprecated**, frozen backup). `agent-claude-sdk/` is also **deprecated**. Trunk-based, tag from `main`; history in [`CHANGELOG.md`](./CHANGELOG.md).

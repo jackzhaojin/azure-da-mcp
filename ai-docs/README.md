@@ -6,6 +6,7 @@ For the release-by-release view, see the root [CHANGELOG.md](../CHANGELOG.md).
 
 | Folder | What it is |
 |---|---|
+| [2026-09-08-model-assessment-with-memory/](./2026-09-08-model-assessment-with-memory/) | **The five-model benchmark re-run on v2.9** (agent memory + block-library discipline + usage evidence): same source, same judge; every model held or improved (K3 88 to 90, K2.7 85 to 88, Sonnet 5 84 to 88, Opus 5 86 to 90, Haiku 84 to 84), plus an evidence table of what each model read and applied. Version history of the v2.9 line. |
 | [2026-08-29-model-assessment/](./2026-08-29-model-assessment/) | **Five-model migration benchmark** (Kimi K3/K2.7, Claude Sonnet 5/Opus 5/Haiku 4.5), same prompt, same judge, redesign-mode eval. Verdict: K3 confirmed as the migration default. Produced by `npm run model-matrix` (v2.8). |
 | [2026-08-02-migrate-website-demo/](./2026-08-02-migrate-website-demo/) | UX plan for the "migrate a real page" dashboard lane (multi-URL fan-out, folder override, per-run Kimi model) - shipped as v2.6. |
 | [2026-06-27-v2.4-wilderness-retarget/](./2026-06-27-v2.4-wilderness-retarget/) | Prompt log for the v2.4 retarget to the `adapt-to-2026-demo` Wilderness Journal site (site profiles, /ai-content vs /ai-articles IA split) and the v2.5 quality eval mode. |
