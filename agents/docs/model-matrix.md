@@ -29,6 +29,15 @@ carryover + new-template execution* from both screenshots instead of like-for-li
 similarity (which scored ~25 on every model purely for the intentional redesign);
 content stays source-aware. Pass `--eval-mode fidelity` for the strict comparison.
 
+**Agent memory (v2.9, default ON)**: each model reads the site's memory page
+(`/ai-content/memory`: approved rules + the episodic run log) into its prompt, exactly as
+the daily loop does. The harness passes `memoryPath` and `DALIVE_MCP_URL` to the spawned
+migration agent (the test helper strips that URL by default). `--no-memory` reproduces the
+pre-2.9 conditions for a controlled A/B. Every row also records the **usage evidence**
+(v2.9.2): memory read status, the memory rules the model says it applied, the block-library
+pages it opened, whether it read the reference page, and its self-reported lessons — a second
+table in `results.md`. The matrix never runs `eval.reflect`, so it never writes to memory.
+
 ## Run it
 
 ```bash
@@ -40,6 +49,7 @@ npm run model-matrix                                   # all five models, sequen
 npm run model-matrix -- --models k3,sonnet             # a subset
 npm run model-matrix -- --models dryrun                # $0 pipeline smoke (simulated migration, real eval)
 npm run model-matrix -- --source https://… --folder my-benchmark --slug my-page
+npm run model-matrix -- --no-memory --folder baseline  # pre-2.9 conditions (no memory page) for an A/B
 npm run model-matrix -- --models k3,k27 --eval-only    # re-SCORE already-migrated pages (no migration
                                                        #   calls — free for quota-limited models); falls
                                                        #   back to a full run for rows with no prior page

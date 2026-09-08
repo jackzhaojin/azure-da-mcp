@@ -16,10 +16,17 @@
  * agentic eval), MOONSHOT_API_KEY (Kimi models). Spawns its own migration +
  * eval agents on isolated 14xxx ports — no dev servers needed.
  *
+ * Since v2.9 (agent memory + usage evidence) every row also records HOW the
+ * model worked: whether it read the site's memory page (and which rules it says
+ * it applied), which block-library pages it opened, and its self-reported
+ * lessons. Memory is ON by default (the upgraded platform); `--no-memory`
+ * reproduces the pre-2.9 baseline conditions for a controlled A/B.
+ *
  * Usage (from agents/):
  *   npm run model-matrix                                  # all five models
  *   npm run model-matrix -- --models k3,sonnet            # subset
  *   npm run model-matrix -- --source <url> --folder my-run
+ *   npm run model-matrix -- --no-memory --folder baseline # without the memory page
  */
 import "@agents/a2a-common"; // side effect: disables undici's 300s fetch timeouts (quiet SSE > 5 min)
 import { ClientFactory } from "@a2a-js/sdk/client";
@@ -62,6 +69,8 @@ const DEFAULTS = {
   slugBase: "one-week-above-10000-feet",
   blockLibraryUrl: `${AEM_BASE}/ai-content/blocks/`,
   neighborPageUrl: `${AEM_BASE}/ai-content/stories/chasing-sunsets`,
+  /** The site's agent-memory page (site-profiles.ts memoryPath, as a da.live source path). */
+  memoryPath: "/source/jackzhaojin/adapt-to-2026-demo/ai-content/memory.html",
   pattern: "article",
   guidance:
     "Image quality: before using an image (especially the hero), check its actual resolution ONCE (Playwright naturalWidth, or the image URL). " +
@@ -170,6 +179,16 @@ interface RunRecord {
     confidence?: number;
     blocksUsed?: string[];
     gaps?: string[];
+    /** The model's self-reported lessons for the next run (v2.9). */
+    lessons?: string[];
+    /** How the memory page was used for the prompt: loaded (chars/entries) | empty | skipped | error (v2.9). */
+    memory?: { status: string; chars: number; entries: number } | null;
+    /** Evidence (v2.9.2): what the model READ + what it says it applied. */
+    usage?: {
+      reads: { source: number; referencePage: number; blockLibraryIndex: number; blockPages: number; memory: number; other: number };
+      blocksLookedAt: string[];
+      memoryApplied: string[];
+    };
     durationMs: number;
     error?: string;
   };
@@ -209,12 +228,18 @@ async function main(): Promise<void> {
   // --eval-only: reuse each model's previously-migrated page (from this folder's
   // results.json) and just re-score it — free for quota-limited models.
   const evalOnly = process.argv.includes("--eval-only");
+  // Memory (v2.9): ON by default — the migration agent reads the site's memory
+  // page into its prompt (needs DALIVE_MCP_URL in ITS env; startAgent strips it,
+  // so it is passed explicitly below). --no-memory = the pre-2.9 conditions.
+  const withMemory = !process.argv.includes("--no-memory");
+  const daliveMcpUrl = process.env.DALIVE_MCP_URL ?? "https://jack-mcp-azure-ai-function.azurewebsites.net/api/mcp-streamable";
 
   const scriptsDir = dirname(fileURLToPath(import.meta.url));
   const outDir = arg("out") ?? join(scriptsDir, "..", "..", "output", "model-matrix", folder);
   mkdirSync(outDir, { recursive: true });
 
   console.log(`model matrix: ${lineup.map((m) => m.label).join(" · ")}`);
+  console.log(`memory: ${withMemory ? `ON (${DEFAULTS.memoryPath})` : "OFF (--no-memory: pre-2.9 conditions)"}`);
   console.log(`source: ${source}`);
   console.log(`target: ${owner}/${site}/${folder}/`);
   console.log(`output: ${outDir}\n`);
@@ -242,7 +267,7 @@ async function main(): Promise<void> {
   if (apiKey) aiEnv.ANTHROPIC_API_KEY = apiKey;
 
   console.log("starting migration + eval agents…");
-  const migration = await startAgent("migration-agent", MIGRATION_PORT, { env: { ...aiEnv } });
+  const migration = await startAgent("migration-agent", MIGRATION_PORT, { env: { ...aiEnv, ...(withMemory ? { DALIVE_MCP_URL: daliveMcpUrl } : {}) } });
   const evalAgent = await startAgent("eval-service", EVAL_PORT, { env: { ...aiEnv, EVAL_ENGINE: "real" } });
   const cleanup = async () => {
     await Promise.allSettled([stopAgent(migration), stopAgent(evalAgent)]);
@@ -275,9 +300,9 @@ async function main(): Promise<void> {
     records.sort((a, b) => order(a) - order(b));
     writeFileSync(
       resultsPath,
-      JSON.stringify({ source, site, owner, folder, evalMode, generatedAt: new Date().toISOString(), records }, null, 2)
+      JSON.stringify({ source, site, owner, folder, evalMode, memory: withMemory, generatedAt: new Date().toISOString(), records }, null, 2)
     );
-    writeFileSync(join(outDir, "results.md"), renderMarkdown(source, folder, records, evalMode));
+    writeFileSync(join(outDir, "results.md"), renderMarkdown(source, folder, records, evalMode, withMemory));
   };
 
   try {
@@ -300,6 +325,10 @@ async function main(): Promise<void> {
               confidence: prior.migration.confidence,
               blocksUsed: prior.migration.blocksUsed,
               gaps: prior.migration.gaps,
+              // v2.9 evidence rides along too — a re-score must not erase what the model read/applied
+              lessons: prior.migration.lessons,
+              memory: prior.migration.memory,
+              usage: prior.migration.usage,
             },
             notes: [`eval-only: reusing page migrated earlier (${prior.previewUrl})`],
             durationMs: prior.migration.durationMs,
@@ -317,6 +346,7 @@ async function main(): Promise<void> {
           neighborPageUrl: DEFAULTS.neighborPageUrl,
           pattern: DEFAULTS.pattern,
           guidance: DEFAULTS.guidance,
+          ...(withMemory ? { memoryPath: DEFAULTS.memoryPath } : {}),
           backend: m.backend,
           ...(m.model ? { model: m.model } : {}),
           maxRefinementIterations: 2,
@@ -337,6 +367,16 @@ async function main(): Promise<void> {
           confidence: mig.artifact?.confidence as number | undefined,
           blocksUsed: mig.artifact?.blocksUsed as string[] | undefined,
           gaps: mig.artifact?.gaps as string[] | undefined,
+          lessons: mig.artifact?.lessons as string[] | undefined,
+          memory: (mig.artifact?.memory as RunRecord["migration"]["memory"]) ?? null,
+          ...(mig.artifact?.usage
+            ? {
+                usage: (() => {
+                  const u = mig.artifact!.usage as NonNullable<RunRecord["migration"]["usage"]> & { urls?: unknown };
+                  return { reads: u.reads, blocksLookedAt: u.blocksLookedAt ?? [], memoryApplied: u.memoryApplied ?? [] };
+                })(),
+              }
+            : {}),
           durationMs: mig.durationMs,
           ...(mig.error ? { error: mig.error } : {}),
         },
@@ -405,11 +445,11 @@ async function main(): Promise<void> {
     await cleanup();
   }
 
-  console.log(`\n${renderMarkdown(source, folder, records, evalMode)}`);
+  console.log(`\n${renderMarkdown(source, folder, records, evalMode, withMemory)}`);
   console.log(`results: ${join(outDir, "results.json")}`);
 }
 
-function renderMarkdown(source: string, folder: string, records: RunRecord[], evalMode: string): string {
+function renderMarkdown(source: string, folder: string, records: RunRecord[], evalMode: string, withMemory = true): string {
   const fmtMin = (ms: number) => `${(ms / 60_000).toFixed(1)}m`;
   const judges = [...new Set(records.map((r) => r.eval?.judgeModel).filter(Boolean))] as string[];
   const judgeLine = judges.length
@@ -419,6 +459,10 @@ function renderMarkdown(source: string, folder: string, records: RunRecord[], ev
     `# Model matrix — ${folder}`,
     "",
     `Same source (${source}), same prompt/skill/tools. ${judgeLine}`,
+    "",
+    withMemory
+      ? "Agent memory **ON** (v2.9): every model read the site's memory page (`/ai-content/memory`) before authoring; the evidence table below shows what each one actually read and applied."
+      : "Agent memory **OFF** (`--no-memory`): pre-2.9 conditions, for a controlled A/B.",
     "",
     "| Configuration | Structure | Accessibility | Content Fidelity | Visual Correctness | Overall | Migration confidence | Migration time | Eval time |",
     "|---|---|---|---|---|---|---|---|---|",
@@ -430,6 +474,23 @@ function renderMarkdown(source: string, folder: string, records: RunRecord[], ev
     lines.push(
       `| ${r.label}${failed} | ${cell("structure")} | ${cell("accessibility")} | ${cell("content")} | ${cell("visual")} | ` +
         `${r.eval?.overallScore ?? "—"} | ${r.migration.confidence ?? "—"} | ${fmtMin(r.migration.durationMs)} | ${r.eval ? fmtMin(r.eval.durationMs) : "—"} |`
+    );
+  }
+  // Evidence (v2.9.2): what each model actually read + applied — the "did it use memory / the block library" proof.
+  lines.push(
+    "",
+    "## Evidence — what each model read",
+    "",
+    "| Configuration | Memory page | Memory rules applied (self-reported) | Block library pages opened | Reference page | Lessons reported |",
+    "|---|---|---|---|---|---|"
+  );
+  for (const r of records) {
+    const m = r.migration;
+    const mem = m.memory ? (m.memory.status === "loaded" ? `loaded (${m.memory.chars} chars, ${m.memory.entries} entries)` : m.memory.status) : "—";
+    const u = m.usage;
+    const blocks = u ? (u.blocksLookedAt.length ? `${u.blocksLookedAt.length}: ${u.blocksLookedAt.join(", ")}` : u.reads.blockLibraryIndex ? "index only" : "none") : "—";
+    lines.push(
+      `| ${r.label} | ${mem} | ${u ? u.memoryApplied.length : "—"} | ${blocks} | ${u ? (u.reads.referencePage ? "read" : "not read") : "—"} | ${m.lessons?.length ?? "—"} |`
     );
   }
   return lines.join("\n") + "\n";
