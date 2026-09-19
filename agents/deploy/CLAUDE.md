@@ -29,6 +29,28 @@ Secrets (set once; rotate via the same command): `D1_PROXY_SECRET`, `A2A_MESH_TO
 
 Validate: `cd agents && set -a && source .env && set +a && npm run test:cloud` (tier 1 always; the Kimi tier needs `DALIVE_TEST_OWNER`/`DALIVE_TEST_SITE`).
 
+### Claude OAuth token (`CLAUDE_CODE_OAUTH_TOKEN`) - rotation runbook
+
+- **Dedicated to this project.** The token on the Worker and in `agents/.env` is minted for the `agents/` platform only. It is NOT shared with the frozen v1 app (`content-authoring-eval/.env.local`, `.env.docker`, the Oracle compose env) or the deprecated `agent-claude-sdk/*/.env` files; those still hold the old, revoked token and are deliberately left alone (D5 / deprecated).
+- **Rotation log:** rotated **2026-09-18** (the previous token was revoked that day) - expires **2027-09-18** (`claude setup-token` tokens last one year; rotate before then).
+- **Consumers:** the eval container (agentic tier + `eval.reflect` memory write-back), the content-gen container (agentic writer), and locally the migration agent's `sdk` backend (`npm run model-matrix`, `--backend sdk`). The Cloudflare migration container is NOT wired for it (Kimi via `MOONSHOT_API_KEY` only). Without a valid token nothing hard-fails in the cloud: content-gen silently drops to the template tier, eval to `deterministic-fallback`, memory write-back to skipped - so check the tier notes, not just the run status.
+- **The account stanza does not rotate with the token.** `CLAUDE_ACCOUNT_UUID` / `CLAUDE_EMAIL` / `CLAUDE_ORG_UUID` describe the Claude account that minted it; they only change if a different account mints the next token.
+- **Where the token lives (the only two places to update):** `agents/.env` (gitignored, local dev + model-matrix) and the Worker secret. It is NOT a GitHub Actions secret (the daily loop only carries the mesh/edge tokens and uses whatever the Worker holds).
+
+Procedure - the token never appears in chat, shell history, or a tracked file:
+
+```bash
+claude setup-token                                                  # browser flow, prints the token once
+read -rs CLAUDE_CODE_OAUTH_TOKEN; export CLAUDE_CODE_OAUTH_TOKEN    # paste it + Enter (no echo, no history)
+cd agents && perl -pi -e 's/^CLAUDE_CODE_OAUTH_TOKEN=.*/CLAUDE_CODE_OAUTH_TOKEN=$ENV{CLAUDE_CODE_OAUTH_TOKEN}/' .env
+cd deploy && export PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH"
+npx wrangler whoami || npx wrangler login                           # the local wrangler login expires periodically
+printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" | npx wrangler secret put CLAUDE_CODE_OAUTH_TOKEN   # no --env: the worker has none
+unset CLAUDE_CODE_OAUTH_TOKEN
+```
+
+Afterwards: containers only read env on a cold start, so either let eval + content-gen sleep (15 min idle) or redeploy (`workflow_dispatch` of deploy-agents.yml with `skip_tests`). Verify in the cloud with a dryrun daily loop (`BACKEND=dryrun node .github/scripts/daily-content-loop.mjs`: the generate note must end `(agentic)` with `generator: agent-sdk`, and each eval dimension's `metadata.mode` must be `agentic`), and locally with `npm run model-matrix -- --models sonnet` (a real Agent SDK migration + agentic eval).
+
 ## CI deploy (GitHub Actions)
 
 `.github/workflows/deploy-agents.yml` runs the exact same `npm run deploy` on a GitHub runner so releases don't depend on a laptop. It's the v2.x+ counterpart to `deploy-content-authoring-eval.yml` (frozen v1.x Oracle line, D5) — the two never overlap.
