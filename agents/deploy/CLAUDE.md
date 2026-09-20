@@ -49,7 +49,7 @@ printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" | npx wrangler secret put CLAUDE_CODE_OAU
 unset CLAUDE_CODE_OAUTH_TOKEN
 ```
 
-Afterwards: containers only read env on a cold start, so either let eval + content-gen sleep (15 min idle) or redeploy (`workflow_dispatch` of deploy-agents.yml with `skip_tests`). Verify in the cloud with a dryrun daily loop (`BACKEND=dryrun node .github/scripts/daily-content-loop.mjs`: the generate note must end `(agentic)` with `generator: agent-sdk`, and each eval dimension's `metadata.mode` must be `agentic`), and locally with `npm run model-matrix -- --models sonnet` (a real Agent SDK migration + agentic eval).
+Afterwards: containers only read env on a cold start. **Redeploy** (`gh workflow run deploy-agents.yml --ref main -f skip_tests=true`, ~15 min) - do not rely on the 15-min idle sleep: on 2026-09-18 eval + content-gen stayed up through a 20-min window with zero inbound requests and kept serving the revoked token (evidence: content-gen `(agentic)` note followed by `brief ready (template)`, eval dimensions `deterministic-fallback` with `401 OAuth access token has been revoked` in `modeReason`). Verify in the cloud with a dryrun daily loop (`BACKEND=dryrun node .github/scripts/daily-content-loop.mjs`: the generate note must end `(agentic)` with `generator: agent-sdk`, and each eval dimension's `metadata.mode` must be `agentic`), and locally with `npm run model-matrix -- --models sonnet` (a real Agent SDK migration + agentic eval).
 
 ## CI deploy (GitHub Actions)
 
