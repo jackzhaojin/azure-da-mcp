@@ -313,6 +313,8 @@ cp .env.example .env
 - `CLAUDE.md` - This file (AI context, references child CLAUDE.md files)
 - `CHANGELOG.md` - Per-minor-version history of both release lines (update with every version bump)
 - `RELEASES.md` - Release process: versioning, tagging, deployment automation
+- `REFERENCES.md` - Public link hub: repos, working demo, docs (keep links working); `docs/tools-used.md` - the full tools list
+- `docs/architecture/` - Hand-authored SVG diagrams + README walkthrough (how the agentic parts work, A2A/MCP, cloud, dev ops, use cases). Update the diagrams when the architecture changes; render in a browser before committing
 
 ### agents/ (A2A Agent Platform — v2.x, flagship)
 - `agents/CLAUDE.md` - Hub: structure, run, conventions, Cloudflare infra

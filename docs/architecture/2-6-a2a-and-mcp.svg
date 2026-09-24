@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1090" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="am-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+    <marker id="am-ar-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="1090" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">Two protocols, two jobs: A2A agent-to-agent, MCP agent-to-tool</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">A2A is how work moves across the mesh. MCP is how one agent reaches a browser, a CMS, or a database. Same skill file, two model harnesses, both directions.</text>
+
+  <!-- legend -->
+  <rect x="880" y="26" width="88" height="22" rx="5" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.2"/>
+  <text x="924" y="41" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">Human</text>
+  <rect x="976" y="26" width="104" height="22" rx="5" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="1028" y="41" font-size="11" fill="#0a5bd3" text-anchor="middle" font-weight="600">Deterministic</text>
+  <rect x="1088" y="26" width="80" height="22" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="1128" y="41" font-size="11" fill="#a40e26" text-anchor="middle" font-weight="600">Agentic</text>
+  <rect x="1176" y="26" width="64" height="22" rx="5" fill="#faf5ff" stroke="#8250df" stroke-width="1.2"/>
+  <text x="1208" y="41" font-size="11" fill="#6639ba" text-anchor="middle" font-weight="600">Mix</text>
+
+  <!-- line legend -->
+  <line x1="40" y1="88" x2="80" y2="88" stroke="#57606a" stroke-width="1.6"/>
+  <text x="86" y="92" font-size="10.5" fill="#57606a">A2A (agent to agent)</text>
+  <line x1="210" y1="88" x2="250" y2="88" stroke="#0969da" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="256" y="92" font-size="10.5" fill="#0969da">MCP (agent to tool)</text>
+  <text x="380" y="92" font-size="10.5" fill="#57606a">plain code path (S3 / REST), no protocol on the wire between agents</text>
+
+  <!-- ==================== ROW 0: three front doors into the coordinator ==================== -->
+  <rect x="40" y="104" width="380" height="56" rx="9" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="56" y="124" font-size="12.5" font-weight="700" fill="#1f2328">Humans - the dashboard, in a browser</text>
+  <text x="56" y="141" font-size="11" fill="#414a55">Google SSO · four trigger lanes · live activity · evidence · curation</text>
+  <text x="56" y="155" font-size="10" fill="#6e7781" font-style="italic">in-the-loop, on-the-loop, over-the-loop: all from one page</text>
+
+  <rect x="440" y="104" width="400" height="56" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="456" y="124" font-size="12.5" font-weight="700" fill="#0a5bd3">Schedules - GitHub Actions, no human identity</text>
+  <text x="456" y="141" font-size="11" fill="#33445c">daily-content-loop.yml cron → pre-warm /health → coordinate.run full-loop</text>
+  <text x="456" y="155" font-size="10" fill="#4a6285" font-style="italic">mesh token; the run is NULL-owned, shared with every signed-in human</text>
+
+  <rect x="860" y="104" width="380" height="56" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="876" y="124" font-size="12.5" font-weight="700" fill="#a40e26">Other agentic solutions</text>
+  <text x="876" y="141" font-size="11" fill="#5c3434">any A2A client that reads the Agent Card: another mesh, a bot</text>
+  <text x="876" y="155" font-size="10" fill="#8a5050" font-style="italic">webhook-only callers (Make.com, Fusion) use the edge shim</text>
+
+  <path d="M 230 160 L 230 176 L 560 176 L 560 184" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#am-ar)"/>
+  <path d="M 640 160 L 640 184" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#am-ar)"/>
+  <path d="M 1050 160 L 1050 176 L 720 176 L 720 184" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#am-ar)"/>
+  <text x="395" y="171" font-size="9" fill="#57606a" text-anchor="middle">UI → /api/trigger → A2A, identity attached</text>
+  <text x="885" y="171" font-size="9" fill="#57606a" text-anchor="middle">Agent Card → /a2a  (or /hooks for webhook-only callers)</text>
+
+  <!-- ==================== ROW 1: protocol machinery + coordinator ==================== -->
+  <rect x="40" y="184" width="380" height="100" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="56" y="208" font-size="12.5" font-weight="700" fill="#0a5bd3">A2A vocabulary - what every agent speaks</text>
+  <text x="56" y="228" font-size="11" fill="#33445c">Agent Card at /.well-known/agent-card.json (discovery)</text>
+  <text x="56" y="245" font-size="11" fill="#33445c">Task {id, contextId, status, artifacts}, saved on every transition</text>
+  <text x="56" y="262" font-size="11" fill="#33445c">message/send · message/stream (SSE) · tasks/get · push webhooks</text>
+  <text x="56" y="278" font-size="10" fill="#4a6285" font-style="italic">official @a2a-js/sdk, one Express server per agent</text>
+
+  <rect x="440" y="184" width="400" height="100" rx="9" fill="#faf5ff" stroke="#8250df" stroke-width="1.5"/>
+  <text x="456" y="208" font-size="13" font-weight="700" fill="#6639ba">coordinator :4004 - A2A client AND server</text>
+  <text x="456" y="228" font-size="11" fill="#5a4a7a">route table + fan-out (deterministic) · ideate + briefs (agentic)</text>
+  <text x="456" y="245" font-size="11" fill="#5a4a7a">one contextId per run; children's working-notes become the live feed</text>
+  <text x="456" y="262" font-size="11" fill="#5a4a7a">severed stream? recover from tasks/get against the persisted Task</text>
+  <text x="456" y="278" font-size="10" fill="#8a6fc0" font-style="italic">three doors in, one door out: every caller becomes the same coordinate.run task</text>
+
+  <rect x="860" y="184" width="380" height="100" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="876" y="208" font-size="12.5" font-weight="700" fill="#0a5bd3">Edge shim - A2A for callers that don't speak it</text>
+  <text x="876" y="228" font-size="11" fill="#33445c">POST /hooks/:agent/:skill with flat JSON → 202 {taskId}</text>
+  <text x="876" y="245" font-size="11" fill="#33445c">the finished Task arrives at callbackUrl as a webhook (A2A push)</text>
+  <text x="876" y="262" font-size="11" fill="#33445c">edge token, not mesh token - separate blast radius</text>
+  <text x="876" y="278" font-size="10" fill="#4a6285" font-style="italic">Make.com, curl, Workfront Fusion: one POST, one webhook</text>
+
+  <!-- fan-out from the coordinator -->
+  <path d="M 640 284 L 640 304 L 220 304 L 220 324" stroke="#57606a" stroke-width="1.5" fill="none" marker-end="url(#am-ar)"/>
+  <path d="M 640 284 L 640 324" stroke="#57606a" stroke-width="1.5" fill="none" marker-end="url(#am-ar)"/>
+  <path d="M 640 284 L 640 304 L 1060 304 L 1060 324" stroke="#57606a" stroke-width="1.5" fill="none" marker-end="url(#am-ar)"/>
+  <text x="850" y="299" font-size="10" fill="#57606a" text-anchor="middle">A2A message/stream (SSE) · bearer mesh token · one contextId across the run</text>
+  <text x="430" y="299" font-size="10" fill="#57606a" text-anchor="middle">same three calls for every agent - the card says what it can do</text>
+
+  <!-- ==================== ROW 2: the agents, with their tools ==================== -->
+  <rect x="40" y="324" width="360" height="166" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="58" y="350" font-size="13" font-weight="700" fill="#a40e26">content-gen :4002</text>
+  <text x="58" y="372" font-size="11" fill="#5c3434">skills: content.ideate · content.brief · synthetic sources</text>
+  <text x="58" y="389" font-size="11" fill="#5c3434">Claude Agent SDK query(), tool-free; template fallback</text>
+  <text x="58" y="406" font-size="11" fill="#5c3434">then plain code writes the source HTML to R2 (S3 API)</text>
+  <text x="58" y="428" font-size="10" font-weight="600" fill="#a40e26">tools: none for the model; the artifact store for the code</text>
+  <text x="58" y="470" font-size="10" fill="#8a5050" font-style="italic">no MCP at all - the simplest agent proved the chassis first</text>
+
+  <rect x="440" y="324" width="400" height="166" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="458" y="350" font-size="13" font-weight="700" fill="#a40e26">migration :4003 - one card, swappable backends</text>
+  <text x="458" y="372" font-size="11" fill="#5c3434">dryrun · makecom · opencode (Kimi K3) · sdk (Claude Agent SDK)</text>
+  <text x="458" y="389" font-size="11" fill="#5c3434">same prompt + SKILL.md + the same two MCP servers under both</text>
+  <text x="458" y="406" font-size="11" fill="#5c3434">harnesses - the vendor swap never touches the tools</text>
+  <text x="458" y="428" font-size="10" font-weight="600" fill="#a40e26">tools: harness built-ins (skill, bash, read, write, edit, webfetch)</text>
+  <text x="458" y="443" font-size="10" font-weight="600" fill="#a40e26">+ dalive_* ×6 + playwright browser_* ×5 (listed below)</text>
+  <text x="458" y="470" font-size="10" fill="#8a5050" font-style="italic">skill-as-a-service: da-live-author-playwright, reused verbatim</text>
+
+  <rect x="880" y="324" width="360" height="166" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="898" y="350" font-size="13" font-weight="700" fill="#a40e26">eval :4001 - four dimensions</text>
+  <text x="898" y="372" font-size="11" fill="#5c3434">deterministic tools first, an Agent SDK pass second, then blend</text>
+  <text x="898" y="389" font-size="11" fill="#5c3434">Claude reaches the live page through MCP: DOM, a11y tree,</text>
+  <text x="898" y="406" font-size="11" fill="#5c3434">screenshots - then scores with vision</text>
+  <text x="898" y="428" font-size="10" font-weight="600" fill="#a40e26">tools: harness Bash / Read / WebFetch + playwright browser_*</text>
+  <text x="898" y="443" font-size="10" font-weight="600" fill="#a40e26">+ filesystem read_file; the visual pass gets the PNGs as images</text>
+  <text x="898" y="470" font-size="10" fill="#8a5050" font-style="italic">browser permits cap every Chromium, MCP spawns included</text>
+
+  <!-- content-gen → R2: a code path, not a protocol -->
+  <path d="M 175 490 L 175 722" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#am-ar)"/>
+  <text x="183" y="610" font-size="9.5" fill="#57606a">S3 API, not MCP</text>
+
+  <!-- MCP arrows (dashed blue) -->
+  <path d="M 560 490 L 560 514 L 480 514 L 480 540" stroke="#0969da" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#am-ar-blue)"/>
+  <path d="M 720 490 L 720 514 L 760 514 L 760 540" stroke="#0969da" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#am-ar-blue)"/>
+  <path d="M 980 490 L 980 522 L 860 522 L 860 540" stroke="#0969da" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#am-ar-blue)"/>
+  <path d="M 1140 490 L 1140 540" stroke="#0969da" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#am-ar-blue)"/>
+  <text x="470" y="510" font-size="9.5" fill="#0969da" text-anchor="end">MCP over HTTP (streamable)</text>
+  <text x="770" y="510" font-size="9.5" fill="#0969da">MCP over stdio</text>
+  <text x="1150" y="510" font-size="9.5" fill="#0969da">MCP over stdio</text>
+
+  <!-- ==================== ROW 3: MCP servers the agents consume, with their tools ==================== -->
+  <rect x="300" y="540" width="330" height="134" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="316" y="564" font-size="12.5" font-weight="700" fill="#0a5bd3">da.live MCP - the CMS as tools</text>
+  <text x="316" y="584" font-size="11" fill="#33445c">our functions/ server on Azure Functions, streamable HTTP</text>
+  <text x="316" y="601" font-size="11" fill="#33445c">self-authenticates: S2S technical account, anonymous inbound</text>
+  <text x="316" y="623" font-size="10" font-weight="600" fill="#0a5bd3">list_dalive_content · get_dalive_content</text>
+  <text x="316" y="638" font-size="10" font-weight="600" fill="#0a5bd3">create_dalive_content · save_dalive_content</text>
+  <text x="316" y="653" font-size="10" font-weight="600" fill="#0a5bd3">preview_publish_dalive_content · create_folder_dalive</text>
+  <text x="316" y="668" font-size="9.5" fill="#4a6285" font-style="italic">used by migration only; the caller needs nothing but a URL</text>
+
+  <rect x="650" y="540" width="280" height="134" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="666" y="564" font-size="12.5" font-weight="700" fill="#0a5bd3">Playwright MCP - a browser as tools</text>
+  <text x="666" y="584" font-size="11" fill="#33445c">@playwright/mcp over stdio, headless Chromium</text>
+  <text x="666" y="601" font-size="11" fill="#33445c">migration: --isolated · eval: a browser permit</text>
+  <text x="666" y="623" font-size="10" font-weight="600" fill="#0a5bd3">browser_navigate · browser_snapshot</text>
+  <text x="666" y="638" font-size="10" font-weight="600" fill="#0a5bd3">browser_take_screenshot · browser_click</text>
+  <text x="666" y="653" font-size="10" font-weight="600" fill="#0a5bd3">browser_fill_form</text>
+  <text x="666" y="668" font-size="9.5" fill="#4a6285" font-style="italic">migration: read source, validate · eval: live DOM, a11y</text>
+
+  <rect x="950" y="540" width="290" height="134" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="966" y="564" font-size="12.5" font-weight="700" fill="#0a5bd3">filesystem MCP</text>
+  <text x="966" y="584" font-size="11" fill="#33445c">@modelcontextprotocol/server-filesystem</text>
+  <text x="966" y="601" font-size="11" fill="#33445c">eval reads its own screenshots back</text>
+  <text x="966" y="623" font-size="10" font-weight="600" fill="#0a5bd3">read_file · list_directory</text>
+  <text x="966" y="638" font-size="10" font-weight="600" fill="#0a5bd3">(scoped to the screenshots dir)</text>
+  <text x="966" y="668" font-size="9.5" fill="#4a6285" font-style="italic">spawned per Agent SDK pass, eval only</text>
+
+  <!-- down to the real systems -->
+  <path d="M 480 674 L 480 722" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#am-ar)"/>
+  <text x="490" y="702" font-size="9.5" fill="#57606a">REST, S2S</text>
+  <path d="M 790 674 L 790 722" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#am-ar)"/>
+  <text x="800" y="702" font-size="9.5" fill="#57606a">one permit</text>
+
+  <!-- ==================== ROW 4: real systems ==================== -->
+  <rect x="40" y="722" width="240" height="100" rx="9" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="56" y="746" font-size="12.5" font-weight="700" fill="#7d4e00">R2 - the artifact bytes</text>
+  <text x="56" y="766" font-size="11" fill="#594514">synthetic source pages (content-gen),</text>
+  <text x="56" y="783" font-size="11" fill="#594514">eval screenshots - public r2.dev URLs</text>
+  <text x="56" y="806" font-size="10" fill="#8a7433" font-style="italic">written by code, not by a model tool</text>
+
+  <rect x="300" y="722" width="330" height="100" rx="9" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.5"/>
+  <text x="316" y="746" font-size="12.5" font-weight="700" fill="#116329">da.live / EDS - the content target</text>
+  <text x="316" y="766" font-size="11" fill="#2f4a3a">writes to /source/{owner}/{site}/ai-articles/…</text>
+  <text x="316" y="783" font-size="11" fill="#2f4a3a">then .aem.page preview - never live</text>
+  <text x="316" y="806" font-size="10" fill="#4c8f63" font-style="italic">the S2S account is a writer on adapt-to-2026-demo</text>
+
+  <rect x="650" y="722" width="280" height="100" rx="9" fill="#ffffff" stroke="#8c959f" stroke-width="1.4"/>
+  <text x="666" y="746" font-size="12.5" font-weight="700" fill="#57606a">Headless Chromium</text>
+  <text x="666" y="766" font-size="11" fill="#414a55">inside the container, --no-sandbox where root</text>
+  <text x="666" y="783" font-size="11" fill="#414a55">eval: BROWSER_PERMITS=3, two merged caches</text>
+  <text x="666" y="806" font-size="10" fill="#6e7781" font-style="italic">the shell-out scripts draw from the same pool</text>
+
+  <!-- the other direction: the mesh exposes MCP too -->
+  <rect x="950" y="722" width="290" height="56" rx="9" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="966" y="744" font-size="12" font-weight="700" fill="#1f2328">A person, in Claude Desktop</text>
+  <text x="966" y="764" font-size="10.5" fill="#414a55" font-style="italic">"how did yesterday's run score, and why?"</text>
+  <path d="M 1095 778 L 1095 802" stroke="#0969da" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#am-ar-blue)"/>
+  <text x="1104" y="794" font-size="9.5" fill="#0969da">MCP over stdio</text>
+  <rect x="950" y="802" width="290" height="66" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="966" y="824" font-size="12" font-weight="700" fill="#0a5bd3">store-mcp - the mesh exposes MCP too</text>
+  <text x="966" y="842" font-size="10.5" fill="#33445c">read-only tools over runs · tasks · eval_reports</text>
+  <text x="966" y="858" font-size="10" fill="#4a6285" font-style="italic">@modelcontextprotocol/sdk, no port, no writes</text>
+  <path d="M 1095 868 L 1095 892" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#am-ar)"/>
+  <rect x="950" y="892" width="290" height="56" rx="9" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="966" y="914" font-size="12" font-weight="700" fill="#7d4e00">the store - SQLite locally, D1 in the cloud</text>
+  <text x="966" y="934" font-size="10.5" fill="#594514">the flight recorder every consumer can replay</text>
+
+  <!-- callout -->
+  <rect x="40" y="968" width="1200" height="42" rx="8" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.1"/>
+  <text x="640" y="986" font-size="11" fill="#2f4a3a" text-anchor="middle">Two harnesses, one skill: the migration prompt, SKILL.md, and both MCP servers are identical under opencode (Kimi) and the Claude Agent SDK.</text>
+  <text x="640" y="1002" font-size="11" fill="#2f4a3a" text-anchor="middle">Swapping the model vendor is a payload field; the tools, the CMS, and the browser never notice.</text>
+
+  <line x1="40" y1="1030" x2="1240" y2="1030" stroke="#d0d7de"/>
+  <text x="40" y="1054" font-size="12" fill="#414a55"><tspan font-weight="700">A2A vs MCP in one line:</tspan> A2A is agent-to-agent (cards, tasks, streams); MCP is agent-to-tool (a browser, a CMS, a database). We use both, each in the direction it was built for.</text>
+  <text x="40" y="1076" font-size="12" fill="#414a55"><tspan font-weight="700">Where the tools live:</tspan> 6 CMS tools behind one MCP URL, 5 browser tools behind one stdio server, a filesystem reader for eval, and the harness built-ins. Storage is plain code: S3 to R2, SQL to the store.</text>
+</svg>

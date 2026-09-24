@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 620" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="1280" height="620" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">1.0 - why evals were part of the system</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">Designed in from day one, not bolted on: objective, repeatable signal about what works and what doesn't.</text>
+
+  <!-- three principle cards -->
+  <rect x="40" y="96" width="386" height="192" rx="12" fill="#edf5ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="62" y="128" font-size="14" font-weight="700" fill="#0a5bd3">Measurement over intuition</text>
+  <text x="62" y="154" font-size="11.5" fill="#33445c">human review of migrated content is valuable</text>
+  <text x="62" y="172" font-size="11.5" fill="#33445c">but doesn't scale - automated evaluation gives</text>
+  <text x="62" y="190" font-size="11.5" fill="#33445c">consistent, objective assessment across</text>
+  <text x="62" y="208" font-size="11.5" fill="#33445c">thousands of pages, surfacing patterns manual</text>
+  <text x="62" y="226" font-size="11.5" fill="#33445c">review would miss</text>
+  <text x="62" y="258" font-size="10.5" fill="#4a6285" font-style="italic">a number per page, not a vibe per spot-check</text>
+
+  <rect x="446" y="96" width="386" height="192" rx="12" fill="#faf5ff" stroke="#8250df" stroke-width="1.8"/>
+  <text x="468" y="128" font-size="14" font-weight="700" fill="#6639ba">Decoupled evaluation  <tspan font-size="11" font-weight="400" fill="#8a6fc0">★</tspan></text>
+  <text x="468" y="154" font-size="11.5" fill="#5a4a7a">evals intentionally separate from the migration</text>
+  <text x="468" y="172" font-size="11.5" fill="#5a4a7a">flow - quality is reasoned about independently</text>
+  <text x="468" y="190" font-size="11.5" fill="#5a4a7a">of how the content was produced, enabling fair</text>
+  <text x="468" y="208" font-size="11.5" fill="#5a4a7a">comparison between different migration</text>
+  <text x="468" y="226" font-size="11.5" fill="#5a4a7a">approaches</text>
+  <text x="468" y="258" font-size="10.5" fill="#8a6fc0" font-style="italic">the most mesh-shaped idea in all of 1.0</text>
+
+  <rect x="852" y="96" width="388" height="192" rx="12" fill="#edf5ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="874" y="128" font-size="14" font-weight="700" fill="#0a5bd3">Continuous improvement</text>
+  <text x="874" y="154" font-size="11.5" fill="#33445c">every migration run produces measurable</text>
+  <text x="874" y="172" font-size="11.5" fill="#33445c">outcomes; outcomes inform changes to prompts,</text>
+  <text x="874" y="190" font-size="11.5" fill="#33445c">models, context allocation, or memory; the</text>
+  <text x="874" y="208" font-size="11.5" fill="#33445c">next run measures whether those changes</text>
+  <text x="874" y="226" font-size="11.5" fill="#33445c">actually improved quality</text>
+  <text x="874" y="258" font-size="10.5" fill="#4a6285" font-style="italic">the loop that separates iteration from guessing</text>
+
+  <!-- what evals were used for -->
+  <rect x="40" y="312" width="1200" height="120" rx="12" fill="#fafbfc" stroke="#8c959f" stroke-width="1.1"/>
+  <text x="62" y="342" font-size="13" font-weight="700" fill="#1f2328">What the signal was used for</text>
+  <rect x="62" y="358" width="376" height="54" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-width="1.1"/>
+  <text x="80" y="380" font-size="12" font-weight="600" fill="#1f2328">Assess AI models</text>
+  <text x="80" y="398" font-size="10.5" fill="#57606a">which LLM fits which migration task</text>
+  <rect x="454" y="358" width="376" height="54" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-width="1.1"/>
+  <text x="472" y="380" font-size="12" font-weight="600" fill="#1f2328">Optimize strategies</text>
+  <text x="472" y="398" font-size="10.5" fill="#57606a">memory + prompt configurations, tuned by evidence</text>
+  <rect x="846" y="358" width="376" height="54" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-width="1.1"/>
+  <text x="864" y="380" font-size="12" font-weight="600" fill="#1f2328">Compare migration approaches</text>
+  <text x="864" y="398" font-size="10.5" fill="#57606a">AI-driven vs human-led vs hybrid, judged by one rubric</text>
+
+  <!-- bottom -->
+  <line x1="40" y1="464" x2="1240" y2="464" stroke="#d0d7de"/>
+  <text x="40" y="490" font-size="12" fill="#414a55"><tspan font-weight="700">Why it mattered:</tspan> this feedback loop is what turns a prototype into an enterprise capability - without it, improvements are guesswork; with it, every change is validated by data.</text>
+  <text x="40" y="512" font-size="12" fill="#414a55"><tspan font-weight="700">What survived into 2.0:</tspan> the starred card became an agent - the eval service is decoupled evaluation given its own address, its own store, and a mode badge on every score.</text>
+  <text x="40" y="542" font-size="11.5" fill="#57606a" font-style="italic">Different approaches can be optimal for different content types, timelines, or quality bars - universal evaluation lets that be a decision, not an assumption.</text>
+</svg>

@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ca-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="960" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">The server side: one Worker, four containers, one database, one bucket</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">Everything the mesh runs on in production, as configured in agents/deploy/wrangler.jsonc. Scale-to-zero: it sleeps when idle and wakes in 5-30 s.</text>
+
+  <!-- legend -->
+  <rect x="880" y="26" width="88" height="22" rx="5" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.2"/>
+  <text x="924" y="41" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">Human</text>
+  <rect x="976" y="26" width="104" height="22" rx="5" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="1028" y="41" font-size="11" fill="#0a5bd3" text-anchor="middle" font-weight="600">Deterministic</text>
+  <rect x="1088" y="26" width="80" height="22" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="1128" y="41" font-size="11" fill="#a40e26" text-anchor="middle" font-weight="600">Agentic</text>
+  <rect x="1176" y="26" width="64" height="22" rx="5" fill="#faf5ff" stroke="#8250df" stroke-width="1.2"/>
+  <text x="1208" y="41" font-size="11" fill="#6639ba" text-anchor="middle" font-weight="600">Mix</text>
+
+  <!-- ==================== CLOUDFLARE ==================== -->
+  <rect x="40" y="92" width="1200" height="572" rx="14" fill="#fff9f2" stroke="#d4700e" stroke-width="1.6"/>
+  <text x="60" y="118" font-size="15" font-weight="700" fill="#a45408">Cloudflare  <tspan font-weight="400" font-size="11.5" fill="#bd7a30">zone jackzhaojin.com (registrar: Cloudflare) · Workers + Containers · D1 · R2 · Tunnel · deployed by every v2.x tag</tspan></text>
+
+  <!-- DNS / routes strip -->
+  <rect x="60" y="130" width="1160" height="64" rx="8" fill="#ffffff" stroke="#e3b283" stroke-width="1.2"/>
+  <text x="76" y="152" font-size="12" font-weight="700" fill="#1f2328">Five custom domains, all routed to the one Worker  <tspan font-weight="400" font-size="10.5" fill="#6e7781">(routes in wrangler.jsonc, custom_domain: true)</tspan></text>
+  <text x="76" y="170" font-size="11" fill="#3f4660">content-factory (A2A) · content-factor-dash (the dashboard; the Google-OAuth-registered host) · content-factory-eval · content-factory-gen · content-factory-migrate  - all .jackzhaojin.com</text>
+  <text x="76" y="186" font-size="10" fill="#6e7781" font-style="italic">the five *.xpri.ai twins still resolve in parallel (pending manual teardown) · the Worker preserves Host headers, so Auth.js sees the right origin</text>
+
+  <!-- Worker strip -->
+  <rect x="60" y="208" width="1160" height="76" rx="8" fill="#ffffff" stroke="#e3b283" stroke-width="1.2"/>
+  <text x="76" y="230" font-size="12" font-weight="700" fill="#1f2328">Worker "content-factory" - the only thing with bindings and secrets</text>
+  <text x="76" y="248" font-size="11" fill="#3f4660">hostname → Durable Object binding → one Container class each (max_instances 1) · owns the only D1 binding and serves the secret-gated POST /d1/query the containers call back into (~100 ms/query)</text>
+  <text x="76" y="264" font-size="11" fill="#3f4660">13 runtime secrets set once with wrangler secret put (D1 proxy, mesh + edge tokens, R2 keys, Google OAuth, Moonshot, Claude) · vars: R2_*, KIMI_MODEL_ID=k3, DALIVE_MCP_URL, MIGRATION_DEFAULT_BACKEND</text>
+  <text x="76" y="278" font-size="10" fill="#6e7781" font-style="italic">/worker-health answers without waking a container (the deploy smoke probe) · observability on · wrangler tail for live logs</text>
+
+  <path d="M 199 284 L 199 306" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+  <path d="M 493 284 L 493 306" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+  <path d="M 787 284 L 787 306" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+  <path d="M 1081 284 L 1081 306" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+
+  <!-- containers -->
+  <rect x="60" y="306" width="278" height="150" rx="10" fill="#faf5ff" stroke="#8250df" stroke-width="1.5"/>
+  <text x="76" y="330" font-size="13" font-weight="700" fill="#6639ba">coordinator  <tspan font-weight="400" font-size="10.5" fill="#8a6fc0">basic</tspan></text>
+  <text x="76" y="352" font-size="10.5" fill="#5a4a7a">1/4 vCPU · 1 GiB · sleeps after 30 min</text>
+  <text x="76" y="369" font-size="10.5" fill="#5a4a7a">coordinator.Dockerfile, Next build baked in</text>
+  <text x="76" y="386" font-size="10.5" fill="#5a4a7a">A2A server + Next.js dashboard, one process</text>
+  <text x="76" y="403" font-size="10.5" fill="#5a4a7a">restart policy: in-flight runs marked failed</text>
+  <text x="76" y="432" font-size="10" fill="#8a6fc0" font-style="italic">any dashboard visit wakes it; 30 min keeps a demo warm</text>
+
+  <rect x="354" y="306" width="278" height="150" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="370" y="330" font-size="13" font-weight="700" fill="#a40e26">eval  <tspan font-weight="400" font-size="10.5" fill="#8a5050">standard-3, the heavy one</tspan></text>
+  <text x="370" y="352" font-size="10.5" fill="#5c3434">2 vCPU · 8 GiB · sleeps after 15 min</text>
+  <text x="370" y="369" font-size="10.5" fill="#5c3434">non-root appuser, Claude CLI + MCP servers,</text>
+  <text x="370" y="386" font-size="10.5" fill="#5c3434">two Chromium caches, runtime .claude.json</text>
+  <text x="370" y="403" font-size="10.5" fill="#5c3434">axe-core, screenshots, four agentic passes</text>
+  <text x="370" y="432" font-size="10" fill="#8a5050" font-style="italic">EVAL_CONCURRENCY=1 here: standard-1 starved</text>
+
+  <rect x="648" y="306" width="278" height="150" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="664" y="330" font-size="13" font-weight="700" fill="#a40e26">content-gen  <tspan font-weight="400" font-size="10.5" fill="#8a5050">basic</tspan></text>
+  <text x="664" y="352" font-size="10.5" fill="#5c3434">1/4 vCPU · 1 GiB · sleeps after 15 min</text>
+  <text x="664" y="369" font-size="10.5" fill="#5c3434">non-root appuser, Claude CLI, no Playwright</text>
+  <text x="664" y="386" font-size="10.5" fill="#5c3434">the agentic writer, template fallback</text>
+  <text x="664" y="403" font-size="10.5" fill="#5c3434">briefs, ideation, synthetic sources to R2</text>
+  <text x="664" y="432" font-size="10" fill="#8a5050" font-style="italic">lite (256 MiB) starved the Node + CLI pair</text>
+
+  <rect x="942" y="306" width="278" height="150" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="958" y="330" font-size="13" font-weight="700" fill="#a40e26">migration  <tspan font-weight="400" font-size="10.5" fill="#8a5050">standard-1</tspan></text>
+  <text x="958" y="352" font-size="10.5" fill="#5c3434">1/2 vCPU · 4 GiB · sleeps after 15 min</text>
+  <text x="958" y="369" font-size="10.5" fill="#5c3434">opencode 1.18.25 pinned, kimi config baked,</text>
+  <text x="958" y="386" font-size="10.5" fill="#5c3434">skill synced in, Chromium for Playwright MCP</text>
+  <text x="958" y="403" font-size="10.5" fill="#5c3434">9-30 min agentic turns, streamed live</text>
+  <text x="958" y="432" font-size="10" fill="#8a5050" font-style="italic">runs as root, so Chromium gets --no-sandbox</text>
+
+  <text x="640" y="474" font-size="10.5" fill="#a45408" text-anchor="middle" font-style="italic">images are linux/amd64, built by wrangler deploy from the four Dockerfiles (build context = agents/), pushed to Cloudflare's managed registry · env reaches a container only as string vars from the Worker · cold start 5-30 s</text>
+
+  <!-- storage -->
+  <rect x="60" y="488" width="278" height="152" rx="10" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="76" y="512" font-size="13" font-weight="700" fill="#7d4e00">D1 - a2a-agents  <tspan font-weight="400" font-size="10.5" fill="#8a7433">the database</tspan></text>
+  <text x="76" y="534" font-size="10.5" fill="#594514">runs · tasks (full A2A Task JSON) ·</text>
+  <text x="76" y="551" font-size="10.5" fill="#594514">eval_reports · artifacts · push_configs</text>
+  <text x="76" y="568" font-size="10.5" fill="#594514">reached only via the Worker's /d1/query</text>
+  <text x="76" y="585" font-size="10.5" fill="#594514">same SQL as local SQLite, two drivers</text>
+  <text x="76" y="616" font-size="10" fill="#8a7433" font-style="italic">schema by hand: wrangler d1 execute --remote</text>
+
+  <rect x="354" y="488" width="278" height="152" rx="10" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="370" y="512" font-size="13" font-weight="700" fill="#7d4e00">R2 - a2a-agents-artifacts  <tspan font-weight="400" font-size="10.5" fill="#8a7433">the disk</tspan></text>
+  <text x="370" y="534" font-size="10.5" fill="#594514">public bucket on r2.dev, by design</text>
+  <text x="370" y="551" font-size="10.5" fill="#594514">eval screenshots, synthetic source pages</text>
+  <text x="370" y="568" font-size="10.5" fill="#594514">S3 API (SigV4) from inside the containers</text>
+  <text x="370" y="585" font-size="10.5" fill="#594514">same URL contract as the local ./output</text>
+  <text x="370" y="616" font-size="10" fill="#8a7433" font-style="italic">the URL is the handoff between agents and clouds</text>
+
+  <rect x="648" y="488" width="278" height="152" rx="10" fill="#ffffff" stroke="#8c959f" stroke-width="1.4"/>
+  <text x="664" y="512" font-size="13" font-weight="700" fill="#57606a">Container disk  <tspan font-weight="400" font-size="10.5" fill="#6e7781">scratch only</tspan></text>
+  <text x="664" y="534" font-size="10.5" fill="#414a55">./output, .tmp, opencode sessions</text>
+  <text x="664" y="551" font-size="10.5" fill="#414a55">gone on sleep, rollout, or replacement</text>
+  <text x="664" y="568" font-size="10.5" fill="#414a55">screenshots are copied to R2 before the</text>
+  <text x="664" y="585" font-size="10.5" fill="#414a55">task completes; the store keeps the URL</text>
+  <text x="664" y="616" font-size="10" fill="#6e7781" font-style="italic">nothing durable lives here</text>
+
+  <rect x="942" y="488" width="278" height="152" rx="10" fill="#ffffff" stroke="#e3b283" stroke-width="1.4"/>
+  <text x="958" y="512" font-size="13" font-weight="700" fill="#a45408">Tunnel a2a-mesh  <tspan font-weight="400" font-size="10.5" fill="#bd7a30">legacy</tspan></text>
+  <text x="958" y="534" font-size="10.5" fill="#594514">a2a.jackzhaojin.com → a laptop's :4003</text>
+  <text x="958" y="551" font-size="10.5" fill="#594514">Make.com's callback ingress to a LOCAL</text>
+  <text x="958" y="568" font-size="10.5" fill="#594514">migration agent, not the cloud one</text>
+  <text x="958" y="585" font-size="10.5" fill="#594514">cloudflared, config in ~/.cloudflared</text>
+  <text x="958" y="616" font-size="10" fill="#bd7a30" font-style="italic">moved off xpri.ai with the other hostnames</text>
+
+  <!-- ==================== OUTSIDE ==================== -->
+  <path d="M 154 700 L 154 668" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+  <text x="164" y="690" font-size="9.5" fill="#57606a">deploys (tag) · drives the loop (cron)</text>
+  <path d="M 396 668 L 396 700" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)" marker-start="url(#ca-ar)"/>
+  <text x="406" y="690" font-size="9.5" fill="#57606a">sign-in</text>
+  <path d="M 638 668 L 638 700" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+  <text x="648" y="690" font-size="9.5" fill="#57606a">migration, via MCP</text>
+  <path d="M 880 668 L 880 700" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+  <text x="890" y="690" font-size="9.5" fill="#57606a">every agentic turn</text>
+  <path d="M 1122 668 L 1122 700" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#ca-ar)"/>
+  <text x="1132" y="690" font-size="9.5" fill="#57606a">writes + reads</text>
+
+  <rect x="40" y="700" width="228" height="110" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="56" y="722" font-size="12" font-weight="700" fill="#0a5bd3">GitHub Actions</text>
+  <text x="56" y="742" font-size="10.5" fill="#33445c">deploy-agents.yml on v2.x tags</text>
+  <text x="56" y="758" font-size="10.5" fill="#33445c">daily loop cron, 09:20 UTC</text>
+  <text x="56" y="774" font-size="10.5" fill="#33445c">agents-e2e.yml on main + PRs</text>
+  <text x="56" y="798" font-size="10" fill="#4a6285" font-style="italic">2 repo secrets: CF token + account id</text>
+
+  <rect x="282" y="700" width="228" height="110" rx="9" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="298" y="722" font-size="12" font-weight="700" fill="#1f2328">Google OAuth - SSO</text>
+  <text x="298" y="742" font-size="10.5" fill="#414a55">Auth.js v5, JWT sessions, no DB</text>
+  <text x="298" y="758" font-size="10.5" fill="#414a55">callback on content-factor-dash</text>
+  <text x="298" y="774" font-size="10.5" fill="#414a55">optional AUTH_ALLOWED_EMAILS list</text>
+  <text x="298" y="798" font-size="10" fill="#6e7781" font-style="italic">runs.user_email names the person</text>
+
+  <rect x="524" y="700" width="228" height="110" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="540" y="722" font-size="12" font-weight="700" fill="#0a5bd3">Azure Functions - da.live MCP</text>
+  <text x="540" y="742" font-size="10.5" fill="#33445c">jack-mcp-azure-ai-function</text>
+  <text x="540" y="758" font-size="10" fill="#33445c">.azurewebsites.net/api/mcp-streamable</text>
+  <text x="540" y="774" font-size="10.5" fill="#33445c">S2S technical account inside</text>
+  <text x="540" y="798" font-size="10" fill="#4a6285" font-style="italic">our one piece outside Cloudflare</text>
+
+  <rect x="766" y="700" width="228" height="110" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="782" y="722" font-size="12" font-weight="700" fill="#a40e26">Model vendors</text>
+  <text x="782" y="742" font-size="10.5" fill="#5c3434">Moonshot Kimi K3 at api.kimi.com</text>
+  <text x="782" y="758" font-size="10.5" fill="#5c3434">through the in-process kimi-proxy</text>
+  <text x="782" y="774" font-size="10.5" fill="#5c3434">Anthropic Claude via the Claude CLI</text>
+  <text x="782" y="798" font-size="10" fill="#8a5050" font-style="italic">keys on the Worker, never in git</text>
+
+  <rect x="1008" y="700" width="232" height="110" rx="9" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.5"/>
+  <text x="1024" y="722" font-size="12" font-weight="700" fill="#116329">da.live / EDS - the target</text>
+  <text x="1024" y="742" font-size="10.5" fill="#2f4a3a">site adapt-to-2026-demo</text>
+  <text x="1024" y="758" font-size="10" fill="#2f4a3a">main--adapt-to-2026-demo--jackzhaojin</text>
+  <text x="1024" y="774" font-size="10.5" fill="#2f4a3a">.aem.page, preview only</text>
+  <text x="1024" y="798" font-size="10" fill="#4c8f63" font-style="italic">written via the MCP, never live</text>
+
+  <!-- local parity -->
+  <rect x="40" y="830" width="1200" height="40" rx="8" fill="#f6f8fa" stroke="#8c959f" stroke-width="1.1"/>
+  <text x="640" y="855" font-size="11.5" fill="#414a55" text-anchor="middle"><tspan font-weight="700">Local parity:</tspan> the identical code runs on a laptop - SQLite files for D1, localhost ports for the hostnames, ./output for R2. The driver is picked by env; behavior never drifts.</text>
+
+  <line x1="40" y1="892" x2="1240" y2="892" stroke="#d0d7de"/>
+  <text x="40" y="916" font-size="12" fill="#414a55"><tspan font-weight="700">Why this shape:</tspan> the Worker is the only thing with bindings and secrets; the containers are plain Node processes that could run anywhere - which is exactly why the same code runs on a laptop.</text>
+  <text x="40" y="938" font-size="12" fill="#414a55"><tspan font-weight="700">What it costs:</tspan> scale-to-zero, so the first request after idle pays a 5-30 s cold start; rollouts replace containers and kill in-flight runs, so deploy between runs, not during.</text>
+</svg>

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 660" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="1280" height="660" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">1.0 - migration orchestration</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">Orchestration lived in Make.com; intelligence lived in the agent. The separation was intentional - and it's the seed the coordinator grew from.</text>
+
+  <!-- three capability cards -->
+  <rect x="40" y="96" width="386" height="176" rx="12" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5"/>
+  <text x="62" y="126" font-size="14" font-weight="700" fill="#a40e26">Central migration agent</text>
+  <text x="62" y="150" font-size="11.5" fill="#5c3434">understands the source content, reasons about</text>
+  <text x="62" y="168" font-size="11.5" fill="#5c3434">structure and intent, and makes the authoring</text>
+  <text x="62" y="186" font-size="11.5" fill="#5c3434">decisions - not a rules engine, but intelligence</text>
+  <text x="62" y="204" font-size="11.5" fill="#5c3434">applied to each migration task</text>
+  <text x="62" y="236" font-size="10.5" fill="#8a5050" font-style="italic">the judgment stays in one place, on purpose</text>
+
+  <rect x="446" y="96" width="386" height="176" rx="12" fill="#faf5ff" stroke="#8250df" stroke-width="1.5"/>
+  <text x="468" y="126" font-size="14" font-weight="700" fill="#6639ba">Playwright MCP - the AI's eyes</text>
+  <text x="468" y="150" font-size="11.5" fill="#5a4a7a">vision into live websites: navigate, interact,</text>
+  <text x="468" y="168" font-size="11.5" fill="#5a4a7a">capture the visual and structural information</text>
+  <text x="468" y="186" font-size="11.5" fill="#5a4a7a">that static exports miss</text>
+  <text x="468" y="236" font-size="10.5" fill="#8a6fc0" font-style="italic">capabilities handed to the agent as MCP tools</text>
+
+  <rect x="852" y="96" width="388" height="176" rx="12" fill="#faf5ff" stroke="#8250df" stroke-width="1.5"/>
+  <text x="874" y="126" font-size="14" font-weight="700" fill="#6639ba">DA-Live MCP - the AI's hands</text>
+  <text x="874" y="150" font-size="11.5" fill="#5a4a7a">read existing content, save new content,</text>
+  <text x="874" y="168" font-size="11.5" fill="#5a4a7a">preview the output, publish - direct</text>
+  <text x="874" y="186" font-size="11.5" fill="#5a4a7a">integration, no brittle intermediary steps</text>
+  <text x="874" y="236" font-size="10.5" fill="#8a6fc0" font-style="italic">the AI operates on the real system</text>
+
+  <!-- the five-step flow -->
+  <rect x="40" y="296" width="1200" height="180" rx="12" fill="#edf5ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="62" y="326" font-size="13.5" font-weight="700" fill="#0a5bd3">The orchestrated flow - repeatable across thousands of pages</text>
+
+  <rect x="62" y="344" width="220" height="104" rx="8" fill="#ffffff" stroke="#a9c9e8" stroke-width="1.1"/>
+  <text x="78" y="368" font-size="12" font-weight="700" fill="#1f2328">01 · Trigger</text>
+  <text x="78" y="390" font-size="10.5" fill="#33445c">manual, on a schedule, or in</text>
+  <text x="78" y="406" font-size="10.5" fill="#33445c">response to events like</text>
+  <text x="78" y="422" font-size="10.5" fill="#33445c">content updates</text>
+
+  <rect x="298" y="344" width="220" height="104" rx="8" fill="#ffffff" stroke="#a9c9e8" stroke-width="1.1"/>
+  <text x="314" y="368" font-size="12" font-weight="700" fill="#1f2328">02 · Agent execution</text>
+  <text x="314" y="390" font-size="10.5" fill="#33445c">the orchestrator invokes the</text>
+  <text x="314" y="406" font-size="10.5" fill="#33445c">agent with specific source</text>
+  <text x="314" y="422" font-size="10.5" fill="#33445c">content and configuration</text>
+
+  <rect x="534" y="344" width="220" height="104" rx="8" fill="#ffffff" stroke="#a9c9e8" stroke-width="1.1"/>
+  <text x="550" y="368" font-size="12" font-weight="700" fill="#1f2328">03 · DA-Live save</text>
+  <text x="550" y="390" font-size="10.5" fill="#33445c">content lands directly in</text>
+  <text x="550" y="406" font-size="10.5" fill="#33445c">DA-Live - version history</text>
+  <text x="550" y="422" font-size="10.5" fill="#33445c">kept, human review enabled</text>
+
+  <rect x="770" y="344" width="220" height="104" rx="8" fill="#ffffff" stroke="#a9c9e8" stroke-width="1.1"/>
+  <text x="786" y="368" font-size="12" font-weight="700" fill="#1f2328">04 · Preview + validate</text>
+  <text x="786" y="390" font-size="10.5" fill="#33445c">automated preview generation</text>
+  <text x="786" y="406" font-size="10.5" fill="#33445c">gives immediate visual</text>
+  <text x="786" y="422" font-size="10.5" fill="#33445c">verification of the result</text>
+
+  <rect x="1006" y="344" width="214" height="104" rx="8" fill="#ffffff" stroke="#a9c9e8" stroke-width="1.1"/>
+  <text x="1022" y="368" font-size="12" font-weight="700" fill="#1f2328">05 · Publish</text>
+  <text x="1022" y="390" font-size="10.5" fill="#33445c">after validation - to</text>
+  <text x="1022" y="406" font-size="10.5" fill="#33445c">production, or staged for</text>
+  <text x="1022" y="422" font-size="10.5" fill="#33445c">batch publishing</text>
+
+  <!-- bottom -->
+  <line x1="40" y1="512" x2="1240" y2="512" stroke="#d0d7de"/>
+  <text x="40" y="538" font-size="12" fill="#414a55"><tspan font-weight="700">Why this layer mattered:</tspan> the same workflow, run repeatedly across thousands of pages with consistent quality and traceability - and controlled experimentation:</text>
+  <text x="40" y="560" font-size="12" fill="#414a55">different agent configurations through one orchestration flow, objectively compared.</text>
+  <text x="40" y="590" font-size="12" fill="#414a55"><tspan font-weight="700">What survived into 2.0:</tspan> orchestration separated from intelligence - the coordinator is this idea, given a protocol.</text>
+</svg>

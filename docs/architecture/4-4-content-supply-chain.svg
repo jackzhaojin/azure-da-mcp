@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 710" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="u6-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+    <marker id="u6-ar-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#a40e26"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="710" fill="#ffffff"/>
+
+  <text x="40" y="42" font-size="20" font-weight="700" fill="#1f2328">Use case 4 - the content supply chain, closed (concept)</text>
+  <text x="40" y="65" font-size="12.5" fill="#57606a">A campaign approved in Workfront becomes a page on EDS preview. No hands in between - the trigger is another Adobe flow, not ours.</text>
+
+  <rect x="912" y="22" width="88" height="22" rx="5" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.2"/>
+  <text x="956" y="37" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">Human</text>
+  <rect x="1008" y="22" width="80" height="22" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="1048" y="37" font-size="11" fill="#a40e26" text-anchor="middle" font-weight="600">Agentic</text>
+  <rect x="1096" y="22" width="104" height="22" rx="5" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="1148" y="37" font-size="11" fill="#0a5bd3" text-anchor="middle" font-weight="600">Deterministic</text>
+  <rect x="1208" y="22" width="56" height="22" rx="5" fill="#faf5ff" stroke="#8250df" stroke-width="1.2"/>
+  <text x="1236" y="37" font-size="11" fill="#6639ba" text-anchor="middle" font-weight="600">Mix</text>
+
+  <!-- lanes -->
+  <rect x="40" y="88" width="1200" height="144" rx="10" fill="#fafbfc" stroke="#8c959f" stroke-width="1"/>
+  <text x="56" y="112" font-size="12" font-weight="700" fill="#1f2328">HUMAN</text>
+  <text x="56" y="130" font-size="10" fill="#6e7781">judges once, upstream</text>
+  <rect x="40" y="244" width="1200" height="144" rx="10" fill="#fff5f5" stroke="#e0a9a9" stroke-width="1"/>
+  <text x="56" y="268" font-size="12" font-weight="700" fill="#a40e26">AGENTIC</text>
+  <text x="56" y="286" font-size="10" fill="#8a5050">authors</text>
+  <rect x="40" y="400" width="1200" height="144" rx="10" fill="#f5faff" stroke="#a9c9e8" stroke-width="1"/>
+  <text x="56" y="424" font-size="12" font-weight="700" fill="#0a5bd3">DETERMINISTIC</text>
+  <text x="56" y="442" font-size="10" fill="#4a6285">triggers + previews</text>
+
+  <!-- c1a Human: approval -->
+  <rect x="165" y="118" width="140" height="84" rx="9" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="235" y="146" font-size="18" font-weight="700" fill="#1f2328" text-anchor="middle">Campaign</text>
+  <text x="235" y="168" font-size="18" font-weight="700" fill="#1f2328" text-anchor="middle">approved</text>
+  <text x="235" y="190" font-size="11" fill="#414a55" text-anchor="middle">in Workfront</text>
+
+  <!-- c1b Det: Workfront trigger -->
+  <rect x="165" y="430" width="140" height="84" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="235" y="458" font-size="18" font-weight="700" fill="#0a5bd3" text-anchor="middle">Workfront</text>
+  <text x="235" y="480" font-size="18" font-weight="700" fill="#0a5bd3" text-anchor="middle">trigger</text>
+  <text x="235" y="500" font-size="10.5" fill="#33445c" text-anchor="middle">Fusion webhook</text>
+
+  <!-- c2 Mix: coordinator (straddles the agentic/deterministic boundary) -->
+  <rect x="320" y="352" width="140" height="84" rx="9" fill="#faf5ff" stroke="#8250df" stroke-width="1.4"/>
+  <text x="390" y="400" font-size="18" font-weight="700" fill="#6639ba" text-anchor="middle">Coordinator</text>
+
+  <!-- c3 Agentic: intake + understand -->
+  <rect x="475" y="274" width="140" height="84" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="545" y="308" font-size="17" font-weight="700" fill="#a40e26" text-anchor="middle">Intake +</text>
+  <text x="545" y="330" font-size="17" font-weight="700" fill="#a40e26" text-anchor="middle">understand</text>
+
+  <!-- c4 Agentic: draft + images -->
+  <rect x="630" y="274" width="140" height="84" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="700" y="308" font-size="17" font-weight="700" fill="#a40e26" text-anchor="middle">Draft +</text>
+  <text x="700" y="330" font-size="17" font-weight="700" fill="#a40e26" text-anchor="middle">images</text>
+
+  <!-- c5 Agentic: prepare the page -->
+  <rect x="785" y="274" width="140" height="84" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="855" y="308" font-size="17" font-weight="700" fill="#a40e26" text-anchor="middle">Prepare</text>
+  <text x="855" y="330" font-size="17" font-weight="700" fill="#a40e26" text-anchor="middle">the page</text>
+
+  <!-- c6 Mix: eval gate (deterministic tools + agentic judgment) -->
+  <rect x="940" y="352" width="140" height="84" rx="9" fill="#faf5ff" stroke="#8250df" stroke-width="1.4"/>
+  <text x="1010" y="400" font-size="18" font-weight="700" fill="#6639ba" text-anchor="middle">Eval gate</text>
+
+  <!-- c7 Det: preview publish -->
+  <rect x="1095" y="430" width="140" height="84" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="1165" y="461" font-size="18" font-weight="700" fill="#0a5bd3" text-anchor="middle">Preview</text>
+  <text x="1165" y="483" font-size="18" font-weight="700" fill="#0a5bd3" text-anchor="middle">publish</text>
+  <text x="1165" y="503" font-size="10.5" fill="#33445c" text-anchor="middle">to .aem.page, never live</text>
+
+  <!-- arrows -->
+  <path d="M 235 202 L 235 430" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u6-ar)"/>
+  <path d="M 305 472 L 312 472 L 312 394 L 320 394" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u6-ar)"/>
+  <path d="M 460 394 L 467 394 L 467 316 L 475 316" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u6-ar)"/>
+  <text x="462" y="346" font-size="10.5" fill="#57606a" font-style="italic" text-anchor="end">brief + assets</text>
+  <path d="M 615 316 L 630 316" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u6-ar)"/>
+  <path d="M 770 316 L 785 316" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u6-ar)"/>
+  <path d="M 925 316 L 932 316 L 932 394 L 940 394" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u6-ar)"/>
+  <path d="M 1080 394 L 1087 394 L 1087 472 L 1095 472" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u6-ar)"/>
+  <text x="1082" y="448" font-size="10.5" fill="#57606a" font-style="italic" text-anchor="end">auto on pass</text>
+
+  <!-- escalation loops back upstream, not into a reviewer's inbox -->
+  <path d="M 1010 352 L 1010 176 L 305 176" stroke="#a40e26" stroke-width="1.3" fill="none" stroke-dasharray="5 4" marker-end="url(#u6-ar-red)"/>
+  <text x="660" y="168" font-size="10" fill="#a40e26" text-anchor="middle" font-style="italic">on miss, escalate back into Workfront</text>
+
+  <!-- callout -->
+  <rect x="40" y="562" width="1200" height="42" rx="8" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.1"/>
+  <text x="640" y="580" font-size="11" fill="#2f4a3a" text-anchor="middle">the mesh doesn't care who pulls the trigger: yesterday our cron, tomorrow Workfront Fusion - same coordinator, same contract, same gates.</text>
+  <text x="640" y="596" font-size="11" fill="#2f4a3a" text-anchor="middle">the start of the loop is somebody else's flow; the end is a preview, because making things live stays a human act.</text>
+
+  <line x1="40" y1="626" x2="1240" y2="626" stroke="#d0d7de"/>
+  <text x="40" y="650" font-size="12" fill="#414a55"><tspan font-weight="700">Where the human sits:</tspan> upstream - judgment happens once, at the Workfront approval. The eval gate enforces it downstream; preview publish is the only exit.</text>
+  <text x="40" y="672" font-size="12" fill="#414a55"><tspan font-weight="700">Why this is the Adobe story:</tspan> the content supply chain doesn't stop at approved assets - it ends on a page. Workfront to EDS preview, no hands in between.</text>
+</svg>

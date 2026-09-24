@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 660" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="1280" height="660" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">What's next</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">The mesh works. These are the four directions the evidence points - explorations, not promises.</text>
+
+  <!-- card 1: standard orchestration -->
+  <rect x="40" y="96" width="590" height="216" rx="12" fill="#faf5ff" stroke="#8250df" stroke-width="1.5"/>
+  <text x="62" y="128" font-size="15" font-weight="700" fill="#6639ba">A more standard multi-agent orchestration pattern</text>
+  <text x="62" y="154" font-size="12" fill="#5a4a7a">Our coordinator is deliberately simple - a home-grown route table over</text>
+  <text x="62" y="173" font-size="12" fill="#5a4a7a">A2A. That was the right call to ship; it isn't the end state. The</text>
+  <text x="62" y="192" font-size="12" fill="#5a4a7a">multi-agent orchestration space is standardizing fast - task lifecycles,</text>
+  <text x="62" y="211" font-size="12" fill="#5a4a7a">agent discovery, planner patterns. We'd rather converge on what the</text>
+  <text x="62" y="230" font-size="12" fill="#5a4a7a">ecosystem settles on than defend our own dialect.</text>
+  <text x="62" y="262" font-size="11" fill="#8a6fc0" font-style="italic">watch items: A2A's evolution, planner-over-route-table, cross-mesh federation</text>
+
+  <!-- card 2: human-friendly services -->
+  <rect x="650" y="96" width="590" height="216" rx="12" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.5"/>
+  <text x="672" y="128" font-size="15" font-weight="700" fill="#1f2328">More human-friendly services</text>
+  <text x="672" y="154" font-size="12" fill="#414a55">The generator hinted at something: an agent whose output is for a</text>
+  <text x="672" y="173" font-size="12" fill="#414a55">person, not a pipeline - a weekly digest, a brief, a ranked topic list.</text>
+  <text x="672" y="192" font-size="12" fill="#414a55">Most of our surfaces still assume an engineer. The next ones should</text>
+  <text x="672" y="211" font-size="12" fill="#414a55">assume an editor, a marketer, a content lead - people who want the</text>
+  <text x="672" y="230" font-size="12" fill="#414a55">product of the mesh without ever seeing the mesh.</text>
+  <text x="672" y="262" font-size="11" fill="#6e7781" font-style="italic">candidates: the trend digest, draft queues with one-action promote, richer evidence views</text>
+
+  <!-- card 3: collaboration touchpoints -->
+  <rect x="40" y="332" width="590" height="216" rx="12" fill="#edf5ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="62" y="364" font-size="15" font-weight="700" fill="#0a5bd3">Human-AI collaboration at more touchpoints</text>
+  <text x="62" y="390" font-size="12" fill="#33445c">Today humans sit at two gates: the trigger and the curation pass.</text>
+  <text x="62" y="409" font-size="12" fill="#33445c">The catalogue has more worth building - brief sign-off before tokens</text>
+  <text x="62" y="428" font-size="12" fill="#33445c">are spent, score adjudication when a verdict doesn't deserve auto-trust,</text>
+  <text x="62" y="447" font-size="12" fill="#33445c">a real promote-to-live. Each gate is a dial position, added only where</text>
+  <text x="62" y="466" font-size="12" fill="#33445c">it earns its keep - a gate that gets rubber-stamped is worse than none.</text>
+  <text x="62" y="498" font-size="11" fill="#4a6285" font-style="italic">the C0-C7 checkpoint catalogue is written; the daily loop is its first slice in production</text>
+
+  <!-- card 4: CX co-worker -->
+  <rect x="650" y="332" width="590" height="216" rx="12" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5"/>
+  <text x="672" y="364" font-size="15" font-weight="700" fill="#a40e26">Toward a CX co-worker</text>
+  <text x="672" y="390" font-size="12" fill="#5c3434">The long arc: from a content factory you trigger to a co-worker on</text>
+  <text x="672" y="409" font-size="12" fill="#5c3434">the content and CX team - one that notices what the site is missing,</text>
+  <text x="672" y="428" font-size="12" fill="#5c3434">proposes work, asks when unsure, and earns autonomy one clean,</text>
+  <text x="672" y="447" font-size="12" fill="#5c3434">human-approved promotion at a time. The daily loop is the embryo</text>
+  <text x="672" y="466" font-size="12" fill="#5c3434">of that: it already starts its own work; it doesn't yet earn trust.</text>
+  <text x="672" y="498" font-size="11" fill="#8a5050" font-style="italic">graduated autonomy: the system builds a track record before it gets more rope</text>
+
+  <!-- bottom -->
+  <line x1="40" y1="580" x2="1240" y2="580" stroke="#d0d7de"/>
+  <text x="40" y="606" font-size="12" fill="#414a55"><tspan font-weight="700">The humble version:</tspan> v2.0 proved the architecture. What it hasn't proved yet is everything above - and saying so out loud is part of the same honesty rule the eval agent lives by.</text>
+</svg>

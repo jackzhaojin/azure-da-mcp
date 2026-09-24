@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1000" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ev-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="1000" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">The eval agent - deterministic floor, agentic ceiling, honest blend</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">Four dimensions, each scored twice - by tools that can't lie and by a model that can judge - then blended, with the blend itself on the record.</text>
+
+  <!-- ==================== INTAKE ROW ==================== -->
+  <rect x="40" y="92" width="600" height="140" rx="10" fill="#ffffff" stroke="#8250df" stroke-width="1.3"/>
+  <text x="58" y="118" font-size="13.5" font-weight="700" fill="#6639ba">eval.run - the request  <tspan font-weight="400" font-size="11" fill="#8a6fc0">(:4001)</tspan></text>
+  <text x="58" y="140" font-size="11.5" font-family="ui-monospace, monospace" fill="#3f4660">{ targetUrl, sourceType?, sourceLocation?, dimensions?, mode? }</text>
+  <text x="58" y="163" font-size="11.5" fill="#3f4660">dimensions is a subset - omitted dimensions are EXCLUDED from the</text>
+  <text x="58" y="181" font-size="11.5" fill="#3f4660">score, never failed · three modes, picked by the route:</text>
+  <text x="58" y="203" font-size="11.5" fill="#3f4660"><tspan font-weight="700" fill="#0a5bd3">fidelity</tspan> - preserved the source? (evaluate-only) · <tspan font-weight="700" fill="#6639ba">redesign</tspan> - migrations</text>
+  <text x="58" y="221" font-size="11.5" fill="#3f4660"><tspan font-weight="700" fill="#a40e26">quality</tspan> - is the page good on its own merits? (generated content)</text>
+
+  <rect x="660" y="92" width="580" height="140" rx="10" fill="#edf5ff" stroke="#0969da" stroke-width="1.3"/>
+  <text x="678" y="118" font-size="13.5" font-weight="700" fill="#0a5bd3">Deterministic plumbing before any scoring</text>
+  <text x="678" y="140" font-size="11.5" fill="#33445c">job queue (bounded concurrency) + a browser semaphore - 3 Chromium</text>
+  <text x="678" y="158" font-size="11.5" fill="#33445c">permits cap EVERY entry point, deterministic and agentic alike</text>
+  <text x="678" y="178" font-size="11.5" fill="#33445c">heartbeats while queued AND while evaluating - no silent minute anywhere</text>
+  <text x="678" y="198" font-size="11.5" fill="#33445c">restart rebuild: in-flight tasks re-enqueue from the store on boot,</text>
+  <text x="678" y="216" font-size="11.5" fill="#33445c">with a created_at age guard so churn can't resurrect zombies</text>
+
+  <path d="M 640 232 L 640 258" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#ev-ar)"/>
+
+  <!-- ==================== FOUR DIMENSION LANES ==================== -->
+  <!-- structure -->
+  <rect x="40" y="262" width="286" height="360" rx="10" fill="#fafbfc" stroke="#8c959f" stroke-width="1.1"/>
+  <text x="183" y="288" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">structure</text>
+  <rect x="56" y="300" width="254" height="148" rx="8" fill="#edf5ff" stroke="#54aeff" stroke-width="1.1"/>
+  <text x="70" y="322" font-size="11.5" font-weight="700" fill="#0a5bd3">deterministic</text>
+  <text x="70" y="343" font-size="11" fill="#33445c">cheerio DOM analysis:</text>
+  <text x="70" y="360" font-size="11" fill="#33445c">heading hierarchy, EDS block</text>
+  <text x="70" y="377" font-size="11" fill="#33445c">markup, image alts, links,</text>
+  <text x="70" y="394" font-size="11" fill="#33445c">semantic shape of the page</text>
+  <text x="70" y="420" font-size="10" fill="#4a6285" font-style="italic">tools can't be charmed -</text>
+  <text x="70" y="435" font-size="10" fill="#4a6285" font-style="italic">this floor always exists</text>
+  <rect x="56" y="458" width="254" height="148" rx="8" fill="#ffebe9" stroke="#cf222e" stroke-width="1.1"/>
+  <text x="70" y="480" font-size="11.5" font-weight="700" fill="#a40e26">agentic (Claude)</text>
+  <text x="70" y="501" font-size="11" fill="#5c3434">reads the DOM as an EDS</text>
+  <text x="70" y="518" font-size="11" fill="#5c3434">author: are the right blocks</text>
+  <text x="70" y="535" font-size="11" fill="#5c3434">used? is the structure</text>
+  <text x="70" y="552" font-size="11" fill="#5c3434">idiomatic, not just valid?</text>
+  <text x="70" y="578" font-size="10" fill="#8a5050" font-style="italic">judgment the tools</text>
+  <text x="70" y="593" font-size="10" fill="#8a5050" font-style="italic">can't compute</text>
+
+  <!-- accessibility -->
+  <rect x="344" y="262" width="286" height="360" rx="10" fill="#fafbfc" stroke="#8c959f" stroke-width="1.1"/>
+  <text x="487" y="288" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">accessibility</text>
+  <rect x="360" y="300" width="254" height="148" rx="8" fill="#edf5ff" stroke="#54aeff" stroke-width="1.1"/>
+  <text x="374" y="322" font-size="11.5" font-weight="700" fill="#0a5bd3">deterministic</text>
+  <text x="374" y="343" font-size="11" fill="#33445c">axe-core in real Chromium:</text>
+  <text x="374" y="360" font-size="11" fill="#33445c">WCAG violations by impact,</text>
+  <text x="374" y="377" font-size="11" fill="#33445c">on the actually-rendered</text>
+  <text x="374" y="394" font-size="11" fill="#33445c">page, not the source HTML</text>
+  <text x="374" y="420" font-size="10" fill="#4a6285" font-style="italic">the industry-standard</text>
+  <text x="374" y="435" font-size="10" fill="#4a6285" font-style="italic">scanner, unmodified</text>
+  <rect x="360" y="458" width="254" height="148" rx="8" fill="#ffebe9" stroke="#cf222e" stroke-width="1.1"/>
+  <text x="374" y="480" font-size="11.5" font-weight="700" fill="#a40e26">agentic (Claude)</text>
+  <text x="374" y="501" font-size="11" fill="#5c3434">triages the violations in</text>
+  <text x="374" y="518" font-size="11" fill="#5c3434">context, weighs severity,</text>
+  <text x="374" y="535" font-size="11" fill="#5c3434">catches what a rule engine</text>
+  <text x="374" y="552" font-size="11" fill="#5c3434">can't (order, labels, intent)</text>
+  <text x="374" y="578" font-size="10" fill="#8a5050" font-style="italic">findings become</text>
+  <text x="374" y="593" font-size="10" fill="#8a5050" font-style="italic">recommendations</text>
+
+  <!-- content -->
+  <rect x="648" y="262" width="286" height="360" rx="10" fill="#fafbfc" stroke="#8c959f" stroke-width="1.1"/>
+  <text x="791" y="288" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">content</text>
+  <rect x="664" y="300" width="254" height="148" rx="8" fill="#edf5ff" stroke="#54aeff" stroke-width="1.1"/>
+  <text x="678" y="322" font-size="11.5" font-weight="700" fill="#0a5bd3">deterministic</text>
+  <text x="678" y="343" font-size="11" fill="#33445c">fidelity lens: source↔target</text>
+  <text x="678" y="360" font-size="11" fill="#33445c">text-overlap diff</text>
+  <text x="678" y="379" font-size="11" fill="#33445c">quality lens: substance +</text>
+  <text x="678" y="396" font-size="11" fill="#33445c">structure proxies (words,</text>
+  <text x="678" y="413" font-size="11" fill="#33445c">headings, paragraphs)</text>
+  <text x="678" y="435" font-size="10" fill="#4a6285" font-style="italic">coarse on purpose - the floor</text>
+  <rect x="664" y="458" width="254" height="148" rx="8" fill="#ffebe9" stroke="#cf222e" stroke-width="1.1"/>
+  <text x="678" y="480" font-size="11.5" font-weight="700" fill="#a40e26">agentic (Claude)</text>
+  <text x="678" y="501" font-size="11" fill="#5c3434">fidelity: does the MEANING</text>
+  <text x="678" y="518" font-size="11" fill="#5c3434">survive the migration?</text>
+  <text x="678" y="537" font-size="11" fill="#5c3434">quality: substance, coherence,</text>
+  <text x="678" y="554" font-size="11" fill="#5c3434">expertise - target-only read</text>
+  <text x="678" y="578" font-size="10" fill="#8a5050" font-style="italic">no source? skipped and said so,</text>
+  <text x="678" y="593" font-size="10" fill="#8a5050" font-style="italic">never scored zero</text>
+
+  <!-- visual -->
+  <rect x="952" y="262" width="288" height="360" rx="10" fill="#fafbfc" stroke="#8c959f" stroke-width="1.1"/>
+  <text x="1096" y="288" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">visual</text>
+  <rect x="968" y="300" width="256" height="148" rx="8" fill="#edf5ff" stroke="#54aeff" stroke-width="1.1"/>
+  <text x="982" y="322" font-size="11.5" font-weight="700" fill="#0a5bd3">deterministic</text>
+  <text x="982" y="343" font-size="11" fill="#33445c">Playwright screenshots of the</text>
+  <text x="982" y="360" font-size="11" fill="#33445c">real render; pixel compare</text>
+  <text x="982" y="377" font-size="11" fill="#33445c">over the shared region with a</text>
+  <text x="982" y="394" font-size="11" fill="#33445c">capped height-mismatch penalty</text>
+  <text x="982" y="420" font-size="10" fill="#4a6285" font-style="italic">a failed screenshot FAILS the</text>
+  <text x="982" y="435" font-size="10" fill="#4a6285" font-style="italic">dimension - no placeholder 100s</text>
+  <rect x="968" y="458" width="256" height="148" rx="8" fill="#ffebe9" stroke="#cf222e" stroke-width="1.1"/>
+  <text x="982" y="480" font-size="11.5" font-weight="700" fill="#a40e26">agentic (Claude)</text>
+  <text x="982" y="501" font-size="11" fill="#5c3434">looks at the rendered page:</text>
+  <text x="982" y="518" font-size="11" fill="#5c3434">layout, hierarchy, imagery,</text>
+  <text x="982" y="535" font-size="11" fill="#5c3434">polish - design judgment,</text>
+  <text x="982" y="552" font-size="11" fill="#5c3434">not pixel arithmetic</text>
+  <text x="982" y="578" font-size="10" fill="#8a5050" font-style="italic">screenshot persisted to R2 -</text>
+  <text x="982" y="593" font-size="10" fill="#8a5050" font-style="italic">a durable exhibit, not a claim</text>
+
+  <path d="M 640 622 L 640 648" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#ev-ar)"/>
+
+  <!-- ==================== BLEND + HONESTY ==================== -->
+  <rect x="40" y="652" width="736" height="128" rx="10" fill="#faf5ff" stroke="#8250df" stroke-width="1.4"/>
+  <text x="58" y="678" font-size="13.5" font-weight="700" fill="#6639ba">Blend - and confess how the number was made</text>
+  <text x="58" y="700" font-size="11.5" fill="#5a4a7a">every dimension records its <tspan font-weight="700">mode</tspan>: <tspan font-weight="700" fill="#6639ba">agentic</tspan> (blended) · <tspan font-weight="700" fill="#7d4e00">deterministic-only</tspan> (no key) ·</text>
+  <text x="58" y="720" font-size="11.5" fill="#5a4a7a"><tspan font-weight="700" fill="#a40e26">deterministic-fallback</tspan> (the agentic pass FAILED - modeReason says why)</text>
+  <text x="58" y="742" font-size="11.5" fill="#5a4a7a">agentic passes are timeout-bounded - a hung turn can't hold a browser permit forever</text>
+  <text x="58" y="766" font-size="10.5" fill="#8250df" font-style="italic">"91" and "91 produced in fallback mode" are different facts - the dashboard shows the badge next to the score</text>
+
+  <rect x="796" y="652" width="444" height="128" rx="10" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="814" y="678" font-size="13.5" font-weight="700" fill="#7d4e00">The honesty rules (hardening sprint)</text>
+  <text x="814" y="700" font-size="11.5" fill="#594514">skipped ≠ zero: excluded dimensions renormalize the</text>
+  <text x="814" y="718" font-size="11.5" fill="#594514">weights instead of dragging the score down</text>
+  <text x="814" y="738" font-size="11.5" fill="#594514">degrade loud, never silent: every skip and failure</text>
+  <text x="814" y="756" font-size="11.5" fill="#594514">becomes a report-level finding a human will see</text>
+
+  <path d="M 640 780 L 640 806" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#ev-ar)"/>
+
+  <!-- ==================== OUTPUT ==================== -->
+  <rect x="40" y="810" width="386" height="96" rx="10" fill="#fff8e7" stroke="#bf8700" stroke-width="1.3"/>
+  <text x="58" y="836" font-size="13" font-weight="700" fill="#7d4e00">the store - eval_reports</text>
+  <text x="58" y="858" font-size="11.5" fill="#594514">full 4-dimension report JSON + scores,</text>
+  <text x="58" y="876" font-size="11.5" fill="#594514">joined to the run by one contextId</text>
+
+  <rect x="446" y="810" width="386" height="96" rx="10" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.3"/>
+  <text x="464" y="836" font-size="13" font-weight="700" fill="#116329">overall score + grade</text>
+  <text x="464" y="858" font-size="11.5" fill="#2f4a3a">weighted mean of the dimensions that ran;</text>
+  <text x="464" y="876" font-size="11.5" fill="#2f4a3a">PASS ≥ 75 - the coordinator's variance input</text>
+
+  <rect x="852" y="810" width="388" height="96" rx="10" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.3"/>
+  <text x="870" y="836" font-size="13" font-weight="700" fill="#1f2328">the Evidence panel (for humans)</text>
+  <text x="870" y="858" font-size="11.5" fill="#414a55">findings, mode badges, screenshot links -</text>
+  <text x="870" y="876" font-size="11.5" fill="#414a55">any surprising score is diagnosable from the UI</text>
+
+  <!-- bottom -->
+  <line x1="40" y1="932" x2="1240" y2="932" stroke="#d0d7de"/>
+  <text x="40" y="956" font-size="12" fill="#414a55"><tspan font-weight="700">Why the modes matter:</tspan> the same generated article scored 67 under fidelity and 88 under quality, and fidelity punished intentional redesigns. The route picks the mode automatically.</text>
+  <text x="40" y="978" font-size="12" fill="#414a55"><tspan font-weight="700">The war story:</tspan> a dead URL once scored visual=100 off a placeholder screenshot, and the agentic tier had silently never run locally. Every silent failure is now loud, visible, and on the record.</text>
+</svg>

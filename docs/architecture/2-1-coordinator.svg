@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 920" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="co-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="920" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">The coordinator - three ways work starts, one door in</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">A human, a schedule, or the mesh itself can start a run. All three converge on the same A2A skill; the pipeline is data, not code.</text>
+
+  <!-- legend (same colors as the 2025 monolith drawing) -->
+  <rect x="880" y="26" width="88" height="22" rx="5" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.2"/>
+  <text x="924" y="41" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">Human</text>
+  <rect x="976" y="26" width="104" height="22" rx="5" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="1028" y="41" font-size="11" fill="#0a5bd3" text-anchor="middle" font-weight="600">Deterministic</text>
+  <rect x="1088" y="26" width="80" height="22" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="1128" y="41" font-size="11" fill="#a40e26" text-anchor="middle" font-weight="600">Agentic</text>
+  <rect x="1176" y="26" width="64" height="22" rx="5" fill="#faf5ff" stroke="#8250df" stroke-width="1.2"/>
+  <text x="1208" y="41" font-size="11" fill="#6639ba" text-anchor="middle" font-weight="600">Mix</text>
+
+  <!-- ==================== THREE FRONT DOORS ==================== -->
+  <rect x="40" y="96" width="380" height="168" rx="10" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.5"/>
+  <text x="58" y="122" font-size="14" font-weight="700" fill="#1f2328">A human - the dashboard</text>
+  <text x="58" y="142" font-size="11.5" fill="#414a55">:4004 local · content-factor-dash.jackzhaojin.com</text>
+  <text x="58" y="162" font-size="11.5" fill="#414a55">Google SSO → every run carries runs.user_email</text>
+  <text x="58" y="182" font-size="11.5" fill="#414a55">Lanes: single · bulk · direct-eval · migrate-a-real-page</text>
+  <text x="58" y="202" font-size="11.5" fill="#414a55">Per-run knobs: backend, Kimi model, target folder,</text>
+  <text x="58" y="219" font-size="11.5" fill="#414a55">fan-out, guiding principles (free-text)</text>
+  <text x="58" y="246" font-size="10.5" fill="#6e7781" font-style="italic">the interactive front door - HITL at the start</text>
+
+  <rect x="450" y="96" width="380" height="168" rx="10" fill="#edf5ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="468" y="122" font-size="14" font-weight="700" fill="#0a5bd3">A schedule - GitHub Actions cron</text>
+  <text x="468" y="142" font-size="11.5" fill="#33445c">daily-content-loop · 09:20 UTC, unattended</text>
+  <text x="468" y="162" font-size="11.5" fill="#33445c">pre-warm /health ×4 (wake the scale-to-zero mesh)</text>
+  <text x="468" y="182" font-size="11.5" fill="#33445c">→ submit with the mesh token (bypasses SSO)</text>
+  <text x="468" y="202" font-size="11.5" fill="#33445c">→ poll-keepalive to terminal · auto-retry ×2</text>
+  <text x="468" y="222" font-size="11.5" fill="#33445c">no requestedBy → user_email NULL = shared system run</text>
+  <text x="468" y="246" font-size="10.5" fill="#4a6285" font-style="italic">deterministic heartbeat - the GH log is the audit trail</text>
+
+  <rect x="860" y="96" width="380" height="168" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5"/>
+  <text x="878" y="122" font-size="14" font-weight="700" fill="#a40e26">The mesh itself - AI picks the work</text>
+  <text x="878" y="142" font-size="11.5" fill="#5c3434">No topic supplied? The coordinator asks content-gen</text>
+  <text x="878" y="162" font-size="11.5" fill="#5c3434">to ideate one - content.ideate, on the site's</text>
+  <text x="878" y="182" font-size="11.5" fill="#5c3434">editorial lane (wilderness-journal for the demo site)</text>
+  <text x="878" y="202" font-size="11.5" fill="#5c3434">goal: auto - the route is inferred from the payload</text>
+  <text x="878" y="222" font-size="11.5" fill="#5c3434">shape (sources[] ⇒ migrate→evaluate, topic ⇒ full loop)</text>
+  <text x="878" y="246" font-size="10.5" fill="#8a5050" font-style="italic">agent-led - the human moves to the gates, not the trigger</text>
+
+  <!-- convergence arrows -->
+  <path d="M 230 264 L 230 296 L 600 296 L 600 312" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <path d="M 640 264 L 640 312" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <path d="M 1050 264 L 1050 296 L 680 296 L 680 312" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <rect x="440" y="314" width="400" height="30" rx="6" fill="#f6f8fa" stroke="#8250df" stroke-width="1.3"/>
+  <text x="640" y="334" font-size="12.5" font-weight="700" fill="#6639ba" text-anchor="middle">one door: coordinate.run - A2A message/send</text>
+
+  <!-- ==================== COORDINATOR ==================== -->
+  <path d="M 640 344 L 640 362" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <rect x="40" y="366" width="1200" height="308" rx="14" fill="#faf5ff" stroke="#8250df" stroke-width="1.6"/>
+  <text x="60" y="394" font-size="16" font-weight="700" fill="#6639ba">coordinator  <tspan font-weight="400" font-size="12" fill="#8a6fc0">(:4004 - A2A client AND server; the Next.js dashboard rides the same process)</tspan></text>
+
+  <rect x="60" y="410" width="440" height="196" rx="9" fill="#edf5ff" stroke="#54aeff" stroke-width="1.2"/>
+  <text x="76" y="434" font-size="13" font-weight="700" fill="#0a5bd3">Deterministic route engine</text>
+  <text x="76" y="456" font-size="11.5" fill="#33445c">resolveRoute(): a state table, not an LLM -</text>
+  <text x="76" y="474" font-size="11.5" font-family="ui-monospace, monospace" fill="#0a5bd3">evaluate | migrate | generate+migrate | full-loop | auto</text>
+  <text x="76" y="494" font-size="11.5" fill="#33445c">any ordered subset - no mandatory start or end</text>
+  <text x="76" y="514" font-size="11.5" fill="#33445c">fan-out ×N (or one branch per source URL), concurrency 2</text>
+  <text x="76" y="534" font-size="11.5" fill="#33445c">ONE contextId threaded through every child task</text>
+  <text x="76" y="554" font-size="11.5" fill="#33445c">variance stats: μ ± σ, min/max, per-dimension, pass rate</text>
+  <text x="76" y="580" font-size="10.5" fill="#4a6285" font-style="italic">per-branch fail-fast: a dead branch never kills its siblings</text>
+
+  <rect x="516" y="410" width="440" height="196" rx="9" fill="#ffffff" stroke="#c4b3e8" stroke-width="1.2"/>
+  <text x="532" y="434" font-size="13" font-weight="700" fill="#1f2328">Live observability + recovery</text>
+  <text x="532" y="456" font-size="11.5" fill="#3f4660">forwards child working-notes into its own stream -</text>
+  <text x="532" y="474" font-size="11.5" font-family="ui-monospace, monospace" fill="#a40e26">K3 → dalive_save_dalive_content</text>
+  <text x="532" y="494" font-size="11.5" fill="#3f4660">runs row: config · progress[] · live[] · error · stats · user</text>
+  <text x="532" y="514" font-size="11.5" fill="#3f4660">stream cut? → tasks/get polling harvests the persisted Task</text>
+  <text x="532" y="534" font-size="11.5" fill="#3f4660">cold start? → connect retries (4 × 15s) with a visible note</text>
+  <text x="532" y="558" font-size="10.5" fill="#6e5a94" font-style="italic">the store, not the stream, is the contract - a severed SSE is</text>
+  <text x="532" y="574" font-size="10.5" fill="#6e5a94" font-style="italic">an inconvenience, never a failure</text>
+
+  <rect x="972" y="410" width="248" height="196" rx="9" fill="#ffffff" stroke="#c4b3e8" stroke-width="1.2"/>
+  <text x="988" y="434" font-size="13" font-weight="700" fill="#1f2328">Site profiles</text>
+  <text x="988" y="456" font-size="11.5" font-family="ui-monospace, monospace" fill="#6639ba">site-profiles.ts</text>
+  <text x="988" y="476" font-size="11.5" fill="#3f4660">per-site editorial lane,</text>
+  <text x="988" y="494" font-size="11.5" fill="#3f4660">voice, target folder,</text>
+  <text x="988" y="512" font-size="11.5" fill="#3f4660">reference corpus, standing</text>
+  <text x="988" y="530" font-size="11.5" fill="#3f4660">migration guidance</text>
+  <text x="988" y="556" font-size="10.5" fill="#6e5a94" font-style="italic">how ONE generic mesh writes</text>
+  <text x="988" y="572" font-size="10.5" fill="#6e5a94" font-style="italic">on-brand for each target site</text>
+
+  <text x="60" y="646" font-size="12" fill="#6639ba" font-style="italic">The coordinator's own judgment is deterministic on purpose - the agentic work lives in the agents it calls. (An LLM planner behind goal:auto is the reserved slot.)</text>
+
+  <!-- ==================== DOWNSTREAM ==================== -->
+  <path d="M 260 674 L 260 706" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <path d="M 560 674 L 560 706" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <path d="M 860 674 L 860 706" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <path d="M 1100 674 L 1100 706" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#co-ar)"/>
+  <text x="410" y="696" font-size="10.5" fill="#57606a" text-anchor="middle">A2A message/stream (SSE) · mesh bearer token</text>
+
+  <rect x="120" y="710" width="280" height="88" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="260" y="736" font-size="13.5" font-weight="700" fill="#a40e26" text-anchor="middle">content-gen  :4002</text>
+  <text x="260" y="757" font-size="11.5" fill="#5c3434" text-anchor="middle">ideation · briefs · synthetic legacy</text>
+  <text x="260" y="775" font-size="11.5" fill="#5c3434" text-anchor="middle">sources (agentic, template floor)</text>
+
+  <rect x="420" y="710" width="280" height="88" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="560" y="736" font-size="13.5" font-weight="700" fill="#a40e26" text-anchor="middle">migration  :4003</text>
+  <text x="560" y="757" font-size="11.5" fill="#5c3434" text-anchor="middle">one contract, swappable backends</text>
+  <text x="560" y="775" font-size="11.5" fill="#5c3434" text-anchor="middle">(dryrun · Make.com · Kimi · SDK)</text>
+
+  <rect x="720" y="710" width="280" height="88" rx="10" fill="#faf5ff" stroke="#8250df" stroke-width="1.4"/>
+  <text x="860" y="736" font-size="13.5" font-weight="700" fill="#6639ba" text-anchor="middle">eval  :4001</text>
+  <text x="860" y="757" font-size="11.5" fill="#5a4a7a" text-anchor="middle">4 dimensions, deterministic tools</text>
+  <text x="860" y="775" font-size="11.5" fill="#5a4a7a" text-anchor="middle">+ an agentic Claude tier</text>
+
+  <rect x="1020" y="710" width="220" height="88" rx="10" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="1130" y="736" font-size="13.5" font-weight="700" fill="#7d4e00" text-anchor="middle">the store</text>
+  <text x="1130" y="757" font-size="11.5" fill="#594514" text-anchor="middle">SQLite local / D1 cloud</text>
+  <text x="1130" y="775" font-size="11.5" fill="#594514" text-anchor="middle">runs · tasks · reports · artifacts</text>
+
+  <!-- legend / bottom -->
+  <line x1="40" y1="836" x2="1240" y2="836" stroke="#d0d7de"/>
+  <text x="40" y="862" font-size="12" fill="#414a55"><tspan font-weight="700">Same skill, three callers.</tspan> The dashboard's /api/trigger, the GH Actions script, and the CLI all POST the identical coordinate.run - nothing about a run reveals who started it except runs.user_email.</text>
+  <text x="40" y="884" font-size="12" fill="#414a55"><tspan font-weight="700">A pipeline is an ordered subset of {generate, migrate, evaluate}.</tspan> The full closed loop is the headline route, not the only one - migrate-only and evaluate-only are first-class.</text>
+</svg>

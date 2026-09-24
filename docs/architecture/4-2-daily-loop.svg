@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 710" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="u2-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="710" fill="#ffffff"/>
+
+  <text x="40" y="42" font-size="20" font-weight="700" fill="#1f2328">Use case 2 - the daily content loop (running in production)</text>
+  <text x="40" y="65" font-size="12.5" fill="#57606a">Every morning the mesh starts its own work: pick a topic, write it, author it to a preview, score it. A human curates later - agent-led, human-curated.</text>
+
+  <rect x="912" y="22" width="88" height="22" rx="5" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.2"/>
+  <text x="956" y="37" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">Human</text>
+  <rect x="1008" y="22" width="80" height="22" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="1048" y="37" font-size="11" fill="#a40e26" text-anchor="middle" font-weight="600">Agentic</text>
+  <rect x="1096" y="22" width="104" height="22" rx="5" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="1148" y="37" font-size="11" fill="#0a5bd3" text-anchor="middle" font-weight="600">Deterministic</text>
+  <rect x="1208" y="22" width="56" height="22" rx="5" fill="#faf5ff" stroke="#8250df" stroke-width="1.2"/>
+  <text x="1236" y="37" font-size="11" fill="#6639ba" text-anchor="middle" font-weight="600">Mix</text>
+
+  <!-- lanes -->
+  <rect x="40" y="88" width="1200" height="144" rx="10" fill="#fafbfc" stroke="#8c959f" stroke-width="1"/>
+  <text x="56" y="112" font-size="12" font-weight="700" fill="#1f2328">HUMAN</text>
+  <text x="56" y="130" font-size="10" fill="#6e7781">curates, later</text>
+  <rect x="40" y="244" width="1200" height="144" rx="10" fill="#fff5f5" stroke="#e0a9a9" stroke-width="1"/>
+  <text x="56" y="268" font-size="12" font-weight="700" fill="#a40e26">AGENTIC</text>
+  <text x="56" y="286" font-size="10" fill="#8a5050">picks + makes</text>
+  <rect x="40" y="400" width="1200" height="144" rx="10" fill="#f5faff" stroke="#a9c9e8" stroke-width="1"/>
+  <text x="56" y="424" font-size="12" font-weight="700" fill="#0a5bd3">DETERMINISTIC</text>
+  <text x="56" y="442" font-size="10" fill="#4a6285">wakes, drives, records</text>
+
+  <!-- c1 Det: heartbeat -->
+  <rect x="190" y="420" width="195" height="108" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="204" y="442" font-size="12" font-weight="700" fill="#0a5bd3">The heartbeat</text>
+  <text x="204" y="462" font-size="10.5" fill="#33445c">GH Actions cron, 09:20 UTC</text>
+  <text x="204" y="478" font-size="10.5" fill="#33445c">pre-warm /health ×4 (wake</text>
+  <text x="204" y="494" font-size="10.5" fill="#33445c">the sleeping mesh), submit</text>
+  <text x="204" y="510" font-size="10.5" fill="#33445c">as the system - no human id</text>
+
+  <!-- c2 Agentic: ideate -->
+  <rect x="400" y="264" width="195" height="108" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="414" y="286" font-size="12" font-weight="700" fill="#a40e26">Ideate</text>
+  <text x="414" y="306" font-size="10.5" fill="#5c3434">no topic supplied -</text>
+  <text x="414" y="322" font-size="10.5" fill="#5c3434">content.ideate invents a fresh</text>
+  <text x="414" y="338" font-size="10.5" fill="#5c3434">wilderness-journal topic on</text>
+  <text x="414" y="354" font-size="10.5" fill="#5c3434">the site profile's lane + voice</text>
+
+  <!-- c3 Agentic: write+author -->
+  <rect x="610" y="264" width="195" height="108" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="624" y="286" font-size="12" font-weight="700" fill="#a40e26">Write + author</text>
+  <text x="624" y="306" font-size="10.5" fill="#5c3434">agentic brief (Claude), then</text>
+  <text x="624" y="322" font-size="10.5" fill="#5c3434">K3 authors the article into</text>
+  <text x="624" y="338" font-size="10.5" fill="#5c3434">/ai-articles → .aem.page</text>
+  <text x="624" y="354" font-size="10.5" fill="#5c3434">preview only - never live</text>
+
+  <!-- c4 Mix: score (deterministic tools + agentic judgment) + Det: keepalive -->
+  <rect x="820" y="264" width="195" height="108" rx="9" fill="#faf5ff" stroke="#8250df" stroke-width="1.4"/>
+  <text x="834" y="286" font-size="12" font-weight="700" fill="#6639ba">Score - quality lens</text>
+  <text x="834" y="306" font-size="10.5" fill="#5a4a7a">eval judges the page on its</text>
+  <text x="834" y="322" font-size="10.5" fill="#5a4a7a">own merits (substance,</text>
+  <text x="834" y="338" font-size="10.5" fill="#5a4a7a">accessibility, design) -</text>
+  <text x="834" y="354" font-size="10.5" fill="#5a4a7a">the draft arrives pre-graded</text>
+
+  <rect x="820" y="420" width="195" height="108" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="834" y="442" font-size="12" font-weight="700" fill="#0a5bd3">Keepalive + self-heal</text>
+  <text x="834" y="462" font-size="10.5" fill="#33445c">poll every 45s = the mesh's</text>
+  <text x="834" y="478" font-size="10.5" fill="#33445c">stay-awake signal; cold-start</text>
+  <text x="834" y="494" font-size="10.5" fill="#33445c">timeout → auto-retry ×2;</text>
+  <text x="834" y="510" font-size="10.5" fill="#33445c">the GH log is the audit trail</text>
+
+  <!-- c5 Human: curate -->
+  <rect x="1030" y="108" width="195" height="108" rx="9" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="1044" y="130" font-size="12" font-weight="700" fill="#1f2328">Curate - later</text>
+  <text x="1044" y="150" font-size="10.5" fill="#414a55">the shared draft run appears</text>
+  <text x="1044" y="166" font-size="10.5" fill="#414a55">in every dashboard; review</text>
+  <text x="1044" y="182" font-size="10.5" fill="#414a55">the preview + evidence, keep</text>
+  <text x="1044" y="198" font-size="10.5" fill="#414a55">the good ones, file issues</text>
+
+  <!-- arrows -->
+  <path d="M 385 474 L 393 474 L 393 318 L 400 318" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u2-ar)"/>
+  <path d="M 595 318 L 610 318" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u2-ar)"/>
+  <path d="M 805 318 L 820 318" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u2-ar)"/>
+  <path d="M 917 420 L 917 376" stroke="#57606a" stroke-width="1.3" fill="none" stroke-dasharray="4 3" marker-end="url(#u2-ar)"/>
+  <text x="927" y="404" font-size="9.5" fill="#57606a">keeps it alive</text>
+  <path d="M 1015 340 L 1022 340 L 1022 162 L 1030 162" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#u2-ar)"/>
+
+  <!-- feedback loop -->
+  <path d="M 1127 216 L 1127 238 L 707 238 L 707 264" stroke="#a40e26" stroke-width="1.3" fill="none" stroke-dasharray="5 4" marker-end="url(#u2-ar)"/>
+  <text x="880" y="233" font-size="10" fill="#a40e26" text-anchor="middle" font-style="italic">feedback: a GitHub issue becomes standing guidance in the site profile (issue #13)</text>
+
+  <!-- callout -->
+  <rect x="40" y="562" width="1200" height="42" rx="8" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.1"/>
+  <text x="640" y="580" font-size="11" fill="#2f4a3a" text-anchor="middle">live in production: unattended runs land a Kimi-authored, Claude-scored Wilderness Journal draft on .aem.page - runs.user_email is NULL,</text>
+  <text x="640" y="596" font-size="11" fill="#2f4a3a" text-anchor="middle">so the day's draft is a shared object every signed-in human can see, judge, and promote</text>
+
+  <line x1="40" y1="626" x2="1240" y2="626" stroke="#d0d7de"/>
+  <text x="40" y="650" font-size="12" fill="#414a55"><tspan font-weight="700">Where the human sits:</tspan> after the fact, on their own schedule - curation, not operation. The trigger gate is gone; the review gate carries the weight.</text>
+  <text x="40" y="672" font-size="12" fill="#414a55"><tspan font-weight="700">Safety by construction:</tspan> publish-to-live doesn't exist as a mesh capability - everything the loop does unattended is reversible, and only a human can make something live.</text>
+</svg>

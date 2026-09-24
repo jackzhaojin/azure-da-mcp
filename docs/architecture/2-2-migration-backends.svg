@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 940" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="mg-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="940" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">The migration agent - one contract, any runtime, any vendor</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">A facade: one A2A Agent Card fronts swappable backends. "Claude vs Kimi on the same ten migrations" is a config change, not a rewrite.</text>
+
+  <!-- caller -->
+  <rect x="460" y="88" width="360" height="30" rx="6" fill="#f6f8fa" stroke="#57606a" stroke-width="1.2"/>
+  <text x="640" y="108" font-size="12" fill="#414a55" text-anchor="middle">any A2A caller - coordinator · curl · Make.com · cron</text>
+  <path d="M 640 118 L 640 140" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#mg-ar)"/>
+
+  <!-- ==================== FACADE ==================== -->
+  <rect x="40" y="144" width="1200" height="132" rx="12" fill="#faf5ff" stroke="#8250df" stroke-width="1.5"/>
+  <text x="60" y="172" font-size="15" font-weight="700" fill="#6639ba">migration.run - the one Agent Card  <tspan font-weight="400" font-size="12" fill="#8a6fc0">(:4003 · content-factory-migrate.jackzhaojin.com)</tspan></text>
+  <text x="60" y="196" font-size="11.5" font-family="ui-monospace, monospace" fill="#3f4660">{ sourceType, sourceLocation, site, owner, pageSlug, folder?, pattern?, neighborPageUrl?, guidance?, backend?, … }</text>
+  <text x="60" y="220" font-size="11.5" fill="#3f4660">Surfaces: /a2a (JSON-RPC + SSE) · /hooks/migration/migration.run (flat POST + callback webhook - no A2A needed) · /callbacks/makecom/:taskId</text>
+  <text x="60" y="244" font-size="11.5" fill="#3f4660">The backend is an implementation detail: payload.backend, else MIGRATION_DEFAULT_BACKEND. Same MigrationResult artifact out of every one.</text>
+  <text x="60" y="266" font-size="10.5" fill="#8250df" font-style="italic">guidance channel: the site profile's standing principles + the run's free-text guidance are merged into the prompt; unsatisfiable principles land in the report's gaps</text>
+
+  <path d="M 320 276 L 320 306" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#mg-ar)"/>
+  <path d="M 950 276 L 950 306" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#mg-ar)"/>
+  <text x="640" y="298" font-size="11" fill="#57606a" text-anchor="middle" font-weight="600">MigrationBackend seam - assertConfigured() + run()</text>
+
+  <!-- ==================== LEFT STACK: three backends ==================== -->
+  <rect x="40" y="312" width="560" height="94" rx="10" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="58" y="338" font-size="13.5" font-weight="700" fill="#0a5bd3">dryrun  <tspan font-weight="400" font-size="11" fill="#4a6285">- deterministic simulation, $0</tspan></text>
+  <text x="58" y="360" font-size="11.5" fill="#33445c">previewUrl = sourceLocation (a perfect pretend migration)</text>
+  <text x="58" y="380" font-size="11.5" fill="#33445c">confidence derived from the slug hash - CI + demos run on this</text>
+
+  <rect x="40" y="418" width="560" height="118" rx="10" fill="#faf5ff" stroke="#8250df" stroke-width="1.4"/>
+  <text x="58" y="444" font-size="13.5" font-weight="700" fill="#6639ba">makecom  <tspan font-weight="400" font-size="11" fill="#8a6fc0">- a low-code cloud scenario does the work</tspan></text>
+  <text x="58" y="466" font-size="11.5" fill="#5a4a7a">webhook out (10 fields + callbackUrl) → Make.com authors the page</text>
+  <text x="58" y="486" font-size="11.5" fill="#5a4a7a">→ callback in, bearer-gated; a parked waiter OR the store completes it</text>
+  <text x="58" y="506" font-size="11.5" fill="#5a4a7a">restart-tolerant: a scenario outliving our process still lands</text>
+  <text x="58" y="526" font-size="10.5" fill="#8a6fc0" font-style="italic">the same pattern as A2A push notifications - evented, not held open</text>
+
+  <rect x="40" y="548" width="560" height="88" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="58" y="574" font-size="13.5" font-weight="700" fill="#a40e26">sdk  <tspan font-weight="400" font-size="11" fill="#8a5050">- Claude (Anthropic) as the author</tspan></text>
+  <text x="58" y="596" font-size="11.5" fill="#5c3434">the Claude Agent SDK drives the same prompt, skill, and MCP servers</text>
+  <text x="58" y="616" font-size="11.5" fill="#5c3434">model per run: Sonnet 5 · Opus 5 · Haiku 4.5 (subscription OAuth)</text>
+
+  <!-- ==================== RIGHT: opencode / Kimi ==================== -->
+  <rect x="660" y="312" width="580" height="324" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.6"/>
+  <text x="678" y="340" font-size="14" font-weight="700" fill="#a40e26">opencode - Kimi (Moonshot) as the author  <tspan font-weight="400" font-size="11" fill="#8a5050">★ the vendor-swap proof</tspan></text>
+  <text x="678" y="362" font-size="11.5" fill="#5c3434">a long-lived `opencode serve` + REST; one A2A task = one agentic session</text>
+  <text x="678" y="382" font-size="11.5" fill="#5c3434">model per run: k3 (default) · kimi-for-coding (a moving alias - resolved live)</text>
+
+  <rect x="678" y="396" width="264" height="104" rx="8" fill="#ffffff" stroke="#e0a9a9" stroke-width="1.1"/>
+  <text x="694" y="418" font-size="12" font-weight="700" fill="#1f2328">da.live MCP</text>
+  <text x="694" y="437" font-size="11" fill="#3f4660">the deployed functions/ server;</text>
+  <text x="694" y="454" font-size="11" fill="#3f4660">CRUD + preview-publish; self-auths</text>
+  <text x="694" y="471" font-size="11" fill="#3f4660">to da.live via its own S2S account</text>
+  <text x="694" y="490" font-size="10.5" fill="#6e7781" font-style="italic">no client credential needed</text>
+
+  <rect x="958" y="396" width="264" height="104" rx="8" fill="#ffffff" stroke="#e0a9a9" stroke-width="1.1"/>
+  <text x="974" y="418" font-size="12" font-weight="700" fill="#1f2328">Playwright MCP</text>
+  <text x="974" y="437" font-size="11" fill="#3f4660">agentic eyes: read the legacy</text>
+  <text x="974" y="454" font-size="11" fill="#3f4660">source, then screenshot + validate</text>
+  <text x="974" y="471" font-size="11" fill="#3f4660">the published preview, refine ≤ N</text>
+  <text x="974" y="490" font-size="10.5" fill="#6e7781" font-style="italic">self-validation, in the loop</text>
+
+  <rect x="678" y="512" width="544" height="58" rx="8" fill="#fff8e7" stroke="#bf8700" stroke-width="1.1"/>
+  <text x="694" y="534" font-size="12" font-weight="700" fill="#7d4e00">da-live-author-playwright - skill-as-a-service</text>
+  <text x="694" y="554" font-size="11" fill="#594514">the SAME skill file a human Claude session uses, executed headlessly by another vendor's model</text>
+
+  <text x="678" y="594" font-size="11" fill="#8a5050">observability: the /event SSE stream surfaces every tool call live - <tspan font-family="ui-monospace, monospace">K3 → dalive_save_dalive_content</tspan></text>
+  <text x="678" y="614" font-size="11" fill="#8a5050">a real turn runs 9-20 min (undici's 300s fetch timeout is disabled mesh-wide, or it dies at 5:01)</text>
+
+  <!-- ==================== DA.LIVE ==================== -->
+  <path d="M 320 636 L 320 668" stroke="#57606a" stroke-width="1.4" fill="none" stroke-dasharray="5 4" marker-end="url(#mg-ar)"/>
+  <text x="334" y="660" font-size="10.5" fill="#6e7781">makecom + sdk author the same target</text>
+  <path d="M 950 636 L 950 668" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#mg-ar)"/>
+  <text x="964" y="660" font-size="10.5" fill="#6e7781">create → preview-publish → validate</text>
+
+  <rect x="40" y="672" width="1200" height="128" rx="12" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.5"/>
+  <text x="60" y="700" font-size="15" font-weight="700" fill="#116329">da.live / Edge Delivery Services  <tspan font-weight="400" font-size="12" fill="#4c8f63">(the target - main--adapt-to-2026-demo--jackzhaojin.aem.page)</tspan></text>
+  <text x="60" y="724" font-size="11.5" fill="#2f4a3a">/ai-content/** - the hand-built REFERENCE corpus the migrator learns block conventions from (GET the neighbor page, mimic it) - agents never write here</text>
+  <text x="60" y="744" font-size="11.5" fill="#2f4a3a">/ai-articles/** and dated demo folders - where agent-authored pages land, preview-only (.aem.page)</text>
+  <text x="60" y="768" font-size="11.5" font-weight="600" fill="#116329">Nothing in the mesh can touch .aem.live - the production publish does not exist as a capability. Promote-to-live is a human-gated future skill by design.</text>
+
+  <!-- bottom -->
+  <line x1="40" y1="836" x2="1240" y2="836" stroke="#d0d7de"/>
+  <text x="40" y="862" font-size="12" fill="#414a55"><tspan font-weight="700">The seam is the point.</tspan> A simulation, a low-code cloud scenario, and a non-Anthropic frontier model all serve the identical migration.run contract - callers cannot tell which ran except by reading the report.</text>
+  <text x="40" y="884" font-size="12" fill="#414a55"><tspan font-weight="700">Verified end-to-end:</tspan> Kimi authored a real da.live page from inside a Cloudflare container and the real eval scored it 91 - one pipeline, two model vendors, zero contract changes.</text>
+</svg>

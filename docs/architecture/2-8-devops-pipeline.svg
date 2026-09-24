@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 880" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="do-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="880" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">Dev ops: trunk-based, tag-driven, and a laptop is never in the release path</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">Two tag lines that never cross: v1.* redeploys the frozen 1.0 app on Oracle; v2.x and later builds four containers and rolls the Worker on Cloudflare.</text>
+
+  <!-- legend -->
+  <rect x="880" y="26" width="88" height="22" rx="5" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.2"/>
+  <text x="924" y="41" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">Human</text>
+  <rect x="976" y="26" width="104" height="22" rx="5" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="1028" y="41" font-size="11" fill="#0a5bd3" text-anchor="middle" font-weight="600">Deterministic</text>
+  <rect x="1088" y="26" width="80" height="22" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="1128" y="41" font-size="11" fill="#a40e26" text-anchor="middle" font-weight="600">Agentic</text>
+  <rect x="1176" y="26" width="64" height="22" rx="5" fill="#faf5ff" stroke="#8250df" stroke-width="1.2"/>
+  <text x="1208" y="41" font-size="11" fill="#6639ba" text-anchor="middle" font-weight="600">Mix</text>
+
+  <!-- ==================== THE PIPELINE ==================== -->
+  <rect x="40" y="100" width="220" height="160" rx="10" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="56" y="124" font-size="12.5" font-weight="700" fill="#1f2328">1 · Local dev</text>
+  <text x="56" y="146" font-size="10.5" fill="#414a55">Node 20, the same code as prod</text>
+  <text x="56" y="162" font-size="10.5" fill="#414a55">SQLite, localhost ports, ./output</text>
+  <text x="56" y="178" font-size="10.5" fill="#414a55">npm run dev:* one per agent</text>
+  <text x="56" y="194" font-size="10.5" fill="#414a55">typecheck (2 tsconfigs)</text>
+  <text x="56" y="210" font-size="10.5" fill="#414a55">test:e2e fast tier in ~5 s</text>
+  <text x="56" y="240" font-size="10" fill="#6e7781" font-style="italic">main only; no long-lived branches</text>
+
+  <path d="M 260 180 L 282 180" stroke="#57606a" stroke-width="1.5" fill="none" marker-end="url(#do-ar)"/>
+
+  <rect x="282" y="100" width="220" height="160" rx="10" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="298" y="124" font-size="12.5" font-weight="700" fill="#0a5bd3">2 · CI on main + PRs</text>
+  <text x="298" y="146" font-size="10.5" fill="#33445c">agents-e2e.yml, paths: agents/**</text>
+  <text x="298" y="162" font-size="10.5" fill="#33445c">npm ci → typecheck → test:e2e</text>
+  <text x="298" y="178" font-size="10.5" fill="#33445c">stub engine: real servers on</text>
+  <text x="298" y="194" font-size="10.5" fill="#33445c">14xxx ports, no browsers, no keys</text>
+  <text x="298" y="210" font-size="10.5" fill="#33445c">creds stripped, so CI is $0</text>
+  <text x="298" y="240" font-size="10" fill="#4a6285" font-style="italic">deterministic by construction</text>
+
+  <path d="M 502 180 L 524 180" stroke="#57606a" stroke-width="1.5" fill="none" marker-end="url(#do-ar)"/>
+
+  <rect x="524" y="100" width="220" height="160" rx="10" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="540" y="124" font-size="12.5" font-weight="700" fill="#1f2328">3 · Cut a release</text>
+  <text x="540" y="146" font-size="10.5" fill="#414a55">bump agents/package.json</text>
+  <text x="540" y="162" font-size="10.5" fill="#414a55">+ CHANGELOG entry, same commit</text>
+  <text x="540" y="178" font-size="10.5" fill="#414a55">git tag -a v2.x.y, push the tag</text>
+  <text x="540" y="194" font-size="10.5" fill="#414a55">gh release create --generate-notes</text>
+  <text x="540" y="210" font-size="10.5" fill="#414a55">RELEASES.md is the process doc</text>
+  <text x="540" y="240" font-size="10" fill="#6e7781" font-style="italic">tags are immutable once shipped</text>
+
+  <path d="M 744 180 L 766 180" stroke="#57606a" stroke-width="1.5" fill="none" marker-end="url(#do-ar)"/>
+  <text x="755" y="172" font-size="9" fill="#57606a" text-anchor="middle">tag</text>
+
+  <rect x="766" y="100" width="220" height="160" rx="10" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="782" y="124" font-size="12.5" font-weight="700" fill="#0a5bd3">4 · deploy-agents.yml</text>
+  <text x="782" y="146" font-size="10.5" fill="#33445c">verify: Node 20, typecheck + e2e</text>
+  <text x="782" y="162" font-size="10.5" fill="#33445c">deploy: Node 22, free disk, buildx</text>
+  <text x="782" y="178" font-size="10.5" fill="#33445c">npm run deploy = sync-skill +</text>
+  <text x="782" y="194" font-size="10.5" fill="#33445c">wrangler deploy: 4 amd64 images →</text>
+  <text x="782" y="210" font-size="10.5" fill="#33445c">managed registry → roll the Worker</text>
+  <text x="782" y="240" font-size="10" fill="#4a6285" font-style="italic">then /worker-health, 10 tries</text>
+
+  <path d="M 986 180 L 1008 180" stroke="#57606a" stroke-width="1.5" fill="none" marker-end="url(#do-ar)"/>
+
+  <rect x="1008" y="100" width="220" height="160" rx="10" fill="#fff9f2" stroke="#d4700e" stroke-width="1.5"/>
+  <text x="1024" y="124" font-size="12.5" font-weight="700" fill="#a45408">5 · Cloudflare, live</text>
+  <text x="1024" y="146" font-size="10.5" fill="#594514">Worker + 4 containers replaced</text>
+  <text x="1024" y="162" font-size="10.5" fill="#594514">13 runtime secrets persist (set</text>
+  <text x="1024" y="178" font-size="10.5" fill="#594514">once with wrangler secret put)</text>
+  <text x="1024" y="194" font-size="10.5" fill="#594514">D1 schema changes by hand:</text>
+  <text x="1024" y="210" font-size="10.5" fill="#594514">wrangler d1 execute --remote</text>
+  <text x="1024" y="240" font-size="10" fill="#bd7a30" font-style="italic">rollouts kill in-flight runs</text>
+
+  <!-- the other tag line + the manual path -->
+  <path d="M 634 260 L 634 280" stroke="#57606a" stroke-width="1.3" fill="none" stroke-dasharray="4 3" marker-end="url(#do-ar)"/>
+  <rect x="282" y="280" width="704" height="56" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.2"/>
+  <text x="298" y="300" font-size="10.5" fill="#414a55"><tspan font-weight="700">v1.* tags take the other road:</tspan> deploy-content-authoring-eval.yml → Docker build → GHCR → the Oracle VM</text>
+  <text x="298" y="318" font-size="10.5" fill="#414a55">(the frozen 1.0 backup, D5). The tag pattern is the only gate: v1 never reaches Cloudflare, v2+ never reaches Oracle.</text>
+
+  <rect x="1008" y="280" width="220" height="56" rx="8" fill="#ffffff" stroke="#8c959f" stroke-width="1.2"/>
+  <text x="1024" y="298" font-size="10" fill="#414a55"><tspan font-weight="700">manual path:</tspan> workflow_dispatch</text>
+  <text x="1024" y="313" font-size="10" fill="#414a55">from any ref; skip_tests = hotfix;</text>
+  <text x="1024" y="328" font-size="10" fill="#414a55">deploys queue, never cancel</text>
+
+  <!-- ==================== TEST TIERS ==================== -->
+  <text x="40" y="366" font-size="12.5" font-weight="700" fill="#1f2328">The test tiers  <tspan font-weight="400" font-size="11" fill="#57606a">real servers, no mocks; each tier a different price</tspan></text>
+
+  <rect x="40" y="376" width="286" height="106" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="56" y="398" font-size="12" font-weight="700" fill="#0a5bd3">fast  <tspan font-weight="400" font-size="10.5" fill="#4a6285">npm run test:e2e</tspan></text>
+  <text x="56" y="418" font-size="10.5" fill="#33445c">stub eval engine, real A2A servers on 14xxx</text>
+  <text x="56" y="434" font-size="10.5" fill="#33445c">ports, throwaway SQLite files</text>
+  <text x="56" y="450" font-size="10.5" fill="#33445c">pins the protocol: lifecycle, shim, push, auth</text>
+  <text x="56" y="472" font-size="10" fill="#4a6285" font-style="italic">the CI gate: ~5 s, $0, no browsers or keys</text>
+
+  <rect x="344" y="376" width="286" height="106" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="360" y="398" font-size="12" font-weight="700" fill="#0a5bd3">live  <tspan font-weight="400" font-size="10.5" fill="#4a6285">npm run test:live</tspan></text>
+  <text x="360" y="418" font-size="10.5" fill="#33445c">real engine: Chromium, axe-core, screenshots</text>
+  <text x="360" y="434" font-size="10.5" fill="#33445c">eval honesty rules; opencode migration opt-in</text>
+  <text x="360" y="450" font-size="10.5" fill="#33445c">(writes a real da.live page)</text>
+  <text x="360" y="472" font-size="10" fill="#4a6285" font-style="italic">creds-gated tests auto-skip; $0 without a key</text>
+
+  <rect x="648" y="376" width="286" height="106" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="664" y="398" font-size="12" font-weight="700" fill="#0a5bd3">soak  <tspan font-weight="400" font-size="10.5" fill="#4a6285">npm run test:soak</tspan></text>
+  <text x="664" y="418" font-size="10.5" fill="#33445c">the closed loop ten times over</text>
+  <text x="664" y="434" font-size="10.5" fill="#33445c">variance, leaks, flakiness</text>
+  <text x="664" y="472" font-size="10" fill="#4a6285" font-style="italic">run locally before a release</text>
+
+  <rect x="952" y="376" width="286" height="106" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="968" y="398" font-size="12" font-weight="700" fill="#0a5bd3">cloud  <tspan font-weight="400" font-size="10.5" fill="#4a6285">npm run test:cloud</tspan></text>
+  <text x="968" y="418" font-size="10.5" fill="#33445c">against the deployed mesh</text>
+  <text x="968" y="434" font-size="10.5" fill="#33445c">tier 1 always; the Kimi tier needs</text>
+  <text x="968" y="450" font-size="10.5" fill="#33445c">DALIVE_TEST_OWNER + DALIVE_TEST_SITE</text>
+  <text x="968" y="472" font-size="10" fill="#4a6285" font-style="italic">the post-deploy proof</text>
+
+  <!-- ==================== LOOPS ==================== -->
+  <text x="40" y="514" font-size="12.5" font-weight="700" fill="#1f2328">Loops that run without us  <tspan font-weight="400" font-size="11" fill="#57606a">GitHub Actions as the scheduler</tspan></text>
+
+  <rect x="40" y="524" width="590" height="106" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="56" y="546" font-size="12" font-weight="700" fill="#0a5bd3">daily-content-loop.yml  <tspan font-weight="400" font-size="10.5" fill="#4a6285">cron 20 9 * * *, the production loop</tspan></text>
+  <text x="56" y="566" font-size="10.5" fill="#33445c">node .github/scripts/daily-content-loop.mjs → pre-warm /health ×4 → coordinator full-loop, poll to done</text>
+  <text x="56" y="582" font-size="10.5" fill="#33445c">mesh + edge tokens bypass SSO: a NULL-owned run every signed-in human can see and curate</text>
+  <text x="56" y="598" font-size="10.5" fill="#33445c">95-min budget: 2 attempts × (30-min migration cap + generate + eval); one loop at a time</text>
+  <text x="56" y="620" font-size="10" fill="#4a6285" font-style="italic">workflow_dispatch overrides: backend, model (k3), route, site, owner, topic, lane, fan-out</text>
+
+  <rect x="650" y="524" width="588" height="106" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="666" y="546" font-size="12" font-weight="700" fill="#0a5bd3">model-matrix  <tspan font-weight="400" font-size="10.5" fill="#4a6285">npm run model-matrix, the benchmark</tspan></text>
+  <text x="666" y="566" font-size="10.5" fill="#33445c">the same migration + eval over N models: Kimi K3, K2.7, Claude via the sdk backend</text>
+  <text x="666" y="582" font-size="10.5" fill="#33445c">one contextId, identical payloads, variance per dimension, the same judge model on every row</text>
+  <text x="666" y="598" font-size="10.5" fill="#33445c">2026-08-29: K3 confirmed as the daily loop's default</text>
+  <text x="666" y="620" font-size="10" fill="#4a6285" font-style="italic">on demand, from a laptop or a runner; re-run whenever a vendor ships</text>
+
+  <!-- ==================== OPERATE ==================== -->
+  <rect x="40" y="654" width="1198" height="100" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="56" y="676" font-size="12" font-weight="700" fill="#0a5bd3">Operate  <tspan font-weight="400" font-size="10.5" fill="#4a6285">what you can see, and what heals itself</tspan></text>
+  <text x="56" y="696" font-size="10.5" fill="#33445c">/health per agent: engine, queue depth, browser permits, opencodeVersion, kimiProxy, kimiModelResolved · /worker-health on the Worker · wrangler tail for live logs</text>
+  <text x="56" y="712" font-size="10.5" fill="#33445c">self-healing: eval restart rebuild (30-min age guard) · coordinator cold-start retries (4 × 15 s) · severed streams recovered via tasks/get · heartbeats in every quiet layer · the loop's own retry</text>
+  <text x="56" y="728" font-size="10.5" fill="#33445c">rollback = re-tag or workflow_dispatch an older ref; secrets never move, so a rollback is only code</text>
+  <text x="56" y="746" font-size="10" fill="#4a6285" font-style="italic">the store is the flight recorder: when container logs were invisible, tasks/get and store-mcp still answered</text>
+
+  <line x1="40" y1="790" x2="1240" y2="790" stroke="#d0d7de"/>
+  <text x="40" y="814" font-size="12" fill="#414a55"><tspan font-weight="700">The release is a git tag.</tspan> Nothing on a laptop is required after the push: GitHub builds the images, wrangler rolls the Worker, the smoke probe passes or the run goes red.</text>
+  <text x="40" y="836" font-size="12" fill="#414a55"><tspan font-weight="700">Two secrets in GitHub, thirteen on the Worker:</tspan> CI only authenticates wrangler; every runtime credential was set once with wrangler secret put and persists across deploys.</text>
+  <text x="40" y="858" font-size="12" fill="#414a55"><tspan font-weight="700">Where the human sits:</tspan> at the keyboard for the tag and at the dashboard for curation; everything between, including the daily production run, is a workflow file.</text>
+</svg>

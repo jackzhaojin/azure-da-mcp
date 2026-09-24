@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 520" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="v2-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="520" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">1.0 - Playwright: giving the AI vision</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">A cloud-hosted remote MCP with Chromium - live browser eyes for the agent, no local infrastructure required.</text>
+
+  <!-- two idea cards -->
+  <rect x="40" y="96" width="590" height="168" rx="12" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5"/>
+  <text x="62" y="128" font-size="15" font-weight="700" fill="#a40e26">AI needs to see real output</text>
+  <text x="62" y="154" font-size="12" fill="#5c3434">The agent loads the actual page the way a user would - inspecting</text>
+  <text x="62" y="173" font-size="12" fill="#5c3434">DOM structure, verifying the render, confirming visual and</text>
+  <text x="62" y="192" font-size="12" fill="#5c3434">structural integrity against what was intended.</text>
+  <text x="62" y="224" font-size="11" fill="#8a5050" font-style="italic">a static export can't tell you what the page actually looks like</text>
+
+  <rect x="650" y="96" width="590" height="168" rx="12" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5"/>
+  <text x="672" y="128" font-size="15" font-weight="700" fill="#a40e26">Test, verify, and correct</text>
+  <text x="672" y="154" font-size="12" fill="#5c3434">A visual feedback loop: immediate testing, validation of outcomes,</text>
+  <text x="672" y="173" font-size="12" fill="#5c3434">and intelligent self-correction - closing the gap between what the</text>
+  <text x="672" y="192" font-size="12" fill="#5c3434">agent intended and what actually shipped.</text>
+  <text x="672" y="224" font-size="11" fill="#8a5050" font-style="italic">the agent critiques its own work before any human sees it</text>
+
+  <!-- the loop strip -->
+  <rect x="40" y="288" width="1200" height="88" rx="10" fill="#fafbfc" stroke="#8c959f" stroke-width="1.1"/>
+  <rect x="120" y="310" width="180" height="44" rx="8" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="210" y="337" font-size="12" font-weight="600" fill="#a40e26" text-anchor="middle">author the page</text>
+  <path d="M 300 332 L 356 332" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#v2-ar)"/>
+  <rect x="360" y="310" width="180" height="44" rx="8" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="450" y="337" font-size="12" font-weight="600" fill="#0a5bd3" text-anchor="middle">render the preview</text>
+  <path d="M 540 332 L 596 332" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#v2-ar)"/>
+  <rect x="600" y="310" width="180" height="44" rx="8" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="690" y="337" font-size="12" font-weight="600" fill="#a40e26" text-anchor="middle">look at it (Playwright)</text>
+  <path d="M 780 332 L 836 332" stroke="#57606a" stroke-width="1.4" fill="none" marker-end="url(#v2-ar)"/>
+  <rect x="840" y="310" width="180" height="44" rx="8" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="930" y="337" font-size="12" font-weight="600" fill="#a40e26" text-anchor="middle">refine what's off</text>
+  <path d="M 1020 332 L 1076 332" stroke="#57606a" stroke-width="1.4" fill="none" stroke-dasharray="5 4" marker-end="url(#v2-ar)"/>
+  <text x="1130" y="337" font-size="12" fill="#57606a">repeat ≤ N</text>
+
+  <!-- bottom -->
+  <line x1="40" y1="408" x2="1240" y2="408" stroke="#d0d7de"/>
+  <text x="40" y="434" font-size="12" fill="#414a55"><tspan font-weight="700">Why it mattered:</tspan> confidence came from the agent validating its own actions in a real environment - understanding what it did, not just doing it.</text>
+  <text x="40" y="456" font-size="12" fill="#414a55"><tspan font-weight="700">What survived into 2.0:</tspan> every authoring backend still runs this loop, and the eval agent screenshots the real render - the mesh never let go of the eyes.</text>
+</svg>

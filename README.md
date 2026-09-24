@@ -2,6 +2,8 @@
 
 A personal monorepo of AI-powered content authoring, migration, and evaluation tools for [da.live](https://da.live) (Adobe Edge Delivery Services), built on Claude and the Model Context Protocol (MCP).
 
+**Start here:** [REFERENCES.md](./REFERENCES.md) (repos, working demo, docs, tools used) · [docs/architecture/](./docs/architecture/) (the system diagram by diagram, including how the agentic parts work)
+
 The repository's center of gravity is **v2.0 — the `agents/` A2A Agent Platform**: a decoupled mesh of independently-addressable AI agents that *generate*, *migrate*, and *evaluate* content. The other projects are the supporting cast — the MCP server it authors through, the prompt library, the API/admin tooling, and the original evaluation app (now a **frozen v1.x backup**).
 
 > **Two version lines.** **v2.0** = the new `agents/` platform (flagship, **deployed on Cloudflare**, the only actively developed workstream). **v1.1.0** = the legacy `content-authoring-eval` Next.js app on Oracle — frozen and untouched as the safety net (decision D5). Its eval engine was *copied* into `agents/eval-service`, not moved.

@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1000" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="mh-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="1000" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#1f2328">The whole mesh - same colors as 2025, but now the colors compose</text>
+  <text x="40" y="70" font-size="13" fill="#57606a">Four agents behind one Worker, one shared store, one protocol. In 1.0 a human carried the payload between the boxes; now the arrows are A2A.</text>
+
+  <!-- legend -->
+  <rect x="880" y="26" width="88" height="22" rx="5" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.2"/>
+  <text x="924" y="41" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">Human</text>
+  <rect x="976" y="26" width="104" height="22" rx="5" fill="#edf5ff" stroke="#0969da" stroke-width="1.2"/>
+  <text x="1028" y="41" font-size="11" fill="#0a5bd3" text-anchor="middle" font-weight="600">Deterministic</text>
+  <rect x="1088" y="26" width="80" height="22" rx="5" fill="#ffebe9" stroke="#cf222e" stroke-width="1.2"/>
+  <text x="1128" y="41" font-size="11" fill="#a40e26" text-anchor="middle" font-weight="600">Agentic</text>
+  <rect x="1176" y="26" width="64" height="22" rx="5" fill="#faf5ff" stroke="#8250df" stroke-width="1.2"/>
+  <text x="1208" y="41" font-size="11" fill="#6639ba" text-anchor="middle" font-weight="600">Mix</text>
+
+  <!-- ==================== FRONT DOORS ==================== -->
+  <rect x="40" y="92" width="288" height="92" rx="9" fill="#f6f8fa" stroke="#1f2328" stroke-width="1.4"/>
+  <text x="56" y="116" font-size="12.5" font-weight="700" fill="#1f2328">Humans - the dashboard</text>
+  <text x="56" y="136" font-size="11" fill="#414a55">Google SSO · four trigger lanes ·</text>
+  <text x="56" y="153" font-size="11" fill="#414a55">live activity · branch grid · evidence</text>
+  <text x="56" y="174" font-size="10" fill="#6e7781" font-style="italic">content-factor-dash.jackzhaojin.com</text>
+
+  <rect x="348" y="92" width="288" height="92" rx="9" fill="#edf5ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="364" y="116" font-size="12.5" font-weight="700" fill="#0a5bd3">Schedules - GH Actions</text>
+  <text x="364" y="136" font-size="11" fill="#33445c">the daily content loop: pre-warm,</text>
+  <text x="364" y="153" font-size="11" fill="#33445c">submit as the system, poll to done</text>
+  <text x="364" y="174" font-size="10" fill="#4a6285" font-style="italic">mesh token - no human identity</text>
+
+  <rect x="656" y="92" width="288" height="92" rx="9" fill="#ffffff" stroke="#8c959f" stroke-width="1.4"/>
+  <text x="672" y="116" font-size="12.5" font-weight="700" fill="#57606a">External systems - edge shim</text>
+  <text x="672" y="136" font-size="11" fill="#414a55">one flat POST /hooks/… + a webhook</text>
+  <text x="672" y="153" font-size="11" fill="#414a55">back - Make.com and curl never</text>
+  <text x="672" y="170" font-size="11" fill="#414a55">have to speak A2A at all</text>
+
+  <rect x="964" y="92" width="276" height="92" rx="9" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="980" y="116" font-size="12.5" font-weight="700" fill="#a40e26">The mesh itself</text>
+  <text x="980" y="136" font-size="11" fill="#5c3434">no topic → it ideates one;</text>
+  <text x="980" y="153" font-size="11" fill="#5c3434">goal:auto → it infers the route</text>
+  <text x="980" y="174" font-size="10" fill="#8a5050" font-style="italic">agent-led, human-curated</text>
+
+  <path d="M 184 184 L 184 216" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+  <path d="M 492 184 L 492 216" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+  <path d="M 800 184 L 800 216" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+  <path d="M 1102 184 L 1102 216" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+
+  <!-- ==================== CLOUDFLARE ==================== -->
+  <rect x="40" y="220" width="1200" height="482" rx="14" fill="#fff9f2" stroke="#d4700e" stroke-width="1.6"/>
+  <text x="60" y="248" font-size="15" font-weight="700" fill="#a45408">Cloudflare - one Worker, four containers, scale-to-zero  <tspan font-weight="400" font-size="11.5" fill="#bd7a30">(sleep when idle, wake in 5-30s; deployed by v2.x tags)</tspan></text>
+
+  <rect x="60" y="262" width="1160" height="58" rx="8" fill="#ffffff" stroke="#e3b283" stroke-width="1.2"/>
+  <text x="76" y="284" font-size="12" font-weight="700" fill="#1f2328">Worker "content-factory"</text>
+  <text x="76" y="304" font-size="11" fill="#3f4660">hostname → container routing · holds ALL secrets + the only D1 binding · POST /d1/query (secret-gated) - containers get no native bindings, so the Worker is the store's doorway</text>
+
+  <rect x="60" y="336" width="560" height="150" rx="10" fill="#faf5ff" stroke="#8250df" stroke-width="1.5"/>
+  <text x="78" y="362" font-size="13.5" font-weight="700" fill="#6639ba">coordinator container  <tspan font-weight="400" font-size="10.5" fill="#8a6fc0">(A2A + the Next.js dashboard, one process)</tspan></text>
+  <text x="78" y="384" font-size="11" fill="#5a4a7a">deterministic route table · fan-out + variance · one contextId per run</text>
+  <text x="78" y="402" font-size="11" fill="#5a4a7a">forwards every child's working-notes → the live activity feed</text>
+  <text x="78" y="420" font-size="11" fill="#5a4a7a">severed stream → tasks/get polling against the persisted Task</text>
+  <text x="78" y="444" font-size="10.5" fill="#8a6fc0" font-style="italic">the only agent that is client AND server - it composes the others</text>
+  <text x="78" y="470" font-size="10.5" fill="#8a6fc0" font-style="italic">heartbeats at every layer that can be silent: queue waits, agentic passes, recovery polls</text>
+
+  <rect x="644" y="336" width="284" height="150" rx="10" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="662" y="362" font-size="13" font-weight="700" fill="#7d4e00">D1 - one store, whole mesh</text>
+  <text x="662" y="384" font-size="11" fill="#594514">runs · tasks (full A2A Task JSON,</text>
+  <text x="662" y="401" font-size="11" fill="#594514">upserted every state change) ·</text>
+  <text x="662" y="418" font-size="11" fill="#594514">eval_reports · artifacts · push_configs</text>
+  <text x="662" y="440" font-size="10.5" fill="#8a7433" font-style="italic">same SQL runs on local SQLite -</text>
+  <text x="662" y="456" font-size="10.5" fill="#8a7433" font-style="italic">two drivers, zero behavior drift</text>
+  <text x="662" y="474" font-size="10.5" fill="#8a7433" font-style="italic">the store IS the flight recorder</text>
+
+  <rect x="952" y="336" width="268" height="150" rx="10" fill="#fff8e7" stroke="#bf8700" stroke-width="1.4"/>
+  <text x="970" y="362" font-size="13" font-weight="700" fill="#7d4e00">R2 - the artifact bytes</text>
+  <text x="970" y="384" font-size="11" fill="#594514">synthetic source pages,</text>
+  <text x="970" y="401" font-size="11" fill="#594514">eval screenshots - public</text>
+  <text x="970" y="418" font-size="11" fill="#594514">r2.dev URLs by design</text>
+  <text x="970" y="440" font-size="10.5" fill="#8a7433" font-style="italic">the URL is the handoff between</text>
+  <text x="970" y="456" font-size="10.5" fill="#8a7433" font-style="italic">agents, vendors, and clouds</text>
+
+  <path d="M 200 486 L 200 516" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+  <path d="M 520 486 L 520 516" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+  <path d="M 600 486 L 600 500 L 1025 500 L 1025 516" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+  <text x="214" y="509" font-size="10" fill="#57606a">A2A message/stream (SSE) · mesh token</text>
+
+  <rect x="60" y="516" width="350" height="128" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="78" y="542" font-size="13" font-weight="700" fill="#a40e26">content-gen  <tspan font-weight="400" font-size="10.5" fill="#8a5050">(lite)</tspan></text>
+  <text x="78" y="564" font-size="11" fill="#5c3434">ideation · briefs · synthetic sources</text>
+  <text x="78" y="582" font-size="11" fill="#5c3434">agentic writer (Claude Agent SDK)</text>
+  <text x="78" y="600" font-size="11" fill="#5c3434">over a deterministic template floor</text>
+  <text x="78" y="624" font-size="10" fill="#8a5050" font-style="italic">proved the whole chassis first - no browser</text>
+
+  <rect x="430" y="516" width="380" height="128" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="448" y="542" font-size="13" font-weight="700" fill="#a40e26">migration  <tspan font-weight="400" font-size="10.5" fill="#8a5050">(standard-1)</tspan></text>
+  <text x="448" y="564" font-size="11" fill="#5c3434">the facade: dryrun · Make.com · opencode/Kimi</text>
+  <text x="448" y="582" font-size="11" fill="#5c3434">opencode serve + the da-live-author skill +</text>
+  <text x="448" y="600" font-size="11" fill="#5c3434">da.live MCP (S2S) + Playwright MCP baked in</text>
+  <text x="448" y="624" font-size="10" fill="#8a5050" font-style="italic">9-20 min agentic turns, streamed live, restart-safe</text>
+
+  <rect x="830" y="516" width="390" height="128" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="848" y="542" font-size="13" font-weight="700" fill="#a40e26">eval  <tspan font-weight="400" font-size="10.5" fill="#8a5050">(standard-3 - the heavy one)</tspan></text>
+  <text x="848" y="564" font-size="11" fill="#5c3434">real Chromium (two revisions, merged caches),</text>
+  <text x="848" y="582" font-size="11" fill="#5c3434">axe-core, agentic Claude tier - non-root, with</text>
+  <text x="848" y="600" font-size="11" fill="#5c3434">runtime credentials (the frozen v1 app's recipe)</text>
+  <text x="848" y="624" font-size="10" fill="#8a5050" font-style="italic">browser permits + queue + restart rebuild</text>
+
+  <text x="60" y="678" font-size="11.5" fill="#a45408" font-style="italic">The rule that survived production: the store, not the stream, is the contract. Streams sever, containers sleep, rollouts happen - every consumer can recover from tasks/get.</text>
+
+  <!-- ==================== TARGETS + VENDORS ==================== -->
+  <path d="M 340 702 L 340 728" stroke="#57606a" stroke-width="1.3" fill="none" marker-end="url(#mh-ar)"/>
+  <path d="M 950 702 L 950 728" stroke="#57606a" stroke-width="1.3" fill="none" stroke-dasharray="5 4" marker-end="url(#mh-ar)"/>
+
+  <rect x="40" y="732" width="600" height="112" rx="10" fill="#e9f5ee" stroke="#1a7f37" stroke-width="1.5"/>
+  <text x="58" y="758" font-size="13.5" font-weight="700" fill="#116329">da.live / EDS - the content target</text>
+  <text x="58" y="780" font-size="11" fill="#2f4a3a">agent pages land on .aem.page PREVIEW only - the live publish does not exist as a capability</text>
+  <text x="58" y="798" font-size="11" fill="#2f4a3a">/ai-content/** = hand-built reference corpus (read-only) · /ai-articles/** + dated folders = agent drafts</text>
+  <text x="58" y="822" font-size="10.5" fill="#4c8f63" font-style="italic">reversibility by construction: everything unattended is undoable; only a human makes something live</text>
+
+  <rect x="664" y="732" width="576" height="112" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5"/>
+  <text x="682" y="758" font-size="13.5" font-weight="700" fill="#a40e26">Two model vendors, one protocol</text>
+  <text x="682" y="780" font-size="11" fill="#5c3434">Kimi K3 / K2.7 (Moonshot, via opencode) authors the pages · Claude (Anthropic) writes the briefs</text>
+  <text x="682" y="798" font-size="11" fill="#5c3434">and judges the quality - one model's work scored by another vendor's model, every day</text>
+  <text x="682" y="822" font-size="10.5" fill="#8a5050" font-style="italic">swapping vendors is configuration, not a rewrite - the contracts don't move</text>
+
+  <!-- local parity -->
+  <rect x="40" y="860" width="1200" height="40" rx="8" fill="#f6f8fa" stroke="#8c959f" stroke-width="1.1"/>
+  <text x="640" y="885" font-size="11.5" fill="#414a55" text-anchor="middle"><tspan font-weight="700">Local parity:</tspan> the identical code runs on a laptop - SQLite files for D1, localhost ports for hostnames, ./output for R2. The driver is picked by env; behavior never drifts.</text>
+
+  <!-- bottom -->
+  <line x1="40" y1="924" x2="1240" y2="924" stroke="#d0d7de"/>
+  <text x="40" y="948" font-size="12" fill="#414a55"><tspan font-weight="700">What changed since the 2025 drawing isn't the colors - it's the arrows.</tspan> The same human / deterministic / agentic split now composes over a protocol instead of over a person.</text>
+  <text x="40" y="970" font-size="12" fill="#414a55"><tspan font-weight="700">Acceptance, measured:</tspan> Kimi authored a real da.live page from inside a container, the real agentic eval scored it 91, and the whole run is replayable from the store.</text>
+</svg>
