@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Migration agent — A2A server :4003. Facade over swappable backends: makecom (primary), sdk, opencode, dryrun (scaffold)",
   "scripts": {
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "probe:playwright": "tsx src/playwright-probe.ts"
   },
   "dependencies": {
     "@a2a-js/sdk": "0.3.13",

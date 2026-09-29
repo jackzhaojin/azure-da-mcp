@@ -135,6 +135,41 @@ export function playwrightOutputDir(): string {
   return path.join(repoRoot(), ".playwright-mcp", "opencode-migration");
 }
 
+/**
+ * The Playwright MCP launch command, shared by the opencode and sdk backends.
+ *
+ * WHICH browser to launch is a property of the image, so it comes from env the
+ * image sets (migration.Dockerfile), under the names @playwright/mcp itself reads:
+ *   - PLAYWRIGHT_MCP_BROWSER=chromium -> `--browser chromium`, Playwright's bundled
+ *     Chromium (the "chrome-for-testing" alias), which is what the image installs.
+ *     Unset, @playwright/mcp defaults to the Google Chrome channel at
+ *     /opt/google/chrome/chrome. The container never had it, so every cloud browser
+ *     call failed with "Chromium distribution 'chrome' is not found" and the
+ *     migrator silently fell back to webfetch (issue #14).
+ *   - PLAYWRIGHT_MCP_SANDBOX=false -> `--no-sandbox`. The container runs as root,
+ *     where Chromium's sandbox cannot start.
+ * They are passed as explicit flags rather than left to env inheritance, so the
+ * command is self-describing in the generated config and does not depend on how a
+ * harness forwards its environment to MCP subprocesses.
+ *
+ * PLAYWRIGHT_MCP_BIN (containers: a pre-installed, pinned global bin) avoids the
+ * npx-fetch-latest network dependency at runtime. Local dev leaves all three unset
+ * and keeps its behavior: npx + the Google Chrome installed on macOS.
+ */
+export function playwrightMcpCommand(outputDir: string, env: NodeJS.ProcessEnv = process.env): string[] {
+  const browser = env.PLAYWRIGHT_MCP_BROWSER?.trim();
+  const sandbox = env.PLAYWRIGHT_MCP_SANDBOX?.trim().toLowerCase();
+  return [
+    ...(env.PLAYWRIGHT_MCP_BIN ? [env.PLAYWRIGHT_MCP_BIN] : ["npx", "-y", "@playwright/mcp@latest"]),
+    "--headless",
+    "--isolated",
+    ...(browser ? ["--browser", browser] : []),
+    ...(sandbox === "false" || sandbox === "0" ? ["--no-sandbox"] : []),
+    "--output-dir",
+    outputDir,
+  ];
+}
+
 export interface OpencodeConfigOptions {
   daliveUrl: string;
   /** Optional da.live user token; omit to let the server's S2S technical account author. */
@@ -174,18 +209,7 @@ export function buildOpencodeConfig(opts: OpencodeConfigOptions): Record<string,
       },
       playwright: {
         type: "local",
-        // PLAYWRIGHT_MCP_BIN (containers: a pre-installed global bin + pre-pulled
-        // Chromium) avoids the npx-fetch-latest network dependency at runtime;
-        // local default stays npx with the macOS-cached Chromium.
-        command: [
-          ...(process.env.PLAYWRIGHT_MCP_BIN
-            ? [process.env.PLAYWRIGHT_MCP_BIN]
-            : ["npx", "-y", "@playwright/mcp@latest"]),
-          "--headless",
-          "--isolated",
-          "--output-dir",
-          opts.playwrightOut,
-        ],
+        command: playwrightMcpCommand(opts.playwrightOut),
         enabled: true,
         timeout,
       },

@@ -32,11 +32,25 @@ ENV OPENCODE_BIN=/root/.opencode/bin/opencode
 COPY deploy/docker/opencode-global.jsonc /root/.config/opencode/opencode.jsonc
 
 # Playwright MCP pre-installed (PLAYWRIGHT_MCP_BIN avoids npx-fetch at runtime)
-# + Chromium matching ITS bundled playwright version; --with-deps pulls OS libs
-RUN npm i -g @playwright/mcp@latest \
+# + Chromium matching ITS bundled playwright version; --with-deps pulls OS libs.
+# PINNED (issue #14): @latest meant every image build silently took a new release
+# (the 2026-09-19 rebuild moved to 0.0.82 and changed the error text mid-incident).
+# Bump deliberately, then re-run `npm run probe:playwright -w @agents/migration-agent`
+# inside the built image (see deploy/CLAUDE.md).
+ARG PLAYWRIGHT_MCP_VERSION=0.0.82
+RUN npm i -g @playwright/mcp@${PLAYWRIGHT_MCP_VERSION} \
   && cd /usr/local/lib/node_modules/@playwright/mcp \
   && (npx playwright install --with-deps chromium || npx playwright-core install --with-deps chromium) \
   && rm -rf /var/lib/apt/lists/*
+
+# Launch the Chromium installed above, not the Google Chrome channel (issue #14).
+# Unset, @playwright/mcp looks for /opt/google/chrome/chrome, which this image never
+# had, so every cloud browser call failed and the migrator fell back to webfetch.
+# The container runs as root, where Chromium's sandbox cannot start. Both names are
+# @playwright/mcp's own env config; opencode-config.ts playwrightMcpCommand() also
+# passes them as explicit --browser / --no-sandbox flags.
+ENV PLAYWRIGHT_MCP_BROWSER=chromium \
+    PLAYWRIGHT_MCP_SANDBOX=false
 
 # the da-live-author-playwright skill (synced from /.claude/skills by `npm run sync-skill`)
 COPY deploy/skills /app/skills

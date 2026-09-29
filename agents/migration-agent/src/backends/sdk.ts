@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createLogger } from "@agents/a2a-common";
 import type { MigrationBackend, MigrationRunPayload, MigrationResult, BackendContext } from "./types.ts";
-import { DEFAULT_DALIVE_MCP_URL, resolveSkillsPath, repoRoot } from "./opencode-config.ts";
+import { DEFAULT_DALIVE_MCP_URL, playwrightMcpCommand, resolveSkillsPath, repoRoot } from "./opencode-config.ts";
 import { buildMigrationPrompt, migrationTargets, parseMigrationReport, parseSelfReports } from "./opencode-prompt.ts";
 import { buildUsage, describeUsage, readTarget } from "../usage.ts";
 import { loadRunMemory } from "../memory.ts";
@@ -71,6 +71,8 @@ export const sdkBackend: MigrationBackend = {
     const cwd = ensureWorkspace();
     const pwOut = sdkPlaywrightOutputDir();
     mkdirSync(pwOut, { recursive: true });
+    // same launch command as the opencode backend (browser + sandbox come from the image, issue #14)
+    const [pwCommand, ...pwArgs] = playwrightMcpCommand(pwOut);
 
     // lessons from previous runs on this site (same read the opencode backend does)
     const memory = await loadRunMemory(payload, ctx.onProgress);
@@ -88,6 +90,7 @@ export const sdkBackend: MigrationBackend = {
 
     const texts: string[] = [];
     const toolsFired = new Set<string>();
+    const toolNames = new Map<string, string>(); // tool_use id -> tool name, to label failures
     const errors: string[] = [];
     const reads: string[] = [];
     let resolvedModel = model;
@@ -117,17 +120,7 @@ export const sdkBackend: MigrationBackend = {
                 ? { headers: { Authorization: `Bearer ${process.env.DALIVE_BEARER_TOKEN}` } }
                 : {}),
             },
-            playwright: {
-              type: "stdio",
-              command: process.env.PLAYWRIGHT_MCP_BIN ?? "npx",
-              args: [
-                ...(process.env.PLAYWRIGHT_MCP_BIN ? [] : ["-y", "@playwright/mcp@latest"]),
-                "--headless",
-                "--isolated",
-                "--output-dir",
-                pwOut,
-              ],
-            },
+            playwright: { type: "stdio", command: pwCommand, args: pwArgs },
           },
         },
       })) {
@@ -140,6 +133,7 @@ export const sdkBackend: MigrationBackend = {
             if (block.type === "text" && block.text) texts.push(block.text);
             if (block.type === "tool_use") {
               const tool = String(block.name ?? "tool");
+              if (block.id) toolNames.set(block.id, tool);
               if (tool === "Skill") {
                 skillFired ||= /da-live-author-playwright/.test(JSON.stringify(block.input ?? {}));
                 ctx.onProgress(`sdk/${resolvedModel} → skill ${JSON.stringify(block.input ?? {}).slice(0, 120)}`);
@@ -150,6 +144,20 @@ export const sdkBackend: MigrationBackend = {
                 if (target) reads.push(target);
                 ctx.onProgress(target ? `sdk/${resolvedModel} → ${tool} ${target.slice(0, 140)}` : `sdk/${resolvedModel} → ${tool}`);
               }
+            }
+          }
+        }
+        // Failed tool calls, noted like the opencode backend's "✗" line. Issue #14: a
+        // browser that never launched stayed invisible because only calls were logged.
+        if (message.type === "user" && Array.isArray(message.message?.content)) {
+          for (const block of message.message.content) {
+            if (block.type === "tool_result" && block.is_error) {
+              const tool = toolNames.get(block.tool_use_id) ?? "tool";
+              const raw =
+                typeof block.content === "string"
+                  ? block.content
+                  : (block.content ?? []).map((c) => (c.type === "text" ? c.text : "")).join(" ");
+              ctx.onProgress(`sdk/${resolvedModel} ✗ ${tool}: ${raw.replace(/\s+/g, " ").trim().slice(0, 200)}`);
             }
           }
         }

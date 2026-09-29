@@ -9,6 +9,10 @@ Two release lines:
 
 ---
 
+## Unreleased
+
+- **Cloud migrations get a working browser again ([#14](https://github.com/jackzhaojin/azure-da-mcp/issues/14)).** In the Cloudflare migration container, `@playwright/mcp` defaulted to the Google Chrome channel (`/opt/google/chrome/chrome`), which the image never installed. The first browser call of every cloud migration since at least 2026-07-08 failed with "Chromium distribution 'chrome' is not found". Until v2.9.1 the model recovered mid-run with a shell install. After v2.9.1 the memory page's "Validation and Playwright" rule told it to stop after two failures, so 22 of 23 cloud runs made zero working browser calls and fell back to `webfetch`: runs still PASSED, but the post-publish rendered check and the image-resolution (`naturalWidth`) rule never ran. Fix: `migration.Dockerfile` sets `PLAYWRIGHT_MCP_BROWSER=chromium` and `PLAYWRIGHT_MCP_SANDBOX=false` (root container) and pins `@playwright/mcp` to `0.0.82` (it was `@latest`); `playwrightMcpCommand()` in `opencode-config.ts` is the one launch command for both the opencode and sdk backends and passes those settings as `--browser` / `--no-sandbox` flags. Local dev is unchanged. New `src/playwright-probe.ts` (`npm run probe:playwright -w @agents/migration-agent`) proves any image can navigate and decode an image with no model turn; fast-tier tests pin the command and the Dockerfile settings, and a live test runs the real probe against a local page. Proven locally inside a `linux/amd64` build of the migration image; **deliberately NOT deployed until after the adaptTo() talk**. After deploying, review the memory page's Playwright fallback rule.
+
 ## 2.9 (2026-09-05)
 
 Tags: `v2.9.0` - agent memory (the self-improvement loop from the talk's "Core Capabilities" slide, restored from v1), `v2.9.1` - the two-tier memory page, `v2.9.2` - evidence that the block library and memory are actually used, `v2.9.3` - the evidence fix for Cloudflare.
