@@ -9,9 +9,11 @@ Two release lines:
 
 ---
 
-## Unreleased (2026-10-02)
+## 2.10 (2026-10-02)
 
-- **Claude is the default migration author; Kimi K3 no longer has a backing subscription.** The Kimi For Coding subscription behind `MOONSHOT_API_KEY` is being cancelled, so the migration default moves from `opencode` (Kimi K3) to `sdk` (Claude via the Agent SDK, on the Claude subscription OAuth token the Worker already holds). The opencode backend, the Kimi wire-repair proxy, and the Kimi model options all stay in the code for anyone with their own Kimi key.
+Tags: `v2.10.0` - Claude (`sdk`) becomes the default migration author; Kimi K3 stays as a bring-your-own-key option.
+
+- **2.10.0 (2026-10-02) - Claude is the default migration author; Kimi K3 no longer has a backing subscription.** The Kimi For Coding subscription behind `MOONSHOT_API_KEY` is being cancelled, so the migration default moves from `opencode` (Kimi K3) to `sdk` (Claude via the Agent SDK, on the Claude subscription OAuth token the Worker already holds). The opencode backend, the Kimi wire-repair proxy, and the Kimi model options all stay in the code for anyone with their own Kimi key.
   - **Daily loop** (`daily-content-loop.yml` + `.github/scripts/daily-content-loop.mjs`): `backend` defaults to `sdk` (options `sdk` / `opencode` / `dryrun`); `model` is now the Claude model (`opus` default, `sonnet`, `haiku`); the Kimi model moved to a new `kimiModel` input. The step summary shows the model for both backends.
   - **Dashboard**: the single-run trigger and the bulk lane default to `sdk`, with a Claude model picker (agent default / opus / sonnet / haiku); the stale "sdk (stub)" and "Kimi K2.6" labels are gone, and picking `opencode` shows a note that it needs your own Kimi key. Switching backend resets the model so a Kimi id never reaches a Claude run. The bulk lane's default site also moved off the retired `da-live-postal-2025-07` to `adapt-to-2026-demo`.
   - **Cloud migration container** (it had never run `sdk`): the Worker now passes `CLAUDE_CODE_OAUTH_TOKEN` + the `CLAUDE_ACCOUNT_UUID`/`CLAUDE_EMAIL`/`CLAUDE_ORG_UUID` stanza, `CLAUDE_MIGRATION_MODEL` (new var, `opus`), and `SDK_MIGRATION_TIMEOUT_MS=1800000` (the same 30-min cap as opencode, so the daily loop's 2-attempt budget holds); `MOONSHOT_API_KEY` is passed only if the secret exists. `migration.Dockerfile` adds `migration-entrypoint.sh` (writes `.claude.json`) and `IS_SANDBOX=1`: the image runs as root, and the Claude binary refuses `bypassPermissions` as root without it. The image also bakes `PLAYWRIGHT_MCP_BIN`, so a bare `docker run` probes the pinned Playwright MCP instead of `@latest`.
