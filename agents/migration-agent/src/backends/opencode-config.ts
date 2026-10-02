@@ -249,7 +249,7 @@ export function cachedOpencodeVersion(): string | null {
 /** assertConfigured() helper — returns a setup-hint string if unusable, else null. */
 export function opencodeSetupProblem(): string | null {
   if (!process.env.MOONSHOT_API_KEY) {
-    return "opencode backend needs MOONSHOT_API_KEY (the Kimi-For-Coding key) in the environment — `source ~/.zshrc` before `npm run dev:migration`.";
+    return "opencode backend needs MOONSHOT_API_KEY (a Kimi For Coding subscription key) in the environment - `source ~/.zshrc` before `npm run dev:migration`. The hosted mesh has no Kimi subscription since 2026-10: use backend 'sdk' (Claude), or set the key to bring your own.";
   }
   const bin = resolveOpencodeBin();
   if (!existsSync(bin)) {

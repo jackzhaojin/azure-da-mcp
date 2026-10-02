@@ -25,8 +25,11 @@ const log = createLogger("da-migration-agent");
 
 const TURN_TIMEOUT_MS = Number(process.env.SDK_MIGRATION_TIMEOUT_MS ?? 40 * 60 * 1000);
 const MAX_TURNS = Number(process.env.SDK_MIGRATION_MAX_TURNS ?? 150);
-/** Default Claude model; per-run override via payload.model ("sonnet" | "opus" | "haiku" | full id). */
-const CLAUDE_MIGRATION_MODEL = process.env.CLAUDE_MIGRATION_MODEL || "sonnet";
+/**
+ * Default Claude model; per-run override via payload.model ("opus" | "sonnet" | "haiku" | full id).
+ * Opus tied for best (90) in the 2026-09-08 model assessment, with the fastest migration.
+ */
+const CLAUDE_MIGRATION_MODEL = process.env.CLAUDE_MIGRATION_MODEL || "opus";
 
 /**
  * The session's working directory: a throwaway tmp dir seeded with ONLY the

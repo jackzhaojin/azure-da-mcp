@@ -10,26 +10,37 @@ import { usePoll } from "@/lib/hooks";
 import type { HistoryEntry, MeshStatus, RunView } from "@/lib/types";
 
 const GOALS = [
-  { value: "full-loop", label: "Full loop — generate → migrate → evaluate" },
+  { value: "full-loop", label: "Full loop - generate → migrate → evaluate" },
   { value: "generate+migrate", label: "Generate + migrate (no eval)" },
-  { value: "migrate", label: "Migrate a real page — source URL → da.live" },
+  { value: "migrate", label: "Migrate a real page - source URL → da.live" },
   { value: "evaluate", label: "Evaluate URLs only" },
-  { value: "auto", label: "Auto — infer the route" },
+  { value: "auto", label: "Auto - infer the route" },
 ] as const;
 
+/** sdk (Claude) is the default since 2026-10. opencode (Kimi) stays selectable,
+ *  but no Kimi subscription backs the hosted mesh - it needs a MOONSHOT_API_KEY. */
 const BACKENDS = [
-  { value: "dryrun", label: "dryrun — instant, no real writes" },
-  { value: "opencode", label: "opencode — Kimi (K3 / K2.7) authors real da.live pages" },
-  { value: "makecom", label: "makecom — Make.com scenario" },
-  { value: "sdk", label: "sdk — Claude Agent SDK (stub)" },
+  { value: "sdk", label: "sdk - Claude (Agent SDK) authors real da.live pages" },
+  { value: "dryrun", label: "dryrun - instant, no real writes" },
+  { value: "opencode", label: "opencode - Kimi K3 / K2.7 (bring your own Kimi key)" },
+  { value: "makecom", label: "makecom - Make.com scenario" },
 ] as const;
 
-/** Kimi model per run (opencode only) — ids must be declared in opencode's
+/** Claude model per run (sdk only) - Claude Code aliases resolve to the newest
+ *  model of each tier; the run log records the resolved id. */
+const CLAUDE_MODELS = [
+  { value: "", label: "agent default (CLAUDE_MIGRATION_MODEL, opus)" },
+  { value: "opus", label: "opus - Claude Opus" },
+  { value: "sonnet", label: "sonnet - Claude Sonnet" },
+  { value: "haiku", label: "haiku - Claude Haiku" },
+] as const;
+
+/** Kimi model per run (opencode only) - ids must be declared in opencode's
  *  provider models map (same rule as the daily-loop workflow's dropdown). */
 const KIMI_MODELS = [
   { value: "", label: "agent default (KIMI_MODEL_ID)" },
-  { value: "k3", label: "k3 — Kimi K3" },
-  { value: "kimi-for-coding", label: "kimi-for-coding — moving alias (K2.7 Coding)" },
+  { value: "k3", label: "k3 - Kimi K3" },
+  { value: "kimi-for-coding", label: "kimi-for-coding - moving alias (K2.7 Coding)" },
 ] as const;
 
 const selectClass =
@@ -56,7 +67,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
   const [pageSlug, setPageSlug] = useState("");
   const [folder, setFolder] = useState("");
   const [evalAfter, setEvalAfter] = useState(true);
-  const [backend, setBackend] = useState("dryrun");
+  const [backend, setBackend] = useState("sdk");
   const [model, setModel] = useState("");
   const [guidance, setGuidance] = useState("");
   const [legacyStyle, setLegacyStyle] = useState("dated");
@@ -104,7 +115,7 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
           body.owner = owner;
         }
       }
-      if (realBackend && backend === "opencode" && model) body.model = model;
+      if (realBackend && (backend === "sdk" || backend === "opencode") && model) body.model = model;
       if (!evaluateOnly && guidance.trim()) body.guidance = guidance.trim();
       const res = await fetch("/api/trigger", {
         method: "POST",
@@ -158,7 +169,15 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
   const backendSelect = (
     <div className="space-y-2">
       <Label htmlFor="backend">Migration backend</Label>
-      <select id="backend" className={selectClass} value={backend} onChange={(e) => setBackend(e.target.value)}>
+      <select
+        id="backend"
+        className={selectClass}
+        value={backend}
+        onChange={(e) => {
+          setBackend(e.target.value);
+          setModel(""); // model ids are per backend - never carry a Kimi id into a Claude run
+        }}
+      >
         {BACKENDS.map((b) => (
           <option key={b.value} value={b.value}>
             {b.label}
@@ -198,6 +217,18 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
         <Label htmlFor="site">da.live site</Label>
         <Input id="site" value={site} onChange={(e) => setSite(e.target.value)} required />
       </div>
+      {backend === "sdk" && (
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="model">Claude model</Label>
+          <select id="model" className={selectClass} value={model} onChange={(e) => setModel(e.target.value)}>
+            {CLAUDE_MODELS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {backend === "opencode" && (
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="model">Kimi model</Label>
@@ -208,6 +239,10 @@ export function TriggerCard({ onTriggered }: { onTriggered: (entry: HistoryEntry
               </option>
             ))}
           </select>
+          <p className="text-sm text-amber-700">
+            No Kimi subscription backs this deployment. The run fails at the migration step unless the migration agent has a
+            MOONSHOT_API_KEY (a Kimi For Coding key).
+          </p>
         </div>
       )}
       <p className="text-sm text-muted-foreground md:col-span-2">

@@ -97,8 +97,8 @@
 
   <rect x="430" y="516" width="380" height="128" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.4"/>
   <text x="448" y="542" font-size="13" font-weight="700" fill="#a40e26">migration  <tspan font-weight="400" font-size="10.5" fill="#8a5050">(standard-1)</tspan></text>
-  <text x="448" y="564" font-size="11" fill="#5c3434">the facade: dryrun · Make.com · opencode/Kimi</text>
-  <text x="448" y="582" font-size="11" fill="#5c3434">opencode serve + the da-live-author skill +</text>
+  <text x="448" y="564" font-size="11" fill="#5c3434">the facade: dryrun · Make.com · Claude · Kimi</text>
+  <text x="448" y="582" font-size="11" fill="#5c3434">Claude + opencode harnesses, the da-live skill,</text>
   <text x="448" y="600" font-size="11" fill="#5c3434">da.live MCP (S2S) + Playwright MCP baked in</text>
   <text x="448" y="624" font-size="10" fill="#8a5050" font-style="italic">9-20 min agentic turns, streamed live, restart-safe</text>
 
@@ -123,8 +123,8 @@
 
   <rect x="664" y="732" width="576" height="112" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="1.5"/>
   <text x="682" y="758" font-size="13.5" font-weight="700" fill="#a40e26">Two model vendors, one protocol</text>
-  <text x="682" y="780" font-size="11" fill="#5c3434">Kimi K3 / K2.7 (Moonshot, via opencode) authors the pages · Claude (Anthropic) writes the briefs</text>
-  <text x="682" y="798" font-size="11" fill="#5c3434">and judges the quality - one model's work scored by another vendor's model, every day</text>
+  <text x="682" y="780" font-size="11" fill="#5c3434">Claude (Anthropic, Agent SDK) authors the pages, writes the briefs, and judges the quality</text>
+  <text x="682" y="798" font-size="11" fill="#5c3434">Kimi K3 (Moonshot, via opencode) stays a per-run option - no subscription backs it since 2026-10</text>
   <text x="682" y="822" font-size="10.5" fill="#8a5050" font-style="italic">swapping vendors is configuration, not a rewrite - the contracts don't move</text>
 
   <!-- local parity -->

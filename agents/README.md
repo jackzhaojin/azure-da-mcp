@@ -16,7 +16,7 @@ The flagship **v2.x** platform (currently **v2.8.1**): a decoupled mesh of A2A a
 | `https://content-factory.jackzhaojin.com` | Coordinator A2A surface (`/a2a` mesh-token gated, `/store/runs` edge-token gated, agent card + `/health` public) |
 | `https://content-factory-eval.jackzhaojin.com` | Eval agent (real engine: Chromium + axe + agentic Claude tiers) |
 | `https://content-factory-gen.jackzhaojin.com` | Content-gen agent (synthetic legacy sources → R2) |
-| `https://content-factory-migrate.jackzhaojin.com` | Migration agent (dryrun / makecom / **opencode = Kimi, K3 default** / **sdk = Claude via Agent SDK**) |
+| `https://content-factory-migrate.jackzhaojin.com` | Migration agent (dryrun / makecom / **sdk = Claude via Agent SDK, the default since 2026-10** / opencode = Kimi K3, optional: no Kimi subscription backs it any more, bring your own key) |
 
 Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#cost-model--sleep-behavior)) and cold-start in ~5–30s on the next request. The first dashboard hit after a quiet period takes a few extra seconds — that's the deal.
 
@@ -31,7 +31,7 @@ Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#
 | `a2a-common/` | — | Shared bootstrap: server factory (Express + official `@a2a-js/sdk@0.3.13`), **the dual-driver store seam** (`StoreDb`: better-sqlite3 locally / D1-via-Worker-proxy in containers) + migrations, push notifications (store-backed), mesh bearer auth (`A2A_MESH_TOKEN`), edge webhook shim (`POST /hooks/{agent}/{skill}`), mesh-aware client factory, structured logging |
 | `eval-service/` | 4001 | Eval agent — real engine (copied from the frozen app), job queue, browser semaphore, `eval.run` executor; screenshots → R2; `EVAL_ENGINE=stub` for the fake; heartbeats while queued *and* evaluating; restart rebuild with a 30-min age guard. Deterministic-vs-agentic breakdown, modes, and blend formulas: [`eval-service/README.md`](./eval-service/README.md) |
 | `content-gen/` | 4002 | Content generator — `content.ideate` + `content.brief` + `content.synthesize-source` (agentic backend: real Claude writing; deterministic template as the $0 fallback). Synthetic sources → R2 (public r2.dev) |
-| `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), `makecom` (webhook out → callback in, restart-tolerant), **`opencode` (Kimi via `opencode serve`, K3 default, per-run model — reuses the `da-live-author-playwright` skill + da.live/Playwright MCP; verified against real da.live, locally AND in-container)**, **`sdk` (Claude via the Agent SDK, subscription OAuth, per-run model — same prompt/skill/MCP servers as opencode)** |
+| `migration-agent/` | 4003 | Facade over swappable backends: `dryrun` (simulation), `makecom` (webhook out → callback in, restart-tolerant), **`sdk` (Claude via the Agent SDK, subscription OAuth, per-run model, Opus default - the default backend for the daily loop and the dashboard since 2026-10; same prompt/skill/MCP servers as opencode)**, `opencode` (Kimi via `opencode serve`, K3 default, per-run model - reuses the `da-live-author-playwright` skill + da.live/Playwright MCP; verified against real da.live, locally AND in-container; **kept as an option, but no Kimi subscription backs it since 2026-10** - set your own `MOONSHOT_API_KEY`) |
 | `coordinator/` | 4004 | A2A client AND server (`coordinate.run`): routed pipelines (`evaluate` \| `migrate` \| `generate+migrate` \| `full-loop` \| `auto`) with fan-out + variance stats; **stream-cut recovery via `tasks/get`** + cold-start retries; CLI `hello`/`batch`/`loop`; **+ the Next.js dashboard on the same port — the sole UI** (Google SSO via Auth.js, per-user runs; single/bulk/direct-eval/**migrate-a-real-page** lanes with per-run model + guiding principles, sample downloads, JSON export, live activity; database-free backend over `/store/runs`); per-site profiles in `src/site-profiles.ts`; eval-mode routing (generate→`quality`, migrate→`redesign`, evaluate-only→`fidelity`) |
 | `deploy/` | — | **The M5 Cloudflare deployment** (standalone, NOT an npm workspace — wrangler needs Node 22): the `content-factory` Worker, four Dockerfiles, wrangler config. See [deploy/CLAUDE.md](./deploy/CLAUDE.md) |
 | `contracts/` | — | JSON Schemas: `eval.run.v1`, `coordinate.run.v1`, `migration.run.v1`, `content.brief.v1`, `content.synthesize-source.v1` |
@@ -74,9 +74,10 @@ npm run hello                    # mesh smoke: cards + one task through each age
 npm run batch -- https://example.com https://example.org --fan-out 2
 npm run loop -- "ski wax temperature guide" --fan-out 2 --legacy-style messy
                                  # THE CLOSED LOOP: generate → migrate (dryrun) → eval (real engine)
-npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin
-                                 # the REAL loop: Kimi (K3 default) authors an actual Wilderness Journal article into /ai-articles (~10 min)
-npm run model-matrix             # same migration+eval across N models (Kimi K3/K2.7 via opencode, Claude via the sdk backend)
+npm run loop -- "Chasing light on an alpine lake circuit" --backend sdk --site adapt-to-2026-demo --owner jackzhaojin
+                                 # the REAL loop: Claude (Opus default) authors an actual Wilderness Journal article into /ai-articles
+                                 # (--backend opencode = Kimi K3, only with your own MOONSHOT_API_KEY)
+npm run model-matrix             # same migration+eval across N models (Claude via the sdk backend; Kimi rows opt-in via --models)
 ```
 
 External callers skip A2A entirely via the edge shim (one flat POST, webhook back):
@@ -264,7 +265,7 @@ Monorepo philosophy: **real tests only, no mocks.** Fast/live/soak spawn actual 
 
 Cloud tier (`e2e/tests-cloud/`, gated on `A2A_MESH_TOKEN` in env):
 - `cloud-mesh` — all four `/health`s; Agent Cards advertise public origins; `/a2a` + `/store/runs` 401 without bearers; a dryrun full-loop completes with the D1 run row, R2 source URL, live progress, and a real eval score
-- `cloud-kimi` — **opt-in** (`DALIVE_TEST_OWNER` + `DALIVE_TEST_SITE`; writes to real da.live, spends a K2.6 turn): full-loop with `backend: opencode` → asserts a real `*.aem.page` preview URL, all three stages completed, all four dimensions scored, run durable in D1. ~11 min.
+- `cloud-real-migration` (was `cloud-kimi`) - **opt-in** (`DALIVE_TEST_OWNER` + `DALIVE_TEST_SITE`; writes to real da.live, spends a real migration turn): full-loop with `backend: sdk` (Claude; `CLOUD_MIGRATION_BACKEND=opencode` for Kimi with your own key) → asserts a real `*.aem.page` preview URL, all three stages completed, all four dimensions scored, run durable in D1. ~11 min.
 
 The fast tier's 13 suites and live tier's 6 are enumerated in [`e2e/`](./e2e/) and the [build report](../ai-docs/2026-06-08-a2a-platform-v2.0/04-testing-and-status.md).
 

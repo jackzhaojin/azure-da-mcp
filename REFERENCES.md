@@ -43,4 +43,4 @@ Go deeper:
 
 The full list, grouped by job (protocols, models, agent runtimes, content platform, quality checks, cloud, build and deploy): [docs/tools-used.md](./docs/tools-used.md)
 
-Short version: A2A and MCP for the protocols, Kimi K3 and Claude for the models, opencode and the Claude Agent SDK to run them, Playwright MCP and axe-core for checks, da.live and Edge Delivery Services as the target, and Cloudflare Workers, Containers, D1, and R2 to host it.
+Short version: A2A and MCP for the protocols, Claude for the models (Kimi K3 optional, bring your own key), the Claude Agent SDK and opencode to run them, Playwright MCP and axe-core for checks, da.live and Edge Delivery Services as the target, and Cloudflare Workers, Containers, D1, and R2 to host it.

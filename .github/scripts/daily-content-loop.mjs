@@ -49,11 +49,18 @@ const MESH_TOKEN = process.env.A2A_MESH_TOKEN;
 const EDGE_TOKEN = process.env.A2A_EDGE_TOKEN || MESH_TOKEN;
 
 const GOAL = process.env.GOAL || "full-loop";
-const BACKEND = process.env.BACKEND || "opencode";
-// Kimi model for the opencode backend. Both this and "kimi-for-coding" (a moving
-// alias, currently K2.7 Coding) are declared in the migration image's opencode
-// config, so switching is a workflow input — no redeploy. Ignored by dryrun.
-const MODEL = process.env.MODEL || "k3";
+// sdk (Claude via the Agent SDK) is the default since 2026-10. opencode (Kimi)
+// stays an option, but no Kimi subscription backs the hosted mesh any more - it
+// needs a MOONSHOT_API_KEY Worker secret, else the migration fails fast.
+const BACKEND = process.env.BACKEND || "sdk";
+// The model for THIS run, per backend (dryrun takes none):
+//   sdk      - a Claude Code alias (opus | sonnet | haiku) or a full model id
+//   opencode - a Kimi id declared in the migration image's opencode config
+//              (k3, or the moving alias kimi-for-coding), so switching is a
+//              workflow input, no redeploy
+const CLAUDE_MODEL = process.env.MODEL || "opus";
+const KIMI_MODEL = process.env.KIMI_MODEL || "k3";
+const MODEL = BACKEND === "sdk" ? CLAUDE_MODEL : BACKEND === "opencode" ? KIMI_MODEL : undefined;
 const SITE = process.env.SITE || "adapt-to-2026-demo";
 const OWNER = process.env.OWNER || "jackzhaojin";
 // Empty → the coordinator's site profile supplies the lane (wilderness-journal for
@@ -64,12 +71,12 @@ const FAN_OUT = Math.max(1, Number(process.env.FAN_OUT || "1") || 1);
 
 const PREWARM_BUDGET_S = Number(process.env.PREWARM_BUDGET_S || "150");
 const POLL_INTERVAL_S = Number(process.env.POLL_INTERVAL_S || "30");
-const MAX_WAIT_S = Number(process.env.MAX_WAIT_S || "2700"); // 45 min — covers a 30-min Kimi turn + eval
+const MAX_WAIT_S = Number(process.env.MAX_WAIT_S || "2700"); // 45 min - covers a 30-min migration turn (sdk or opencode cap) + eval
 const RESOLVE_BUDGET_S = Number(process.env.RESOLVE_BUDGET_S || "120");
 // Self-heal: the migration container is COLD on a daily run (everything sleeps
-// between runs), and the first opencode turn after a cold start — or an occasional
-// Kimi stall — can hit the 30-min migration timeout. A second attempt runs against
-// a now-warm container with a fresh Kimi turn, which is what recovers it in practice.
+// between runs), and the first agentic turn after a cold start - or an occasional
+// model stall - can hit the 30-min migration timeout. A second attempt runs against
+// a now-warm container with a fresh model turn, which is what recovers it in practice.
 // NOTE: two worst-case attempts need ~85 min — keep the workflow's timeout-minutes above that.
 const MAX_ATTEMPTS = Math.max(1, Number(process.env.MAX_ATTEMPTS || "2") || 2);
 
@@ -126,7 +133,7 @@ async function prewarm() {
 async function submit() {
   /** @type {Record<string, unknown>} */
   const data = { goal: GOAL, fanOut: FAN_OUT, backend: BACKEND, site: SITE, owner: OWNER };
-  if (BACKEND === "opencode") data.model = MODEL;
+  if (MODEL) data.model = MODEL;
   if (TOPIC.trim()) data.topic = TOPIC.trim();
   if (LANE.trim()) data.lane = LANE.trim();
   // Mark it as the daily system loop (badge + "today's drafts" filter); NO
@@ -241,7 +248,7 @@ function summarize(run) {
     `| **Topic** | ${cfg.topic ?? "(none)"} |`,
     `| **Route** | ${stats.route ?? cfg.goal ?? GOAL} |`,
     `| **Backend / site** | ${cfg.backend ?? BACKEND} → ${cfg.owner ?? OWNER}/${cfg.site ?? SITE} |`,
-    `| **Model** | ${(cfg.backend ?? BACKEND) === "opencode" ? `\`${cfg.model ?? MODEL}\`` : "n/a"} |`,
+    `| **Model** | ${(cfg.model ?? MODEL) ? `\`${cfg.model ?? MODEL}\`` : "n/a"} |`,
     `| **Branches** | ${stats.completed ?? 0}/${stats.branches ?? branches.length} completed |`,
     `| **Overall score** | ${typeof score === "number" ? score : "—"} |`,
     `| **Memory** | ${memoryLine(stats.memory)} |`,

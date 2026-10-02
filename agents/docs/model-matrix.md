@@ -40,13 +40,18 @@ table in `results.md`. The matrix never runs `eval.reflect`, so it never writes 
 
 ## Run it
 
+**Since 2026-10 the default lineup is the three Claude models.** The Kimi rows (`k3`,
+`k27`) are opt-in: no Kimi subscription backs this project any more, so select them
+with `--models` only when you have your own Kimi For Coding key.
+
 ```bash
 cd agents
 set -a; source .env; set +a          # CLAUDE_CODE_OAUTH_TOKEN (sdk backend + agentic eval)
-export MOONSHOT_API_KEY=...          # only for the Kimi rows (usually in ~/.zshrc)
+export MOONSHOT_API_KEY=...          # only for the opt-in Kimi rows (your own Kimi For Coding key)
 
-npm run model-matrix                                   # all five models, sequential
-npm run model-matrix -- --models k3,sonnet             # a subset
+npm run model-matrix                                   # the three Claude models, sequential
+npm run model-matrix -- --models k3,k27,sonnet,opus,haiku  # the original five (needs a Kimi key)
+npm run model-matrix -- --models sonnet                # a subset
 npm run model-matrix -- --models dryrun                # $0 pipeline smoke (simulated migration, real eval)
 npm run model-matrix -- --source https://… --folder my-benchmark --slug my-page
 npm run model-matrix -- --no-memory --folder baseline  # pre-2.9 conditions (no memory page) for an A/B

@@ -38,7 +38,7 @@ export interface CoordinateRunPayload {
   /** Target folder override (verbatim, clean URL) — beats the site profile's contentFolder. */
   folder?: string;
   backend?: string;
-  /** opencode only: model for this run's migrations (e.g. "k3"); passed through to migration.run. */
+  /** Model for this run's migrations, interpreted by the backend (sdk: "opus"; opencode: "k3"); passed through to migration.run. */
   model?: string;
   /** Operator guiding principles for the migration prompt (free text); merged AFTER the site profile's standing migrationGuidance. */
   guidance?: string;

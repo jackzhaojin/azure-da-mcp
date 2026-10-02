@@ -16,15 +16,15 @@ v2.0 "A2A agent platform" (v1.1.0 = legacy `content-authoring-eval`, frozen — 
 - `vitest.config.ts` — **fast** tier (`tests/`, 30s timeout, retry 0)
 - `vitest.live.config.ts` — **live** tier (`tests-live/`, 240s timeout, `fileParallelism: false`)
 - `vitest.soak.config.ts` — **soak** tier (`tests-soak/`, 900s timeout)
-- `tests/` — fast (stub engine), `tests-live/` — real engine/browsers/R2, `tests-soak/` — `full-loop-10x`, `tests-cloud/` — drives the DEPLOYED mesh on `content-factory*.jackzhaojin.com` (spawns nothing; gated on `A2A_MESH_TOKEN`; the Kimi suite is opt-in and spends a real migration turn)
-- `scripts/model-matrix.ts` — the N-model benchmark: spawns its own migration+eval agents on 14431/14432, runs the same migration per model (Kimi via opencode, Claude via the `sdk` backend), evals with a fixed judge (`redesign` mode default), writes `agents/output/model-matrix/<folder>/results.{json,md}` + per-model eval reports; supports `--models`, `--eval-only` (re-score without re-migrating), merge-on-rerun
+- `tests/` — fast (stub engine), `tests-live/` — real engine/browsers/R2, `tests-soak/` — `full-loop-10x`, `tests-cloud/` — drives the DEPLOYED mesh on `content-factory*.jackzhaojin.com` (spawns nothing; gated on `A2A_MESH_TOKEN`; the real-migration suite is opt-in and spends a real migration turn - `sdk`/Claude by default, `CLOUD_MIGRATION_BACKEND=opencode` for Kimi with your own key)
+- `scripts/model-matrix.ts` — the N-model benchmark: spawns its own migration+eval agents on 14431/14432, runs the same migration per model (Claude via the `sdk` backend by default; Kimi via opencode as opt-in rows since 2026-10), evals with a fixed judge (`redesign` mode default), writes `agents/output/model-matrix/<folder>/results.{json,md}` + per-model eval reports; supports `--models`, `--eval-only` (re-score without re-migrating), merge-on-rerun
 
 ## Gotchas / non-obvious (MOST IMPORTANT)
 - **FOUR tiers** (run from `agents/`):
   - `npm run test:e2e` → fast (`tests/`, **the CI tier**) — stub engine, no browsers, no API keys. Safe to run with or without `.env` sourced: `startAgent` strips behavior-changing env (mesh/edge tokens, SSO, peer URLs, `EVAL_ENGINE`, D1 proxy, R2, Make.com, and since v2.9 `DALIVE_MCP_URL` so the agent-memory loop never touches the real da.live page — `tests/memory.e2e.test.ts` + the closed-loop memory cases assert the "skipped"/stub outcomes) before spawning, so spawned agents are deterministic regardless of the invoking shell. A test that wants one of those vars passes it explicitly via `opts.env` (see `SANITIZED_ENV_VARS` in `helpers/mesh.ts`).
   - `npm run test:live` → live (`tests-live/`) — real engine, real Chromium/axe/screenshots, real R2; creds-gated
   - `npm run test:soak` → `tests-soak/full-loop-10x` — M4 DoD "10x run completes unattended"
-  - `npm run test:cloud` → cloud (`tests-cloud/`) — the DEPLOYED Cloudflare mesh, real A2A client against the public hostnames; needs `A2A_MESH_TOKEN` (+ `DALIVE_TEST_OWNER`/`DALIVE_TEST_SITE` to opt into the real-Kimi suite)
+  - `npm run test:cloud` → cloud (`tests-cloud/`) — the DEPLOYED Cloudflare mesh, real A2A client against the public hostnames; needs `A2A_MESH_TOKEN` (+ `DALIVE_TEST_OWNER`/`DALIVE_TEST_SITE` to opt into the real-migration suite, `cloud-real-migration`)
 - **Live R2 + eval tests auto-skip without creds** — `describe.skipIf(!haveR2)` etc. A green `test:live` may mean *skipped*, not *passed*. R2 test needs `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` / `R2_PUBLIC_BASE` / (`R2_S3_ENDPOINT` | `R2_ACCOUNT_ID`).
 - **Live engine runs with API keys STRIPPED** — `NO_AI_ENV` blanks `CLAUDE_CODE_OAUTH_TOKEN` + `ANTHROPIC_API_KEY` so agentic passes fall back to deterministic scoring: real browsers, **$0 spend**. Full-agentic runs are manual (provide a real `CLAUDE_CODE_OAUTH_TOKEN`).
 - **Root `npm run typecheck` does NOT cover e2e** — it only checks `tsconfig.json` + `eval-service/tsconfig.json`. The CI tsc gate skips this package; e2e type errors surface only when the tests run.
@@ -43,7 +43,7 @@ npm run test:e2e     # fast (CI tier)
 npm run test:live    # live (creds-gated; skips R2/eval without creds)
 npm run test:soak    # full-loop-10x
 npm run test:cloud   # deployed mesh (needs A2A_MESH_TOKEN)
-npm run model-matrix # N-model benchmark (see docs/model-matrix.md; Kimi rows need MOONSHOT_API_KEY, Claude rows CLAUDE_CODE_OAUTH_TOKEN)
+npm run model-matrix # N-model benchmark (see docs/model-matrix.md; Claude rows by default need CLAUDE_CODE_OAUTH_TOKEN, the opt-in Kimi rows MOONSHOT_API_KEY)
 ```
 Fast tier needs nothing but the repo — it spawns real servers itself.
 

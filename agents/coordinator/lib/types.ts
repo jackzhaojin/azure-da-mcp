@@ -115,7 +115,7 @@ export interface RunView {
     dimensions?: string[];
     title?: string;
     backend?: string;
-    /** opencode only: which Kimi model produced this run (e.g. "k3"). */
+    /** The model requested for this run's migrations (sdk: e.g. "opus"; opencode: e.g. "k3"). */
     model?: string;
     /** Operator guiding principles threaded into the migration prompt (merged after the site profile's defaults). */
     guidance?: string;

@@ -5,8 +5,14 @@
 # run (user_email NULL → visible to every dashboard user). A human curates +
 # promotes later. Design: ai-docs/2026-06-17-v2.2-agentic-loop/design.md
 #
-# Manual runs (workflow_dispatch) take overrides — use backend=dryrun for a cheap
-# end-to-end smoke that doesn't spend a Kimi turn or touch da.live.
+# Manual runs (workflow_dispatch) take overrides - use backend=dryrun for a cheap
+# end-to-end smoke that doesn't spend a model turn or touch da.live.
+#
+# Migration backend: `sdk` (Claude via the Agent SDK, on the Claude subscription
+# OAuth token the Worker already holds) is the default since 2026-10. `opencode`
+# (Kimi K3) stays selectable, but NO Kimi subscription backs this deployment any
+# more - it only works if a MOONSHOT_API_KEY (a Kimi For Coding key) is set as a
+# Worker secret. Without it an opencode run fails fast with a setup hint.
 name: daily-content-loop
 
 on:
@@ -17,18 +23,26 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: "Migration backend"
+        description: "Migration backend (sdk = Claude; opencode = Kimi, needs your own Kimi key)"
         type: choice
-        default: opencode
-        options: [opencode, dryrun]
+        default: sdk
+        options: [sdk, opencode, dryrun]
       model:
-        # Both ids are declared in agents/deploy/docker/opencode-global.jsonc, so
-        # switching here needs NO redeploy. "kimi-for-coding" is a moving alias
+        # Claude Code model aliases - they resolve to the newest model of each
+        # tier, and the run log records the resolved id. Opus tied for best (90)
+        # in the 2026-09-08 model assessment, with the fastest migration.
+        description: "Claude model (sdk backend only)"
+        type: choice
+        default: opus
+        options: [opus, sonnet, haiku]
+      kimiModel:
+        # Only meaningful with a MOONSHOT_API_KEY on the Worker (none since
+        # 2026-10). Both ids are declared in agents/deploy/docker/opencode-global.jsonc,
+        # so switching here needs NO redeploy. "kimi-for-coding" is a moving alias
         # that currently resolves to K2.7 Coding; k3 is the newer line.
-        # Only ids DECLARED in that file may be listed here — an undeclared id
-        # fails mid-run, not at submit. k3-256k / kimi-for-coding-highspeed also
-        # exist on the key but are deliberately not offered until declared.
-        description: "Kimi model (opencode backend only)"
+        # Only ids DECLARED in that file may be listed here - an undeclared id
+        # fails mid-run, not at submit.
+        description: "Kimi model (opencode backend only - no Kimi subscription on this deployment)"
         type: choice
         default: k3
         options: [k3, kimi-for-coding]
@@ -84,14 +98,15 @@ jobs:
           # identity: no requestedBy is sent, so the run is NULL-owned (shared).
           A2A_MESH_TOKEN: ${{ secrets.A2A_MESH_TOKEN }}
           A2A_EDGE_TOKEN: ${{ secrets.A2A_EDGE_TOKEN }}
-          # Run params — empty on a scheduled run, so the script's defaults apply
-          # (full-loop / opencode / adapt-to-2026-demo / jackzhaojin / ideate). The
+          # Run params - empty on a scheduled run, so the script's defaults apply
+          # (full-loop / sdk + opus / adapt-to-2026-demo / jackzhaojin / ideate). The
           # site profile (coordinator) supplies the wilderness-journal lane + voice,
           # the ai-articles target folder, and the /ai-content reference corpus.
           GOAL: ${{ github.event.inputs.goal }}
           BACKEND: ${{ github.event.inputs.backend }}
-          # Empty on the scheduled run → the script's own default (k3) applies.
+          # Empty on the scheduled run → the script's own defaults (opus / k3) apply.
           MODEL: ${{ github.event.inputs.model }}
+          KIMI_MODEL: ${{ github.event.inputs.kimiModel }}
           SITE: ${{ github.event.inputs.site }}
           OWNER: ${{ github.event.inputs.owner }}
           TOPIC: ${{ github.event.inputs.topic }}

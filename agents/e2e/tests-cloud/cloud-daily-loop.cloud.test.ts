@@ -8,8 +8,8 @@ import { randomUUID } from "node:crypto";
  * run the pipeline, and the run must land as a SHARED system run (user_email
  * NULL) with the ideated topic written back into its config. This is exactly
  * what the GitHub Actions daily-content-loop submits (here on the cheap dryrun
- * backend so it costs no Kimi turn). The opencode acceptance lives in
- * cloud-kimi.cloud.test.ts.
+ * backend so it costs no model turn). The real-backend acceptance (sdk by
+ * default) lives in cloud-real-migration.cloud.test.ts.
  */
 
 const COORDINATOR = process.env.CLOUD_COORDINATOR_URL ?? "https://content-factory.jackzhaojin.com";

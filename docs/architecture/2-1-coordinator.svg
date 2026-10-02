@@ -26,7 +26,7 @@
   <text x="58" y="142" font-size="11.5" fill="#414a55">:4004 local · content-factor-dash.jackzhaojin.com</text>
   <text x="58" y="162" font-size="11.5" fill="#414a55">Google SSO → every run carries runs.user_email</text>
   <text x="58" y="182" font-size="11.5" fill="#414a55">Lanes: single · bulk · direct-eval · migrate-a-real-page</text>
-  <text x="58" y="202" font-size="11.5" fill="#414a55">Per-run knobs: backend, Kimi model, target folder,</text>
+  <text x="58" y="202" font-size="11.5" fill="#414a55">Per-run knobs: backend, model, target folder,</text>
   <text x="58" y="219" font-size="11.5" fill="#414a55">fan-out, guiding principles (free-text)</text>
   <text x="58" y="246" font-size="10.5" fill="#6e7781" font-style="italic">the interactive front door - HITL at the start</text>
 

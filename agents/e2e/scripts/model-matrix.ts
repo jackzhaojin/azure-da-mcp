@@ -13,8 +13,8 @@
  *      every run, so a crash loses nothing)
  *
  * Requirements (env / agents/.env): CLAUDE_CODE_OAUTH_TOKEN (sdk backend +
- * agentic eval), MOONSHOT_API_KEY (Kimi models). Spawns its own migration +
- * eval agents on isolated 14xxx ports — no dev servers needed.
+ * agentic eval), MOONSHOT_API_KEY (only for the opt-in Kimi rows). Spawns its
+ * own migration + eval agents on isolated 14xxx ports - no dev servers needed.
  *
  * Since v2.9 (agent memory + usage evidence) every row also records HOW the
  * model worked: whether it read the site's memory page (and which rules it says
@@ -23,8 +23,9 @@
  * reproduces the pre-2.9 baseline conditions for a controlled A/B.
  *
  * Usage (from agents/):
- *   npm run model-matrix                                  # all five models
- *   npm run model-matrix -- --models k3,sonnet            # subset
+ *   npm run model-matrix                                  # the three Claude models
+ *   npm run model-matrix -- --models k3,k27,sonnet,opus,haiku  # + Kimi (needs a Kimi key)
+ *   npm run model-matrix -- --models sonnet               # subset
  *   npm run model-matrix -- --source <url> --folder my-run
  *   npm run model-matrix -- --no-memory --folder baseline # without the memory page
  */
@@ -48,10 +49,14 @@ interface ModelConfig {
   optIn?: boolean;
 }
 
-/** The comparison lineup. Kimi via the opencode backend, Claude via the Agent SDK backend. */
+/**
+ * The comparison lineup. Claude via the Agent SDK backend, Kimi via the opencode
+ * backend. The Kimi rows are opt-in since 2026-10 (no Kimi subscription backs
+ * this project any more); select them with --models when you have a Kimi key.
+ */
 const MODELS: ModelConfig[] = [
-  { key: "k3", label: "Kimi K3", backend: "opencode", model: "k3" },
-  { key: "k27", label: "Kimi K2.7", backend: "opencode", model: "kimi-for-coding" },
+  { key: "k3", label: "Kimi K3", backend: "opencode", model: "k3", optIn: true },
+  { key: "k27", label: "Kimi K2.7", backend: "opencode", model: "kimi-for-coding", optIn: true },
   { key: "sonnet", label: "Claude Sonnet 5", backend: "sdk", model: "claude-sonnet-5" },
   { key: "opus", label: "Claude Opus 5", backend: "sdk", model: "claude-opus-5" },
   { key: "haiku", label: "Claude Haiku 4.5", backend: "sdk", model: "claude-haiku-4-5" },

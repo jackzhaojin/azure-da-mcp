@@ -108,10 +108,10 @@ export function BulkRunCard() {
   // truth (read-only table, v1-style); a plain URL list stays in the editable textarea.
   const [pages, setPages] = useState<EvalItem[] | null>(null);
   const [dims, setDims] = useState<string[]>([...DIMENSIONS]);
-  const [backend, setBackend] = useState("dryrun");
+  const [backend, setBackend] = useState("sdk"); // same default as the single-run trigger (Claude, since 2026-10)
   const [legacyStyle, setLegacyStyle] = useState("dated");
   const [fanOut, setFanOut] = useState(1);
-  const [site, setSite] = useState("da-live-postal-2025-07");
+  const [site, setSite] = useState("adapt-to-2026-demo");
   const [owner, setOwner] = useState("jackzhaojin");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(0);
@@ -346,10 +346,10 @@ export function BulkRunCard() {
               <div className="space-y-2">
                 <Label htmlFor="bulk-backend">Migration backend</Label>
                 <select id="bulk-backend" className={selectClass} value={backend} onChange={(e) => setBackend(e.target.value)}>
-                  <option value="dryrun">dryrun — instant, no real writes</option>
-                  <option value="opencode">opencode — Kimi K2.6 authors real da.live pages</option>
-                  <option value="makecom">makecom — Make.com scenario</option>
-                  <option value="sdk">sdk — Claude Agent SDK (stub)</option>
+                  <option value="sdk">sdk - Claude (Agent SDK) authors real da.live pages</option>
+                  <option value="dryrun">dryrun - instant, no real writes</option>
+                  <option value="opencode">opencode - Kimi K3 / K2.7 (bring your own Kimi key)</option>
+                  <option value="makecom">makecom - Make.com scenario</option>
                 </select>
               </div>
               <div className="space-y-2">

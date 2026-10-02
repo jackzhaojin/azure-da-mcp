@@ -13,8 +13,8 @@ What the content factory is built on, grouped by job. For how the pieces fit tog
 
 | Tool | Used for | Link |
 |---|---|---|
-| Kimi K3 (Moonshot AI) | the default migration author; K2.7 also benchmarked | https://platform.moonshot.ai |
-| Claude Sonnet 5, Opus 5, Haiku 4.5 (Anthropic) | the `sdk` migration backend, picked per run | https://docs.claude.com/en/docs/about-claude/models/overview |
+| Claude Opus, Sonnet, Haiku (Anthropic) | the `sdk` migration backend, picked per run; the default migration author since 2026-10 (Opus) | https://docs.claude.com/en/docs/about-claude/models/overview |
+| Kimi K3 (Moonshot AI) | the `opencode` migration backend; the default migration author until 2026-10, now optional (no Kimi subscription backs this project, bring your own key); K2.7 also benchmarked | https://platform.moonshot.ai |
 | Claude (Anthropic) | content generation, the agentic eval judge, and `eval.reflect` writing memory rules | https://www.anthropic.com/claude |
 
 ## Agent runtimes
@@ -22,7 +22,7 @@ What the content factory is built on, grouped by job. For how the pieces fit tog
 | Tool | Used for | Link |
 |---|---|---|
 | Claude Agent SDK | runs Claude inside content-gen, the eval agent, and the `sdk` migration backend | https://docs.claude.com/en/docs/agent-sdk/overview |
-| opencode (pinned 1.18.25) | runs Kimi headless for the default migration backend (`opencode serve` + REST) | https://opencode.ai |
+| opencode (pinned 1.18.25) | runs Kimi headless for the optional `opencode` migration backend (`opencode serve` + REST); the default backend until 2026-10 | https://opencode.ai |
 | Agent skill: `da-live-author-playwright` | the authoring playbook; the same file runs under Kimi and Claude | [.claude/skills/da-live-author-playwright/](../.claude/skills/da-live-author-playwright/) |
 
 ## Content platform

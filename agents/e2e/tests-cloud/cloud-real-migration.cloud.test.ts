@@ -3,13 +3,17 @@ import { meshClientFactory } from "@agents/a2a-common";
 import { randomUUID } from "node:crypto";
 
 /**
- * Cloud tier 2 — THE acceptance: the full closed loop on Cloudflare with the
+ * Cloud tier 2 - THE acceptance: the full closed loop on Cloudflare with the
  * REAL backends. content-gen synthesizes a legacy page (R2), the migration
- * container drives Kimi K2.6 (opencode serve) to author a REAL da.live page,
- * and the eval container scores the published preview with the real engine.
+ * container drives a real model to author a REAL da.live page, and the eval
+ * container scores the published preview with the real engine.
  *
- * Opt-in (writes to da.live, spends a K2.6 turn): needs DALIVE_TEST_OWNER +
- * DALIVE_TEST_SITE in addition to the mesh token.
+ * The migration backend is `sdk` (Claude, the default since 2026-10) unless
+ * CLOUD_MIGRATION_BACKEND=opencode (Kimi - only with a MOONSHOT_API_KEY on the
+ * Worker; no Kimi subscription backs the mesh any more). Was cloud-kimi until then.
+ *
+ * Opt-in (writes to da.live, spends a real migration turn): needs
+ * DALIVE_TEST_OWNER + DALIVE_TEST_SITE in addition to the mesh token.
  */
 
 const COORDINATOR = process.env.CLOUD_COORDINATOR_URL ?? "https://content-factory.jackzhaojin.com";
@@ -17,9 +21,10 @@ const MESH_TOKEN = process.env.A2A_MESH_TOKEN;
 const EDGE_TOKEN = process.env.A2A_EDGE_TOKEN || MESH_TOKEN;
 const SITE = process.env.DALIVE_TEST_SITE;
 const OWNER = process.env.DALIVE_TEST_OWNER;
+const BACKEND = process.env.CLOUD_MIGRATION_BACKEND || "sdk";
 
-describe.skipIf(!MESH_TOKEN || !SITE || !OWNER)("cloud closed loop: Kimi K2.6 + real eval", () => {
-  it("full-loop with backend=opencode authors a real da.live page and scores it", async () => {
+describe.skipIf(!MESH_TOKEN || !SITE || !OWNER)(`cloud closed loop: real migration (${BACKEND}) + real eval`, () => {
+  it(`full-loop with backend=${BACKEND} authors a real da.live page and scores it`, async () => {
     const topic = `content factory cloud ${randomUUID().slice(0, 6)}`;
     const client = await meshClientFactory().createFromUrl(COORDINATOR);
     let contextId = "";
@@ -45,7 +50,7 @@ describe.skipIf(!MESH_TOKEN || !SITE || !OWNER)("cloud closed loop: Kimi K2.6 + 
         parts: [
           {
             kind: "data",
-            data: { goal: "full-loop", topic, fanOut: 1, backend: "opencode", site: SITE, owner: OWNER },
+            data: { goal: "full-loop", topic, fanOut: 1, backend: BACKEND, site: SITE, owner: OWNER },
           },
         ],
       },
@@ -68,7 +73,7 @@ describe.skipIf(!MESH_TOKEN || !SITE || !OWNER)("cloud closed loop: Kimi K2.6 + 
     expect(stats.completed, `completed branches. trail:\n${trail}`).toBe(1);
 
     const branch = stats.branchResults![0];
-    // Kimi authored a REAL page: the eval target must be a published preview URL
+    // the model authored a REAL page: the eval target must be a published preview URL
     expect(branch.target, "preview URL").toMatch(/^https:\/\/.+\.aem\.page\//);
     // all three stages ran
     expect(branch.stages?.map((s) => `${s.stage}:${s.state}`)).toEqual([

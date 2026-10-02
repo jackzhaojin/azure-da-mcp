@@ -1,4 +1,5 @@
-# migration agent — opencode (Kimi) + Playwright MCP validation
+# migration agent - sdk (Claude via the Agent SDK, the default since 2026-10) +
+# opencode (Kimi, optional: needs a MOONSHOT_API_KEY) + Playwright MCP validation
 # (standard-1 instance: 4 GiB)
 FROM node:20-bookworm-slim
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -49,8 +50,21 @@ RUN npm i -g @playwright/mcp@${PLAYWRIGHT_MCP_VERSION} \
 # The container runs as root, where Chromium's sandbox cannot start. Both names are
 # @playwright/mcp's own env config; opencode-config.ts playwrightMcpCommand() also
 # passes them as explicit --browser / --no-sandbox flags.
+# PLAYWRIGHT_MCP_BIN pins the launch to the bin installed above (the Worker sets
+# the same value); unset, playwrightMcpCommand() falls back to npx fetching the newest
+# Playwright MCP, which wants a newer browser revision than this image has - so a bare
+# `docker run <image> npx tsx src/playwright-probe.ts` would test the wrong MCP.
 ENV PLAYWRIGHT_MCP_BROWSER=chromium \
-    PLAYWRIGHT_MCP_SANDBOX=false
+    PLAYWRIGHT_MCP_SANDBOX=false \
+    PLAYWRIGHT_MCP_BIN=/usr/local/bin/playwright-mcp
+
+# sdk backend: the Agent SDK spawns the Claude Code binary from its platform
+# package (@anthropic-ai/claude-agent-sdk-linux-x64, installed by the npm ci
+# above), always with bypassPermissions. That CLI refuses permission-skipping
+# as root unless IS_SANDBOX=1. eval/content-gen solve it with a non-root user,
+# but this image is root throughout (opencode under /root, Chromium's
+# --no-sandbox above), and the container IS the sandbox, so declare it.
+ENV IS_SANDBOX=1
 
 # the da-live-author-playwright skill (synced from /.claude/skills by `npm run sync-skill`)
 COPY deploy/skills /app/skills
@@ -58,8 +72,12 @@ COPY deploy/skills /app/skills
 COPY a2a-common ./a2a-common
 COPY contracts ./contracts
 COPY migration-agent ./migration-agent
+# writes $HOME/.claude.json (the OAuth account stanza) from env at boot, never baked in
+COPY deploy/docker/migration-entrypoint.sh /usr/local/bin/migration-entrypoint.sh
+RUN chmod +x /usr/local/bin/migration-entrypoint.sh
 
 WORKDIR /app/migration-agent
 ENV PORT=8080
 EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/migration-entrypoint.sh"]
 CMD ["npx", "tsx", "src/index.ts"]

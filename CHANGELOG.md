@@ -9,6 +9,16 @@ Two release lines:
 
 ---
 
+## Unreleased (2026-10-02)
+
+- **Claude is the default migration author; Kimi K3 no longer has a backing subscription.** The Kimi For Coding subscription behind `MOONSHOT_API_KEY` is being cancelled, so the migration default moves from `opencode` (Kimi K3) to `sdk` (Claude via the Agent SDK, on the Claude subscription OAuth token the Worker already holds). The opencode backend, the Kimi wire-repair proxy, and the Kimi model options all stay in the code for anyone with their own Kimi key.
+  - **Daily loop** (`daily-content-loop.yml` + `.github/scripts/daily-content-loop.mjs`): `backend` defaults to `sdk` (options `sdk` / `opencode` / `dryrun`); `model` is now the Claude model (`opus` default, `sonnet`, `haiku`); the Kimi model moved to a new `kimiModel` input. The step summary shows the model for both backends.
+  - **Dashboard**: the single-run trigger and the bulk lane default to `sdk`, with a Claude model picker (agent default / opus / sonnet / haiku); the stale "sdk (stub)" and "Kimi K2.6" labels are gone, and picking `opencode` shows a note that it needs your own Kimi key. Switching backend resets the model so a Kimi id never reaches a Claude run. The bulk lane's default site also moved off the retired `da-live-postal-2025-07` to `adapt-to-2026-demo`.
+  - **Cloud migration container** (it had never run `sdk`): the Worker now passes `CLAUDE_CODE_OAUTH_TOKEN` + the `CLAUDE_ACCOUNT_UUID`/`CLAUDE_EMAIL`/`CLAUDE_ORG_UUID` stanza, `CLAUDE_MIGRATION_MODEL` (new var, `opus`), and `SDK_MIGRATION_TIMEOUT_MS=1800000` (the same 30-min cap as opencode, so the daily loop's 2-attempt budget holds); `MOONSHOT_API_KEY` is passed only if the secret exists. `migration.Dockerfile` adds `migration-entrypoint.sh` (writes `.claude.json`) and `IS_SANDBOX=1`: the image runs as root, and the Claude binary refuses `bypassPermissions` as root without it. The image also bakes `PLAYWRIGHT_MCP_BIN`, so a bare `docker run` probes the pinned Playwright MCP instead of `@latest`.
+  - **New `npm run probe:sdk -w @agents/migration-agent`** (`src/sdk-probe.ts`): one short turn with the sdk backend's harness options and a Bash call. Proven inside a local `linux/amd64` build of the migration image: as root it ran (uid 0, `claude-haiku-4-5` and `opus` → `claude-opus-5`); with `IS_SANDBOX` cleared it failed with the root-guard error. The #14 Playwright probe still passes in the same image.
+  - `CLAUDE_MIGRATION_MODEL` default `sonnet` → `opus` (it tied for best, 90, in the 2026-09-08 assessment, with the fastest migration). `npm run model-matrix` now runs the three Claude models by default; the Kimi rows are opt-in via `--models`. The cloud real-migration test is renamed `cloud-kimi` → `cloud-real-migration` and runs `sdk` unless `CLOUD_MIGRATION_BACKEND=opencode`. `MIGRATION_DEFAULT_BACKEND` (calls that name no backend) stays `dryrun`.
+  - Docs and architecture diagrams updated (2-1, 2-2, 2-5, 2-7, 2-8, 4-1, 4-2).
+
 ## 2.9 (2026-09-05)
 
 Tags: `v2.9.0` - agent memory (the self-improvement loop from the talk's "Core Capabilities" slide, restored from v1), `v2.9.1` - the two-tier memory page, `v2.9.2` - evidence that the block library and memory are actually used, `v2.9.3` - the evidence fix for Cloudflare, `v2.9.4` - a working browser in the cloud migration container.

@@ -15,8 +15,8 @@ The **v2.0** workstream: a decoupled mesh of independently-addressable AI agents
 | `contracts/` | — | JSON Schemas for every skill | — |
 | `eval-service/` | 4001 | Eval agent — engine **copied** from the frozen app; `eval.run` (4 dims) + **`eval.reflect`** (v2.9: distil a scored run into rules → append to the site's memory page) | [✓](./eval-service/CLAUDE.md) |
 | `content-gen/` | 4002 | Briefs + synthetic legacy source pages | [✓](./content-gen/CLAUDE.md) |
-| `migration-agent/` | 4003 | One Agent Card, backends `dryrun`/`makecom`/`opencode` (Kimi)/`sdk` (Claude, Agent SDK + OAuth); owns the Make.com callback | [✓](./migration-agent/CLAUDE.md) |
-| `coordinator/` | 4004 | A2A client+server: routing, fan-out, variance; CLI; **+ its own Next.js dashboard on :4004/** — the sole UI: single/bulk/direct-eval + migrate-a-real-page lanes (multi-URL → one branch per URL, folder override, per-run Kimi model), sample downloads, JSON export, live activity, branch grid | [✓](./coordinator/CLAUDE.md) |
+| `migration-agent/` | 4003 | One Agent Card, backends `dryrun`/`makecom`/`sdk` (Claude, Agent SDK + OAuth - the default for real runs since 2026-10)/`opencode` (Kimi - optional, needs your own Kimi key); owns the Make.com callback | [✓](./migration-agent/CLAUDE.md) |
+| `coordinator/` | 4004 | A2A client+server: routing, fan-out, variance; CLI; **+ its own Next.js dashboard on :4004/** — the sole UI: single/bulk/direct-eval + migrate-a-real-page lanes (multi-URL → one branch per URL, folder override, per-run model), sample downloads, JSON export, live activity, branch grid | [✓](./coordinator/CLAUDE.md) |
 | `store-mcp/` | stdio | MCP server — conversational read access to the store | [✓](./store-mcp/CLAUDE.md) |
 | `e2e/` | — | Real-server tests (fast/live/soak) | [✓](./e2e/CLAUDE.md) |
 | `docs/` | — | `r2-setup.md` · `tunnel-setup.md` · `makecom-scenario-checklist.md` · `model-matrix.md` (N-model benchmark: `npm run model-matrix`) | — |
@@ -35,8 +35,8 @@ npm run dev:migration             # :4003
 npm run dev:coordinator           # :4004 (A2A + the coordinator dashboard at http://localhost:4004/ — the sole UI)
 
 npm run loop -- "rooftop solar maintenance" --fan-out 2   # drive the closed loop
-npm run loop -- "Chasing light on an alpine lake circuit" --backend opencode --site adapt-to-2026-demo --owner jackzhaojin  # Kimi (K3 default) real migration (Wilderness Journal)
-npm run model-matrix              # benchmark N models (Kimi + Claude) over the same migration+eval — docs/model-matrix.md
+npm run loop -- "Chasing light on an alpine lake circuit" --backend sdk --site adapt-to-2026-demo --owner jackzhaojin  # Claude (Opus default) real migration (Wilderness Journal)
+npm run model-matrix              # benchmark N models over the same migration+eval (Claude by default; Kimi rows opt-in) - docs/model-matrix.md
 ```
 
 > **Content target + IA**: generated articles + the daily loop point at the **`adapt-to-2026-demo`** "Wilderness Journal" site (the old `da-live-postal-2025-07` site is retired). Per-site behavior — editorial lane, voice, target folder, reference corpus — lives in `coordinator/src/site-profiles.ts`. **IA split**: `…/ai-content/**` is the hand-built best-practice REFERENCE corpus the migrator learns from (block showcases + `/ai-content/stories/chasing-sunsets`); **AI-generated drafts land in `…/ai-articles/**`** so they never pollute the reference tree. **Agent memory (v2.9)**: `…/ai-content/memory` is a human-editable da.live page the migration agent READS before every run (injected into its prompt) and the eval agent APPENDS to after every scored run (`eval.reflect`, 0-3 new rules per run) — the closed loop now "improves itself". Enabled wherever `DALIVE_MCP_URL` is set (it is in `.env` and in cloud); the fast e2e tier strips it.
@@ -50,6 +50,7 @@ npm run model-matrix              # benchmark N models (Kimi + Claude) over the 
 - **Auth**: `A2A_MESH_TOKEN` gates `/a2a` between agents; `A2A_EDGE_TOKEN` (falls back to mesh token) gates `/hooks/*` and the migration `/callbacks/*`. The coordinator **dashboard** has its own Google SSO (Auth.js v5): set `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET`/`AUTH_SECRET` to require sign-in (pages + `/api/*`) and tie runs to the user (`runs.user_email`); unset = open (dev). Both tokens are SET in `.env` now that :4004 is public — restart agents after re-sourcing.
 - **Tests are real, no mocks.** Fast tier (`npm run test:e2e`, stub engine) is the CI gate; `test:live` (real engine/browsers/R2, creds-gated) and `test:soak` (10× loop) run locally. Typecheck: `npm run typecheck` (root + eval-service's own tsconfig).
 - **`type: module`** across the workspaces — any copied CJS helper must be `.cjs` (this bit the eval engine's Playwright scripts).
+- **Migration backend default = `sdk` (Claude) since 2026-10**, for the daily-loop workflow and the dashboard. The Kimi subscription was cancelled then, so `opencode` (Kimi K3/K2.7) has no backing subscription any more; the code stays as an option for anyone with their own Kimi For Coding key (`MOONSHOT_API_KEY`). With no key an opencode run fails fast at `assertConfigured()` with a setup hint; with a lapsed key it fails at the first model call. The agent-level fallback for calls that name no backend (`MIGRATION_DEFAULT_BACKEND`) is still `dryrun`.
 - **undici's 300s fetch timeouts are disabled mesh-wide** (`a2a-common/src/net.ts`, side-effect of importing `@agents/a2a-common`). Node 20's fetch otherwise kills agentic turns >5 min (Kimi migrations) and quiet SSE streams at exactly 300s — "TypeError: fetch failed"/"terminated" at ~301s is THIS, not a network problem.
 
 ## Cloudflare infra (as-built, see the v2.0 report)

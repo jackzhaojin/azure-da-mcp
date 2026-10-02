@@ -23,7 +23,7 @@ The headline capability is a **closed loop**: the **coordinator** asks **content
 |-------|------|------|
 | coordinator | 4004 | Routes, fans out, aggregates variance (A2A client **and** server) — **plus its own Next.js dashboard** at `:4004/` (trigger, live activity feed, branch grid) |
 | content-gen | 4002 | Content briefs + synthetic legacy source pages (template tier) |
-| migration | 4003 | Authors into da.live — one Agent Card over backends (`dryrun` / **`opencode` = Kimi, K3 default** / **`sdk` = Claude via Agent SDK OAuth** / Make.com), all real-page verified |
+| migration | 4003 | Authors into da.live — one Agent Card over backends (`dryrun` / **`sdk` = Claude via Agent SDK OAuth, the default since 2026-10** / `opencode` = Kimi K3, optional - no Kimi subscription backs it any more / Make.com), all real-page verified |
 | eval | 4001 | 4-dimension migration-quality evaluation (engine copied from v1.x; deterministic always, agentic when Claude creds are set; modes `fidelity` / `quality` / `redesign`) |
 
 **Quick Start**:
@@ -45,8 +45,8 @@ npm run model-matrix                                      # benchmark N models o
 
 **Key Features**:
 - Official A2A SDK end-to-end: Agent Cards, `message/stream` (SSE), `tasks/get`, push notifications, an edge webhook shim
-- **Model-vendor-swappable migration**: the same contract, MCP server, and skill run under `dryrun`, Make.com, **Kimi headless via opencode** (K3 default, per-run model selection), or **Claude via the Agent SDK** (subscription OAuth, per-run model) — real da.live pages authored, published, and scored, and benchmarked head-to-head by `npm run model-matrix` ([docs](./agents/docs/model-matrix.md))
-- **Coordinator dashboard** (Next.js 15 riding the same :4004 process — A2A wire surface untouched): trigger runs (single / bulk / direct-eval / migrate-a-real-page lanes, per-run model + guiding principles), watch live tool/skill activity (`K3 → dalive_save_dalive_content`), branch grids, variance tables, JSON export
+- **Model-vendor-swappable migration**: the same contract, MCP server, and skill run under `dryrun`, Make.com, **Claude via the Agent SDK** (subscription OAuth, per-run model; the default since 2026-10), or **Kimi headless via opencode** (K3, per-run model selection; kept for anyone with a Kimi subscription, none backs this project any more) — real da.live pages authored, published, and scored, and benchmarked head-to-head by `npm run model-matrix` ([docs](./agents/docs/model-matrix.md))
+- **Coordinator dashboard** (Next.js 15 riding the same :4004 process — A2A wire surface untouched): trigger runs (single / bulk / direct-eval / migrate-a-real-page lanes, per-run model + guiding principles), watch live tool/skill activity (`sdk/claude-opus-5 → mcp__dalive__save_dalive_content`), branch grids, variance tables, JSON export
 - Persistence on **Cloudflare D1** (same SQL as local SQLite) + artifacts on **R2** (public `r2.dev`)
 - **Make.com interop** through a live named `cloudflared` tunnel (`a2a.jackzhaojin.com`)
 - Browser-pooled, job-queued, restart-survivable eval; deterministic always + agentic when Claude creds are configured
@@ -167,5 +167,5 @@ Apache License 2.0
 ---
 
 **Last Updated**: 2026-08-29
-**Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP, opencode (Kimi K3/K2.7)
+**Primary Tools**: Claude Code, A2A SDK, Agent SDK, Azure Functions, Next.js, Cloudflare (D1/R2/Tunnel), MCP, opencode (Kimi K3/K2.7 - optional since 2026-10, no subscription)
 **Active workstream**: `agents/` v2.x platform (v2.8.1) → the **Wilderness Journal** demo site (`adapt-to-2026-demo`) for adaptTo() Sept 2026. `content-authoring-eval/` + `agent-claude-sdk/` are **deprecated**.

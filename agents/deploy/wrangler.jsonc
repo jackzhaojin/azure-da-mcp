@@ -86,9 +86,10 @@
 
   // Non-secret config. Secrets (D1_PROXY_SECRET, A2A_MESH_TOKEN, A2A_EDGE_TOKEN,
   // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET,
-  // AUTH_SECRET, MOONSHOT_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, CLAUDE_ACCOUNT_UUID,
-  // CLAUDE_EMAIL, CLAUDE_ORG_UUID) via `wrangler secret put`. The CLAUDE_* set now
-  // feeds BOTH eval and content-gen (the agentic writer).
+  // AUTH_SECRET, CLAUDE_CODE_OAUTH_TOKEN, CLAUDE_ACCOUNT_UUID, CLAUDE_EMAIL,
+  // CLAUDE_ORG_UUID, and the OPTIONAL MOONSHOT_API_KEY) via `wrangler secret put`.
+  // The CLAUDE_* set feeds eval, content-gen (the agentic writer) AND migration
+  // (the sdk backend, the default since 2026-10).
   "vars": {
     "R2_BUCKET": "a2a-agents-artifacts",
     "R2_PUBLIC_BASE": "https://pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev",
@@ -96,11 +97,17 @@
     "AUTH_ALLOWED_EMAILS": "",
     "MIGRATION_DEFAULT_BACKEND": "dryrun",
     "DALIVE_MCP_URL": "https://jack-mcp-azure-ai-function.azurewebsites.net/api/mcp-streamable",
-    // DEFAULT model for runs that don't name one (dashboard triggers, ad-hoc
-    // A2A calls). The daily-loop workflow passes `model` explicitly per run, so
-    // this is the fallback, not the only lever. "kimi-for-coding" is a moving
-    // alias (currently K2.7 Coding) — switch back to it here to revert.
-    // Whatever you set must ALSO exist in docker/opencode-global.jsonc's models map.
+    // DEFAULT Claude model for sdk runs that don't name one (dashboard "agent
+    // default", ad-hoc A2A calls). The daily-loop workflow passes `model`
+    // explicitly per run. A Claude Code alias (opus | sonnet | haiku) or a full
+    // model id; the run log records the resolved id. Opus tied for best (90) in
+    // the 2026-09-08 model assessment, with the fastest migration.
+    "CLAUDE_MIGRATION_MODEL": "opus",
+    // opencode (Kimi) default model - only used if a MOONSHOT_API_KEY secret is
+    // set; no Kimi subscription backs this deployment since 2026-10. Kept so
+    // anyone with a Kimi For Coding key can re-enable the backend.
+    // "kimi-for-coding" is a moving alias (currently K2.7 Coding). Whatever you
+    // set must ALSO exist in docker/opencode-global.jsonc's models map.
     "KIMI_MODEL_ID": "k3"
   }
 }
