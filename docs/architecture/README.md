@@ -125,7 +125,7 @@ A route is an ordered list drawn from {generate, migrate, evaluate}, so the same
 | Diagram | Route | Status | Where the person sits |
 |---|---|---|---|
 | [Migrate a real legacy site](4-1-site-migration.svg) | migrate, evaluate | running | picks the pages, judges the result |
-| [The daily content loop](4-2-daily-loop.svg) | generate, migrate, evaluate | running every morning | curates the drafts later |
+| [The daily content loop](4-2-daily-loop.svg) | generate, migrate, evaluate | paused (ran every morning until 2026-10-24) | curates the drafts later |
 | [Weekly trend research](4-3-trend-research.svg) | generate only | concept | owns the watch-list, reads the digest |
 | [Content supply chain](4-4-content-supply-chain.svg) | Workfront-triggered generate, migrate, evaluate | concept | approves once in Workfront, reviews the preview |
 | [Eval as a quality gate](4-5-quality-gate.svg) | evaluate only, called by an outside pipeline | concept | sees only the escalations |
