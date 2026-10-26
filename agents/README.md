@@ -45,9 +45,9 @@ Everything is **scale-to-zero**: containers sleep after idle (see [Cost model](#
 Local dev uses SQLite + localhost ports — no Cloudflare dependency, no behavior drift (same SQL, same code paths; the store driver is selected by env).
 
 ```
-  browser / curl / npm run loop                Make.com ── a2a.jackzhaojin.com (tunnel)
-  ───────────────┬──────────────                              │
-                 ▼                                            ▼
+  browser / curl / npm run loop
+  ───────────────┬──────────────
+                 ▼
   :4004 coordinator (A2A + Next dashboard) ─── coordinator/data/store.db
   :4001 eval-service ─────────────────────────── eval-service/data/store.db
   :4002 content-gen ──────────────────────────── content-gen/data/store.db
@@ -59,6 +59,8 @@ Local dev uses SQLite + localhost ports — no Cloudflare dependency, no behavio
 ```
 
 Each agent is its own process with its own SQLite file (see [Data persistence](#data-persistence--local-vs-cloud) for every path and table). Mesh calls between agents are plain HTTP to the localhost ports.
+
+The legacy Make.com tunnel to local `:4003` was retired on 2026-10-26. That optional workflow needs a new public callback route before it can be used again.
 
 ### Run it (unchanged by the cloud deploy)
 
@@ -279,7 +281,7 @@ The fast tier's 13 suites and live tier's 6 are enumerated in [`e2e/`](./e2e/) a
 | Containers | `content-factory-{coordinator,eval,contentgen,migration}container` — singletons, scale-to-zero |
 | D1 database | `a2a-agents` — `db84ebfc-2132-45ac-902d-7ef7117786e8` (schema = the same `a2a-common/migrations/` files, applied via wrangler) |
 | R2 bucket | `a2a-agents-artifacts` — public at `pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev` (S3 API from containers; [docs/r2-setup.md](docs/r2-setup.md)) |
-| Tunnel (legacy) | `a2a-mesh` → `a2a.jackzhaojin.com` → local `:4003` only — the Make.com ingress to a LOCAL migration agent; the dashboard hostname moved to the Worker at M5 |
+| Tunnel (retired 2026-10-26) | `a2a-mesh` and its actual hostname `a2a.xpri.ai` → local `:4003` were deleted at Jack's request, including the Mac autostart setup. No replacement tunnel is configured. |
 
 ---
 

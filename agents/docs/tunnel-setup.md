@@ -1,5 +1,7 @@
 # Tunnel Setup — `cloudflared` Named Tunnel for the A2A Mesh
 
+> **Retired on 2026-10-26:** Jack deleted `a2a-mesh`, its `a2a.xpri.ai` DNS record, and the Mac's tunnel service, config and credential. No tunnel is currently configured. This guide is retained for a future explicit setup; upgrade `cloudflared` to a patched release before creating a replacement. A replacement needs a new tunnel UUID and credential; the deleted ones cannot be reused. If reusing the `com.cloudflare.cloudflared` LaunchAgent label, clear its disabled override before loading the replacement service.
+
 One short laptop session: stand up a **named** Cloudflare Tunnel (stable hostname —
 quick tunnels are explicitly out, their hostnames churn and break Make.com configs,
 PRD part-3 "Risks") that exposes only what Make.com needs:

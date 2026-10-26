@@ -48,7 +48,7 @@ npm run model-matrix                                      # benchmark N models o
 - **Model-vendor-swappable migration**: the same contract, MCP server, and skill run under `dryrun`, Make.com, **Claude via the Agent SDK** (subscription OAuth, per-run model; the default since 2026-10), or **Kimi headless via opencode** (K3, per-run model selection; kept for anyone with a Kimi subscription, none backs this project any more) — real da.live pages authored, published, and scored, and benchmarked head-to-head by `npm run model-matrix` ([docs](./agents/docs/model-matrix.md))
 - **Coordinator dashboard** (Next.js 15 riding the same :4004 process — A2A wire surface untouched): trigger runs (single / bulk / direct-eval / migrate-a-real-page lanes, per-run model + guiding principles), watch live tool/skill activity (`sdk/claude-opus-5 → mcp__dalive__save_dalive_content`), branch grids, variance tables, JSON export
 - Persistence on **Cloudflare D1** (same SQL as local SQLite) + artifacts on **R2** (public `r2.dev`)
-- **Make.com interop** through a live named `cloudflared` tunnel (`a2a.jackzhaojin.com`)
+- **Make.com interop** remains available in the code; the legacy local tunnel (`a2a.xpri.ai`) was retired on 2026-10-26. A new public callback route is needed to use that local workflow again.
 - Browser-pooled, job-queued, restart-survivable eval; deterministic always + agentic when Claude creds are configured
 - Three real-server test tiers (fast/CI, live, soak) — no mocks
 
