@@ -94,7 +94,10 @@
     "R2_BUCKET": "a2a-agents-artifacts",
     "R2_PUBLIC_BASE": "https://pub-ae7a7d0dbe1049c69ae60848bc58bfbf.r2.dev",
     "R2_ACCOUNT_ID": "957b2690e54ade4c335d8e395c5b69d5",
-    "AUTH_ALLOWED_EMAILS": "",
+    // Pinned 2026-10-26: the Google OAuth app this dashboard signs in through
+    // (shared with youtube-seo and others) moved from Testing to Production, so
+    // the test-user list no longer limits who can sign in. Comma-separated.
+    "AUTH_ALLOWED_EMAILS": "jackzhaojin@gmail.com",
     "MIGRATION_DEFAULT_BACKEND": "dryrun",
     "DALIVE_MCP_URL": "https://jack-mcp-azure-ai-function.azurewebsites.net/api/mcp-streamable",
     // DEFAULT Claude model for sdk runs that don't name one (dashboard "agent
